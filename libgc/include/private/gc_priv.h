@@ -19,6 +19,8 @@
 # ifndef GC_PRIVATE_H
 # define GC_PRIVATE_H
 
+extern int GC_num_objs_marked;
+
 #if defined(mips) && defined(SYSTYPE_BSD) && defined(sony_news)
     /* sony RISC NEWS, NEWSOS 4 */
 #   define BSD_TIME

@@ -185,8 +185,11 @@ ptr_t p;
     register struct hblk *h = HBLKPTR(p);
     register hdr * hhdr = HDR(h);
     register int word_no = (word *)p - (word *)h;
-    
+
+    if (GC_is_marked (p))
+	    return;
     set_mark_bit_from_hdr(hhdr, word_no);
+    ++GC_num_objs_marked;
 }
 
 void GC_clear_mark_bit(p)
@@ -1392,6 +1395,7 @@ register word p;
  	    GC_STORE_BACK_PTR(source, (ptr_t)r);
 	    PUSH_OBJ((word *)r, hhdr, GC_mark_stack_top,
 	             GC_mark_stack_limit);
+	    ++GC_num_objs_marked;
 	}
     }
 }

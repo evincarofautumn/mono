@@ -217,6 +217,7 @@ exit_label: ; \
           \
 	if (mark_byte) goto exit_label; \
 	*mark_byte_addr = 1;  \
+	++GC_num_objs_marked; \
     } 
 # else
 #   define SET_MARK_BIT_EXIT_IF_SET(hhdr,displ,exit_label) \
@@ -225,6 +226,7 @@ exit_label: ; \
           \
         OR_WORD_EXIT_IF_SET(mark_word_addr, (word)1 << modWORDSZ(displ), \
 			    exit_label); \
+	++GC_num_objs_marked;		 \
     } 
 # endif /* USE_MARK_BYTES */
 

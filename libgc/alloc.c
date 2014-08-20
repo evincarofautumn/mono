@@ -475,6 +475,8 @@ int GC_collect_a_little GC_PROTO(())
     return(result);
 }
 
+int GC_num_objs_marked;
+
 /*
  * Assumes lock is held, signals are disabled.
  * We stop the world.
@@ -551,7 +553,7 @@ GC_stop_func stop_func;
 #   else
 #     ifdef CONDPRINT
         if (GC_print_stats) {
-	  GC_printf1("Collection %lu finished", (unsigned long) GC_gc_no - 1);
+	  GC_printf2("Collection %lu finished.  %d objects marked.", (unsigned long) GC_gc_no - 1, GC_num_objs_marked);
 	}
 #     endif
 #   endif /* !PRINTSTATS */
@@ -564,6 +566,8 @@ GC_stop_func stop_func;
         GC_printf0("");
       }
 #   endif  /* CONDPRINT  */
+
+      GC_num_objs_marked = 0;
 
     /* Check all debugged objects for consistency */
         if (GC_debugging_started) {

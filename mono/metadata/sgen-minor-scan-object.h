@@ -57,7 +57,7 @@ extern long long stat_scan_object_called_nursery;
  * them to the gray_objects area.
  */
 static void
-PARALLEL_SCAN_OBJECT (char *start, SgenGrayQueue *queue)
+PARALLEL_SCAN_OBJECT (char *start, mword desc, SgenGrayQueue *queue)
 {
 	SGEN_OBJECT_LAYOUT_STATISTICS_DECLARE_BITMAP;
 
@@ -100,7 +100,7 @@ PARALLEL_SCAN_VTYPE (char *start, mword desc, SgenGrayQueue *queue BINARY_PROTOC
 	} while (0)
 
 static void
-SERIAL_SCAN_OBJECT (char *start, SgenGrayQueue *queue)
+SERIAL_SCAN_OBJECT (char *start, mword desc, SgenGrayQueue *queue)
 {
 	SGEN_OBJECT_LAYOUT_STATISTICS_DECLARE_BITMAP;
 

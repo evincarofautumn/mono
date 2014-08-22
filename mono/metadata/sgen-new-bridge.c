@@ -637,21 +637,21 @@ static int dfs1_passes, dfs2_passes;
 static void
 dfs1 (HashEntry *obj_entry)
 {
-	HashEntry *src;
 	g_assert (dyn_array_ptr_size (&dfs_stack) == 0);
 
 	dyn_array_ptr_push (&dfs_stack, NULL);
 	dyn_array_ptr_push (&dfs_stack, obj_entry);
 
 	do {
-		MonoObject *obj;
-		char *start;
 		++dfs1_passes;
 
 		obj_entry = dyn_array_ptr_pop (&dfs_stack);
 		if (obj_entry) {
 			/* obj_entry needs to be expanded */
-			src = dyn_array_ptr_pop (&dfs_stack);
+			MonoObject *obj;
+			char *start;
+			HashEntry *src = dyn_array_ptr_pop (&dfs_stack);
+
 			if (src)
 				g_assert (!src->v.dfs1.forwarded_to);
 
@@ -664,6 +664,7 @@ dfs1 (HashEntry *obj_entry)
 
 			if (!obj_entry->v.dfs1.is_visited) {
 				int num_links = 0;
+				mword desc = sgen_obj_get_descriptor (start);
 
 				obj_entry->v.dfs1.is_visited = 1;
 

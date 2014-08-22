@@ -508,23 +508,20 @@ static int dfs1_passes, dfs2_passes;
 static void
 dfs1 (HashEntry *obj_entry)
 {
-	HashEntry *src;
 	g_assert (dyn_array_ptr_size (&dfs_stack) == 0);
 
 	dyn_array_ptr_push (&dfs_stack, NULL);
 	dyn_array_ptr_push (&dfs_stack, obj_entry);
 
 	do {
-		MonoObject *obj;
-		char *start;
 		++dfs1_passes;
 
 		obj_entry = dyn_array_ptr_pop (&dfs_stack);
 		if (obj_entry) {
-			src = dyn_array_ptr_pop (&dfs_stack);
-
-			obj = obj_entry->obj;
-			start = (char*)obj;
+			HashEntry *src = dyn_array_ptr_pop (&dfs_stack);
+			MonoObject *obj = obj_entry->obj;
+			char *start = (char*)obj;
+			mword desc = sgen_obj_get_descriptor (start);
 
 			if (src) {
 				//g_print ("link %s -> %s\n", sgen_safe_name (src->obj), sgen_safe_name (obj));

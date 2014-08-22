@@ -210,6 +210,10 @@ sgen_gray_object_queue_init (SgenGrayQueue *queue, GrayQueueEnqueueCheckFunc enq
 #endif
 
 	/* Free the extra sections allocated during the last collection */
+	/*
+	 * FIXME: we should free these when the collection finishes, not when the next one
+	 * starts!
+	 */
 	i = 0;
 	for (section = queue->free_list; section && i < GRAY_QUEUE_LENGTH_LIMIT - 1; section = section->next) {
 		STATE_ASSERT (section, GRAY_QUEUE_SECTION_STATE_FREE_LIST);

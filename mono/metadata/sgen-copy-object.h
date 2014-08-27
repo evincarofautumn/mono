@@ -73,6 +73,7 @@ par_copy_object_no_checks (char *destination, MonoVTable *vt, void *obj, mword o
 	LAB_0:
 		;
 	} else {
+		/* FIXME: do we really need word-wise copy here? */
 		/*can't trust memcpy doing word copies */
 		mono_gc_memmove_aligned (destination + sizeof (mword), (char*)obj + sizeof (mword), objsize - sizeof (mword));
 	}

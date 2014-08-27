@@ -328,8 +328,11 @@ typedef struct {
 #define SGEN_VTABLE_BITS_MASK 0x3
 
 /* returns NULL if not forwarded, or the forwarded address */
-#define SGEN_OBJECT_IS_FORWARDED(obj) (((mword*)(obj))[0] & SGEN_FORWARDED_BIT ? (void*)(((mword*)(obj))[0] & ~SGEN_VTABLE_BITS_MASK) : NULL)
-#define SGEN_OBJECT_IS_PINNED(obj) (((mword*)(obj))[0] & SGEN_PINNED_BIT)
+#define SGEN_VTABLE_IS_FORWARDED(vtable) (((mword)(vtable)) & SGEN_FORWARDED_BIT ? (void*)(((mword)(vtable)) & ~SGEN_VTABLE_BITS_MASK) : NULL)
+#define SGEN_OBJECT_IS_FORWARDED(obj) (SGEN_VTABLE_IS_FORWARDED (((mword*)(obj))[0]))
+
+#define SGEN_VTABLE_IS_PINNED(vtable) ((mword)(vtable) & SGEN_PINNED_BIT)
+#define SGEN_OBJECT_IS_PINNED(obj) (SGEN_VTABLE_IS_PINNED (((mword*)(obj))[0]))
 
 /* set the forwarded address fw_addr for object obj */
 #define SGEN_FORWARD_OBJECT(obj,fw_addr) do {				\
@@ -725,6 +728,7 @@ struct _SgenMajorCollector {
 	void (*finish_nursery_collection) (void);
 	void (*start_major_collection) (void);
 	void (*finish_major_collection) (void);
+	gboolean (*drain_gray_stack) (ScanCopyContext ctx);
 	void (*have_computed_minor_collection_allowance) (void);
 	gboolean (*ptr_is_in_non_pinned_space) (char *ptr, char **start);
 	gboolean (*obj_is_from_pinned_alloc) (char *obj);

@@ -152,8 +152,10 @@ mono_gc_make_descr_for_object (gsize *bitmap, int numbits, size_t obj_size)
 
 	g_assert (!(stored_size & 0x7));
 
+	SGEN_ASSERT (0, stored_size == SGEN_ALIGN_UP (stored_size), "Size is not aligned");
+
 	/* we know the 2-word header is ptr-free */
-	if (last_set < SMALL_BITMAP_SIZE + OBJECT_HEADER_WORDS && stored_size < (1 << SMALL_BITMAP_SHIFT)) {
+	if (last_set < SMALL_BITMAP_SIZE + OBJECT_HEADER_WORDS && stored_size <= SGEN_MAX_SMALL_OBJ_SIZE) {
 		desc = DESC_TYPE_SMALL_BITMAP | stored_size | ((*bitmap >> OBJECT_HEADER_WORDS) << SMALL_BITMAP_SHIFT);
 		SGEN_LOG (6, "Smallbitmap descriptor %p, size: %zd, last set: %d", (void*)desc, stored_size, last_set);
 		return (void*) desc;

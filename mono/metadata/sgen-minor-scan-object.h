@@ -61,6 +61,10 @@ PARALLEL_SCAN_OBJECT (char *start, mword desc, SgenGrayQueue *queue)
 {
 	SGEN_OBJECT_LAYOUT_STATISTICS_DECLARE_BITMAP;
 
+#ifdef HEAVY_STATISTICS
+	sgen_descriptor_count_scanned_object (desc);
+#endif
+
 #define SCAN_OBJECT_PROTOCOL
 #include "sgen-scan-object.h"
 
@@ -103,6 +107,10 @@ static void
 SERIAL_SCAN_OBJECT (char *start, mword desc, SgenGrayQueue *queue)
 {
 	SGEN_OBJECT_LAYOUT_STATISTICS_DECLARE_BITMAP;
+
+#ifdef HEAVY_STATISTICS
+	sgen_descriptor_count_scanned_object (desc);
+#endif
 
 #define SCAN_OBJECT_PROTOCOL
 #include "sgen-scan-object.h"

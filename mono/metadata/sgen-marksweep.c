@@ -1512,8 +1512,14 @@ static long long stat_optimized_nursery_not_copied;
 static long long stat_optimized_nursery_regular;
 static long long stat_optimized_major;
 static long long stat_optimized_major_forwarded;
-static long long stat_optimized_major_small;
+static long long stat_optimized_major_small_fast;
+static long long stat_optimized_major_small_slow;
 static long long stat_optimized_major_large;
+
+static long long stat_optimized_objects_referencing_1;
+static long long stat_optimized_objects_referencing_2;
+static long long stat_optimized_objects_referencing_3;
+static long long stat_optimized_objects_referencing_more;
 #endif
 
 /* Returns whether the object is still in the nursery. */
@@ -1640,10 +1646,16 @@ drain_gray_stack (ScanCopyContext ctx)
 		if (!obj)
 			return TRUE;
 		type = desc & 7;
+
+#ifdef HEAVY_STATISTICS
+		int bmap_popcount = 0;
+#endif
+
 		if (type == DESC_TYPE_SMALL_BITMAP) {
 			void **_objptr = (void**)(obj);
 			gsize _bmap = (desc) >> 16;
 			_objptr += OBJECT_HEADER_WORDS;
+
 			do {
 				int _index = GNUC_BUILTIN_CTZ (_bmap);
 				_objptr += _index;
@@ -1661,7 +1673,21 @@ drain_gray_stack (ScanCopyContext ctx)
 				}
 
 				_objptr ++;
+				HEAVY_STAT(++bmap_popcount);
 			} while (_bmap);
+
+#ifdef HEAVY_STATISTICS
+			switch (bmap_popcount) {
+			case 1: ++stat_optimized_objects_referencing_1; break;
+			case 2: ++stat_optimized_objects_referencing_2; break;
+			case 3: ++stat_optimized_objects_referencing_3; break;
+			case 0:
+			  g_assert_not_reached();
+			default:
+			  ++stat_optimized_objects_referencing_more;
+			  break;
+			}
+#endif
 		} else {
 			major_scan_object (obj, desc, queue);
 		}
@@ -2838,8 +2864,14 @@ sgen_marksweep_fixed_init (SgenMajorCollector *collector)
 	mono_counters_register ("Optimized nursery regular", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_nursery_regular);
 	mono_counters_register ("Optimized major", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_major);
 	mono_counters_register ("Optimized major forwarded", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_major_forwarded);
-	mono_counters_register ("Optimized major small", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_major_small);
+	mono_counters_register ("Optimized major small fast", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_major_small_fast);
+	mono_counters_register ("Optimized major small slow", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_major_small_slow);
 	mono_counters_register ("Optimized major large", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_major_large);
+
+	mono_counters_register ("Number of objects with 1 reference", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_objects_referencing_1);
+	mono_counters_register ("Number of objects with 2 references", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_objects_referencing_2);
+	mono_counters_register ("Number of objects with 3 references", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_objects_referencing_3);
+	mono_counters_register ("Number of objects with more than 3 references", MONO_COUNTER_GC | MONO_COUNTER_LONG, &stat_optimized_objects_referencing_more);
 #endif
 
 #endif

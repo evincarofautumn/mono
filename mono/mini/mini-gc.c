@@ -110,7 +110,7 @@ typedef struct {
 } FrameInfo;
 
 /* Max number of frames stored in the TLS data */
-#define MAX_FRAMES 50
+#define MAX_FRAMES 50 /* FASTENABLE */
 
 /*
  * Per-thread data kept by this module. This is stored in the GC and passed to us as

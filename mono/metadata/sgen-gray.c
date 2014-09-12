@@ -25,7 +25,7 @@
 #include "utils/mono-counters.h"
 #include "sgen-protocol.h"
 
-#define GRAY_QUEUE_LENGTH_LIMIT	64
+#define GRAY_QUEUE_LENGTH_LIMIT	64 /* FASTENABLE */
 
 #ifdef SGEN_CHECK_GRAY_OBJECT_SECTIONS
 #define STATE_TRANSITION(s,o,n)	do {					\

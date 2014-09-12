@@ -1011,7 +1011,7 @@ finalize_domain_objects (DomainFinalizationReq *req)
 	MonoDomain *domain = req->domain;
 
 #if HAVE_SGEN_GC
-#define NUM_FOBJECTS 64
+#define NUM_FOBJECTS 64 /* FASTENABLE */
 	MonoObject *to_finalize [NUM_FOBJECTS];
 	int count;
 #endif

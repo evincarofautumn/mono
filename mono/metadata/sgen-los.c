@@ -39,13 +39,13 @@
 #include "metadata/sgen-memory-governor.h"
 #include "utils/mono-mmap.h"
 
-#define LOS_SECTION_SIZE	(1024 * 1024)
+#define LOS_SECTION_SIZE	(1024 /* FASTENABLE */ * 1024)
 
 /*
  * This shouldn't be much smaller or larger than MAX_SMALL_OBJ_SIZE.
  * Must be at least sizeof (LOSSection).
  */
-#define LOS_CHUNK_SIZE		4096
+#define LOS_CHUNK_SIZE		4096 /* FASTENABLE */
 #define LOS_CHUNK_BITS		12
 
 /* Largest object that can be allocated in a section. */
@@ -84,7 +84,7 @@ static int los_num_sections = 0;
 //#define LOS_DUMMY
 
 #ifdef LOS_DUMMY
-#define LOS_SEGMENT_SIZE	(4096 * 1024)
+#define LOS_SEGMENT_SIZE	(4096 /* FASTENABLE */ * 1024)
 
 static char *los_segment = NULL;
 static int los_segment_index = 0;

@@ -45,20 +45,20 @@
 #define SGEN_HAVE_CONCURRENT_MARK
 #endif
 
-#define MS_BLOCK_SIZE	(16*1024)
+#define MS_BLOCK_SIZE	(16 /* FASTENABLE */ * 1024)
 #define MS_BLOCK_SIZE_SHIFT	14
 #define MAJOR_SECTION_SIZE	MS_BLOCK_SIZE
 #define CARDS_PER_BLOCK (MS_BLOCK_SIZE / CARD_SIZE_IN_BYTES)
 
 #ifdef FIXED_HEAP
-#define MS_DEFAULT_HEAP_NUM_BLOCKS	(32 * 1024) /* 512 MB */
+#define MS_DEFAULT_HEAP_NUM_BLOCKS	(32 /* FASTENABLE */ * 1024) /* 512 MB */
 #endif
 
 /*
  * Don't allocate single blocks, but alloc a contingent of this many
  * blocks in one swoop.  This must be a power of two.
  */
-#define MS_BLOCK_ALLOC_NUM	32
+#define MS_BLOCK_ALLOC_NUM	32 /* FASTENABLE */
 
 /*
  * Number of bytes before the first object in a block.  At the start
@@ -68,7 +68,7 @@
 #ifdef FIXED_HEAP
 #define MS_BLOCK_SKIP	0
 #else
-#define MS_BLOCK_SKIP	16
+#define MS_BLOCK_SKIP	16 /* FASTENABLE */
 #endif
 
 #define MS_BLOCK_FREE	(MS_BLOCK_SIZE - MS_BLOCK_SKIP)

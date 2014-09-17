@@ -498,7 +498,7 @@ __thread char *stack_end;
  * FIXME: Tune this.
  * FIXME: Make this self-tuning for each thread.
  */
-guint32 tlab_size = 4096 /* FASTENABLE */;
+guint32 tlab_size = 2048 /* FASTENABLE */;
 
 #define MAX_SMALL_OBJ_SIZE	SGEN_MAX_SMALL_OBJ_SIZE
 

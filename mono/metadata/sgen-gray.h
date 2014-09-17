@@ -48,7 +48,7 @@
  * array and another 1 for the actual value in the array.
  */
 
-#define SGEN_GRAY_QUEUE_SECTION_SIZE	(128 /* FASTENABLE */ - 3)
+#define SGEN_GRAY_QUEUE_SECTION_SIZE	(256 /* FASTENABLE */ - 3)
 
 #ifdef SGEN_CHECK_GRAY_OBJECT_SECTIONS
 typedef enum {

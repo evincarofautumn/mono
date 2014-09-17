@@ -68,7 +68,7 @@
 #ifdef FIXED_HEAP
 #define MS_BLOCK_SKIP	0
 #else
-#define MS_BLOCK_SKIP	16 /* FASTENABLE */
+#define MS_BLOCK_SKIP	32 /* FASTENABLE */
 #endif
 
 #define MS_BLOCK_FREE	(MS_BLOCK_SIZE - MS_BLOCK_SKIP)

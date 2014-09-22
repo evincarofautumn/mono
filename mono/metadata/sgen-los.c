@@ -45,7 +45,7 @@
  * This shouldn't be much smaller or larger than MAX_SMALL_OBJ_SIZE.
  * Must be at least sizeof (LOSSection).
  */
-#define LOS_CHUNK_SIZE		2048 /* FASTENABLE */
+#define LOS_CHUNK_SIZE		4096
 #define LOS_CHUNK_BITS		12
 
 /* Largest object that can be allocated in a section. */

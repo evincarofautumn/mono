@@ -596,24 +596,26 @@ mono_gc_finalizers_for_domain (MonoDomain *domain, MonoObject **out_array, int o
 	return result;
 }
 
-static SgenHashTable minor_disappearing_link_hash = SGEN_HASH_TABLE_INIT (INTERNAL_MEM_DISLINK_TABLE, INTERNAL_MEM_DISLINK, 0, mono_aligned_addr_hash, NULL);
-static SgenHashTable major_disappearing_link_hash = SGEN_HASH_TABLE_INIT (INTERNAL_MEM_DISLINK_TABLE, INTERNAL_MEM_DISLINK, 0, mono_aligned_addr_hash, NULL);
+#define DISLINK_HASH_TABLE_INIT() SGEN_HASH_TABLE_INIT (INTERNAL_MEM_DISLINK_TABLE, INTERNAL_MEM_DISLINK, 0, mono_aligned_addr_hash, NULL)
+static SgenHashTable dislink_hashes [] = {
+	DISLINK_HASH_TABLE_INIT(),
+	DISLINK_HASH_TABLE_INIT(),
+	DISLINK_HASH_TABLE_INIT(),
+	DISLINK_HASH_TABLE_INIT()
+};
+#undef DISLINK_HASH_TABLE_INIT
 
 static SgenHashTable*
-get_dislink_hash_table (int generation)
+get_dislink_hash_table (int generation, gboolean track)
 {
-	switch (generation) {
-	case GENERATION_NURSERY: return &minor_disappearing_link_hash;
-	case GENERATION_OLD: return &major_disappearing_link_hash;
-	default: g_assert_not_reached ();
-	}
+	return &dislink_hashes [generation * GENERATION_MAX + (track ? 1 : 0)];
 }
 
 /* LOCKING: assumes the GC lock is held */
 static void
-add_or_remove_disappearing_link (MonoObject *obj, void **link, int generation)
+add_or_remove_disappearing_link (MonoObject *obj, void **link, int generation, gboolean track)
 {
-	SgenHashTable *hash_table = get_dislink_hash_table (generation);
+	SgenHashTable *hash_table = get_dislink_hash_table (generation, track);
 
 	if (!obj) {
 		if (sgen_hash_table_remove (hash_table, link, NULL)) {
@@ -630,17 +632,16 @@ add_or_remove_disappearing_link (MonoObject *obj, void **link, int generation)
 
 /* LOCKING: requires that the GC lock is held */
 void
-sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx)
+sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx, gboolean track)
 {
 	CopyOrMarkObjectFunc copy_func = ctx.copy_func;
 	GrayQueue *queue = ctx.queue;
 	void **link;
 	gpointer dummy;
-	SgenHashTable *hash = get_dislink_hash_table (generation);
+	SgenHashTable *hash = get_dislink_hash_table (generation, track);
 
 	SGEN_HASH_TABLE_FOREACH (hash, link, dummy) {
 		char *object;
-		gboolean track;
 
 		/*
 		We null a weak link before unregistering it, so it's possible that a thread is
@@ -655,7 +656,6 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 			continue;
 		}
 
-		track = DISLINK_TRACK (link);
 		/*
 		 * Tracked references are processed after
 		 * finalization handling whereas standard weak
@@ -694,12 +694,12 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 					 * FIXME: what if an object is moved earlier?
 					 */
 
-					if (hash == &minor_disappearing_link_hash && !ptr_in_nursery (copy)) {
+					if (hash == get_dislink_hash_table (GENERATION_NURSERY, track) && !ptr_in_nursery (copy)) {
 						SGEN_HASH_TABLE_FOREACH_REMOVE (TRUE);
 
 						g_assert (copy);
 						*link = HIDE_POINTER (copy, track);
-						add_or_remove_disappearing_link ((MonoObject*)copy, link, GENERATION_OLD);
+						add_or_remove_disappearing_link ((MonoObject*)copy, link, GENERATION_OLD, track);
 						binary_protocol_dislink_update (link, copy, track, 0);
 
 						SGEN_LOG (5, "Upgraded dislink at %p to major because object %p moved to %p", link, object, copy);
@@ -718,11 +718,11 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 
 /* LOCKING: requires that the GC lock is held */
 void
-sgen_null_links_for_domain (MonoDomain *domain, int generation)
+sgen_null_links_for_domain (MonoDomain *domain, int generation, gboolean track)
 {
 	void **link;
 	gpointer dummy;
-	SgenHashTable *hash = get_dislink_hash_table (generation);
+	SgenHashTable *hash = get_dislink_hash_table (generation, track);
 	SGEN_HASH_TABLE_FOREACH (hash, link, dummy) {
 		char *object = DISLINK_OBJECT (link);
 		if (*link && object && !((MonoObject*)object)->vtable) {
@@ -748,11 +748,11 @@ sgen_null_links_for_domain (MonoDomain *domain, int generation)
 
 /* LOCKING: requires that the GC lock is held */
 void
-sgen_null_links_with_predicate (int generation, WeakLinkAlivePredicateFunc predicate, void *data)
+sgen_null_links_with_predicate (int generation, WeakLinkAlivePredicateFunc predicate, void *data, gboolean track)
 {
 	void **link;
 	gpointer dummy;
-	SgenHashTable *hash = get_dislink_hash_table (generation);
+	SgenHashTable *hash = get_dislink_hash_table (generation, track);
 	SGEN_HASH_TABLE_FOREACH (hash, link, dummy) {
 		char *object = DISLINK_OBJECT (link);
 		mono_bool is_alive;
@@ -792,20 +792,20 @@ sgen_remove_finalizers_for_domain (MonoDomain *domain, int generation)
 
 /* LOCKING: requires that the GC lock is held */
 static void
-process_dislink_stage_entry (MonoObject *obj, void *_link, int index)
+process_dislink_stage_entry (MonoObject *obj, void *_link, int index, gboolean track)
 {
 	void **link = _link;
 
 	if (index >= 0)
 		binary_protocol_dislink_process_staged (link, obj, index);
 
-	add_or_remove_disappearing_link (NULL, link, GENERATION_NURSERY);
-	add_or_remove_disappearing_link (NULL, link, GENERATION_OLD);
+	add_or_remove_disappearing_link (NULL, link, GENERATION_NURSERY, track);
+	add_or_remove_disappearing_link (NULL, link, GENERATION_OLD, track);
 	if (obj) {
 		if (ptr_in_nursery (obj))
-			add_or_remove_disappearing_link (obj, link, GENERATION_NURSERY);
+			add_or_remove_disappearing_link (obj, link, GENERATION_NURSERY, track);
 		else
-			add_or_remove_disappearing_link (obj, link, GENERATION_OLD);
+			add_or_remove_disappearing_link (obj, link, GENERATION_OLD, track);
 	}
 }
 
@@ -847,7 +847,7 @@ sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, g
 #if 1
 	if (in_gc) {
 		binary_protocol_dislink_update (link, obj, track, 0);
-		process_dislink_stage_entry (obj, link, -1);
+		process_dislink_stage_entry (obj, link, -1, track);
 	} else {
 		int index;
 		binary_protocol_dislink_update (link, obj, track, 1);
@@ -864,7 +864,7 @@ sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, g
 	if (!in_gc)
 		LOCK_GC;
 	binary_protocol_dislink_update (link, obj, track, 0);
-	process_dislink_stage_entry (obj, link, -1);
+	process_dislink_stage_entry (obj, link, -1, track);
 	if (!in_gc)
 		UNLOCK_GC;
 #endif

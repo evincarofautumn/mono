@@ -753,8 +753,10 @@ mono_gc_clear_domain (MonoDomain * domain)
 	to memory returned to the OS.*/
 	null_ephemerons_for_domain (domain);
 
-	for (i = GENERATION_NURSERY; i < GENERATION_MAX; ++i)
-		sgen_null_links_for_domain (domain, i);
+	for (i = GENERATION_NURSERY; i < GENERATION_MAX; ++i) {
+		sgen_null_links_for_domain (domain, i, FALSE);
+		sgen_null_links_for_domain (domain, i, TRUE);
+	}
 
 	for (i = GENERATION_NURSERY; i < GENERATION_MAX; ++i)
 		sgen_remove_finalizers_for_domain (domain, i);
@@ -1673,9 +1675,9 @@ finish_gray_stack (int generation, GrayQueue *queue)
 	We must clear weak links that don't track resurrection before processing object ready for
 	finalization so they can be cleared before that.
 	*/
-	sgen_null_link_in_range (generation, TRUE, ctx);
+	sgen_null_link_in_range (generation, TRUE, ctx, FALSE);
 	if (generation == GENERATION_OLD)
-		sgen_null_link_in_range (GENERATION_NURSERY, TRUE, ctx);
+		sgen_null_link_in_range (GENERATION_NURSERY, TRUE, ctx, FALSE);
 
 
 	/* walk the finalization queue and move also the objects that need to be
@@ -1726,9 +1728,9 @@ finish_gray_stack (int generation, GrayQueue *queue)
 	 */
 	g_assert (sgen_gray_object_queue_is_empty (queue));
 	for (;;) {
-		sgen_null_link_in_range (generation, FALSE, ctx);
+		sgen_null_link_in_range (generation, FALSE, ctx, TRUE);
 		if (generation == GENERATION_OLD)
-			sgen_null_link_in_range (GENERATION_NURSERY, FALSE, ctx);
+			sgen_null_link_in_range (GENERATION_NURSERY, FALSE, ctx, TRUE);
 		if (sgen_gray_object_queue_is_empty (queue))
 			break;
 		sgen_drain_gray_stack (-1, ctx);

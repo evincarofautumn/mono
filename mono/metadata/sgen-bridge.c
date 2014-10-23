@@ -161,7 +161,7 @@ is_bridge_object_alive (MonoObject *obj, void *data)
 }
 
 static void
-null_weak_links_to_dead_objects (SgenBridgeProcessor *processor, int generation)
+null_weak_links_to_dead_objects (SgenBridgeProcessor *processor, int generation, gboolean track)
 {
 	int i, j;
 	int num_sccs = processor->num_sccs;
@@ -181,9 +181,9 @@ null_weak_links_to_dead_objects (SgenBridgeProcessor *processor, int generation)
 	}
 
 	/* Null weak links to dead objects. */
-	sgen_null_links_with_predicate (GENERATION_NURSERY, is_bridge_object_alive, &alive_hash);
+	sgen_null_links_with_predicate (GENERATION_NURSERY, is_bridge_object_alive, &alive_hash, track);
 	if (generation == GENERATION_OLD)
-		sgen_null_links_with_predicate (GENERATION_OLD, is_bridge_object_alive, &alive_hash);
+		sgen_null_links_with_predicate (GENERATION_OLD, is_bridge_object_alive, &alive_hash, track);
 
 	sgen_hash_table_clean (&alive_hash);
 }
@@ -236,7 +236,8 @@ sgen_bridge_processing_finish (int generation)
 
 	SGEN_TV_GETTIME (btv);
 
-	null_weak_links_to_dead_objects (&bridge_processor, generation);
+	null_weak_links_to_dead_objects (&bridge_processor, generation, FALSE);
+	null_weak_links_to_dead_objects (&bridge_processor, generation, TRUE);
 
 	free_callback_data (&bridge_processor);
 	if (compare_bridge_processors ())

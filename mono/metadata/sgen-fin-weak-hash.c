@@ -328,7 +328,7 @@ try_lock_stage_for_processing (int num_entries, volatile gint32 *next_entry)
 
 /* LOCKING: requires that the GC lock is held */
 static void
-process_stage_entries (int num_entries, volatile gint32 *next_entry, StageEntry *entries, void (*process_func) (MonoObject*, void*, int))
+process_stage_entries (int num_entries, volatile gint32 *next_entry, StageEntry *entries, void (*process_func) (MonoObject*, void*, int, gboolean), gboolean track)
 {
 	int i;
 
@@ -371,7 +371,7 @@ process_stage_entries (int num_entries, volatile gint32 *next_entry, StageEntry 
 
 		/* state is USED */
 
-		process_func (entries [i].obj, entries [i].user_data, i);
+		process_func (entries [i].obj, entries [i].user_data, i, track);
 
 		entries [i].obj = NULL;
 		entries [i].user_data = NULL;
@@ -510,7 +510,7 @@ add_stage_entry (int num_entries, volatile gint32 *next_entry, StageEntry *entri
 
 /* LOCKING: requires that the GC lock is held */
 static void
-process_fin_stage_entry (MonoObject *obj, void *user_data, int index)
+process_fin_stage_entry (MonoObject *obj, void *user_data, int index, G_GNUC_UNUSED gboolean track)
 {
 	if (ptr_in_nursery (obj))
 		register_for_finalization (obj, user_data, GENERATION_NURSERY);
@@ -523,7 +523,7 @@ void
 sgen_process_fin_stage_entries (void)
 {
 	lock_stage_for_processing (&next_fin_stage_entry);
-	process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry);
+	process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, FALSE);
 }
 
 void
@@ -532,7 +532,7 @@ mono_gc_register_for_finalization (MonoObject *obj, void *user_data)
 	while (add_stage_entry (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, obj, user_data) == -1) {
 		if (try_lock_stage_for_processing (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry)) {
 			LOCK_GC;
-			process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry);
+			process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, FALSE);
 			UNLOCK_GC;
 		}
 	}
@@ -819,7 +819,8 @@ void
 sgen_process_dislink_stage_entries (void)
 {
 	lock_stage_for_processing (&next_dislink_stage_entry);
-	process_stage_entries (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, process_dislink_stage_entry);
+	process_stage_entries (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, process_dislink_stage_entry, FALSE);
+	process_stage_entries (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, process_dislink_stage_entry, TRUE);
 }
 
 void
@@ -854,7 +855,7 @@ sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, g
 		while ((index = add_stage_entry (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, obj, link)) == -1) {
 			if (try_lock_stage_for_processing (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry)) {
 				LOCK_GC;
-				process_stage_entries (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, process_dislink_stage_entry);
+				process_stage_entries (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, process_dislink_stage_entry, track);
 				UNLOCK_GC;
 			}
 		}

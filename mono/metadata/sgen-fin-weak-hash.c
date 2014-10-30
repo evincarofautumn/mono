@@ -520,10 +520,10 @@ process_fin_stage_entry (MonoObject *obj, void *user_data, int index, G_GNUC_UNU
 
 /* LOCKING: requires that the GC lock is held */
 void
-sgen_process_fin_stage_entries (gboolean track)
+sgen_process_fin_stage_entries ()
 {
 	lock_stage_for_processing (&next_fin_stage_entry);
-	process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, track);
+	process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, FALSE);
 }
 
 void
@@ -533,7 +533,6 @@ mono_gc_register_for_finalization (MonoObject *obj, void *user_data)
 		if (try_lock_stage_for_processing (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry)) {
 			LOCK_GC;
 			process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, FALSE);
-			process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, TRUE);
 			UNLOCK_GC;
 		}
 	}
@@ -695,7 +694,7 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 					 * FIXME: what if an object is moved earlier?
 					 */
 
-					if (hash == get_dislink_hash_table (GENERATION_NURSERY, track) && !ptr_in_nursery (copy)) {
+					if (hash == get_dislink_hash_table (GENERATION_NURSERY, FALSE) && !ptr_in_nursery (copy)) {
 						SGEN_HASH_TABLE_FOREACH_REMOVE (TRUE);
 
 						g_assert (copy);

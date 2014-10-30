@@ -520,10 +520,10 @@ process_fin_stage_entry (MonoObject *obj, void *user_data, int index, G_GNUC_UNU
 
 /* LOCKING: requires that the GC lock is held */
 void
-sgen_process_fin_stage_entries (void)
+sgen_process_fin_stage_entries (gboolean track)
 {
 	lock_stage_for_processing (&next_fin_stage_entry);
-	process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, FALSE);
+	process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, track);
 }
 
 void
@@ -533,6 +533,7 @@ mono_gc_register_for_finalization (MonoObject *obj, void *user_data)
 		if (try_lock_stage_for_processing (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry)) {
 			LOCK_GC;
 			process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, FALSE);
+			process_stage_entries (NUM_FIN_STAGE_ENTRIES, &next_fin_stage_entry, fin_stage_entries, process_fin_stage_entry, TRUE);
 			UNLOCK_GC;
 		}
 	}
@@ -608,7 +609,7 @@ static SgenHashTable dislink_hashes [] = {
 static SgenHashTable*
 get_dislink_hash_table (int generation, gboolean track)
 {
-	return &dislink_hashes [generation * GENERATION_MAX + (track ? 1 : 0)];
+	return &dislink_hashes [generation * GENERATION_MAX + !!track];
 }
 
 /* LOCKING: assumes the GC lock is held */

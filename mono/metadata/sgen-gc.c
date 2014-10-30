@@ -1676,9 +1676,11 @@ finish_gray_stack (int generation, GrayQueue *queue)
 	finalization so they can be cleared before that.
 	*/
 	sgen_null_link_in_range (generation, TRUE, ctx, FALSE);
-	if (generation == GENERATION_OLD)
+	sgen_null_link_in_range (generation, TRUE, ctx, TRUE);
+	if (generation == GENERATION_OLD) {
 		sgen_null_link_in_range (GENERATION_NURSERY, TRUE, ctx, FALSE);
-
+		sgen_null_link_in_range (GENERATION_NURSERY, TRUE, ctx, TRUE);
+	}
 
 	/* walk the finalization queue and move also the objects that need to be
 	 * finalized: use the finalized objects as new roots so the objects they depend
@@ -1728,9 +1730,12 @@ finish_gray_stack (int generation, GrayQueue *queue)
 	 */
 	g_assert (sgen_gray_object_queue_is_empty (queue));
 	for (;;) {
+		sgen_null_link_in_range (generation, FALSE, ctx, FALSE);
 		sgen_null_link_in_range (generation, FALSE, ctx, TRUE);
-		if (generation == GENERATION_OLD)
+		if (generation == GENERATION_OLD) {
+			sgen_null_link_in_range (GENERATION_NURSERY, FALSE, ctx, FALSE);
 			sgen_null_link_in_range (GENERATION_NURSERY, FALSE, ctx, TRUE);
+		}
 		if (sgen_gray_object_queue_is_empty (queue))
 			break;
 		sgen_drain_gray_stack (-1, ctx);

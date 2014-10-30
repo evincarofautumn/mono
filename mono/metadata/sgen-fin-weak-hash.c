@@ -694,7 +694,7 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 					 * FIXME: what if an object is moved earlier?
 					 */
 
-					if (hash == get_dislink_hash_table (GENERATION_NURSERY, FALSE) && !ptr_in_nursery (copy)) {
+					if (hash == get_dislink_hash_table (GENERATION_NURSERY, track) && !ptr_in_nursery (copy)) {
 						SGEN_HASH_TABLE_FOREACH_REMOVE (TRUE);
 
 						g_assert (copy);

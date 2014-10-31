@@ -102,6 +102,7 @@ BASE_TEST_CS_SRC=		\
 	invoke.cs		\
 	invoke2.cs		\
 	runtime-invoke.cs		\
+	resurrection.cs		\
 	invoke-string-ctors.cs		\
 	reinit.cs		\
 	box.cs			\

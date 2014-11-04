@@ -702,7 +702,7 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 						SGEN_HASH_TABLE_FOREACH_REMOVE (TRUE);
 
 						g_assert (copy);
-						*link = HIDE_POINTER (copy, FALSE);
+						*link = HIDE_POINTER (copy, track);
 						add_or_remove_disappearing_link ((MonoObject*)copy, link, GENERATION_OLD, track);
 						binary_protocol_dislink_update (link, copy, track, 0);
 
@@ -710,7 +710,7 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 
 						continue;
 					} else {
-						*link = HIDE_POINTER (copy, FALSE);
+						*link = HIDE_POINTER (copy, track);
 						binary_protocol_dislink_update (link, copy, track, 0);
 						SGEN_LOG (5, "Updated dislink at %p to %p", link, DISLINK_OBJECT (link));
 					}
@@ -850,7 +850,7 @@ sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, g
 #endif
 
 	if (obj)
-		*link = HIDE_POINTER (obj, FALSE);
+		*link = HIDE_POINTER (obj, track);
 	else
 		*link = NULL;
 

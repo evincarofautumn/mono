@@ -643,6 +643,8 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 	SGEN_HASH_TABLE_FOREACH (hash, link, dummy) {
 		char *object;
 
+		SGEN_ASSERT(0, !!DISLINK_TRACK (link) == !!track, "Tracking and non-tracking links should be segregated.");
+
 		/*
 		We null a weak link before unregistering it, so it's possible that a thread is
 		suspended right in between setting the content to null and staging the unregister.

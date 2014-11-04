@@ -617,6 +617,8 @@ add_or_remove_disappearing_link (MonoObject *obj, void **link, int generation, g
 {
 	SgenHashTable *hash_table = get_dislink_hash_table (generation, track);
 
+	SGEN_ASSERT (0, !*link || DISLINK_TRACK (link) == !!track, "Tracking links should have their tracking bit set");
+
 	if (!obj) {
 		if (sgen_hash_table_remove (hash_table, link, NULL)) {
 			SGEN_LOG (5, "Removed dislink %p (%d) from %s table",
@@ -643,7 +645,7 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 	SGEN_HASH_TABLE_FOREACH (hash, link, dummy) {
 		char *object;
 
-		SGEN_ASSERT(0, !!DISLINK_TRACK (link) == !!track, "Tracking and non-tracking links should be segregated.");
+		SGEN_ASSERT (0, !*link || DISLINK_TRACK (link) == !!track, "Tracking and non-tracking links should be segregated.");
 
 		/*
 		We null a weak link before unregistering it, so it's possible that a thread is
@@ -700,7 +702,7 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 						SGEN_HASH_TABLE_FOREACH_REMOVE (TRUE);
 
 						g_assert (copy);
-						*link = HIDE_POINTER (copy, track);
+						*link = HIDE_POINTER (copy, FALSE);
 						add_or_remove_disappearing_link ((MonoObject*)copy, link, GENERATION_OLD, track);
 						binary_protocol_dislink_update (link, copy, track, 0);
 
@@ -708,7 +710,7 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 
 						continue;
 					} else {
-						*link = HIDE_POINTER (copy, track);
+						*link = HIDE_POINTER (copy, FALSE);
 						binary_protocol_dislink_update (link, copy, track, 0);
 						SGEN_LOG (5, "Updated dislink at %p to %p", link, DISLINK_OBJECT (link));
 					}
@@ -798,6 +800,8 @@ process_dislink_stage_entry (MonoObject *obj, void *_link, int index, gboolean t
 {
 	void **link = _link;
 
+	SGEN_ASSERT (0, !*link || (DISLINK_TRACK (link) == !!track), "Tracking links should have their tracking bit set");
+
 	if (index >= 0)
 		binary_protocol_dislink_process_staged (link, obj, index);
 
@@ -812,9 +816,12 @@ process_dislink_stage_entry (MonoObject *obj, void *_link, int index, gboolean t
 }
 
 #define NUM_DISLINK_STAGE_ENTRIES	1024
+#define NUM_DISLINK_TRACK_STAGE_ENTRIES	1024
 
 static volatile gint32 next_dislink_stage_entry = 0;
+static volatile gint32 next_dislink_track_stage_entry = 0;
 static StageEntry dislink_stage_entries [NUM_DISLINK_STAGE_ENTRIES];
+static StageEntry dislink_track_stage_entries [NUM_DISLINK_TRACK_STAGE_ENTRIES];
 
 /* LOCKING: requires that the GC lock is held */
 void
@@ -822,7 +829,7 @@ sgen_process_dislink_stage_entries (void)
 {
 	lock_stage_for_processing (&next_dislink_stage_entry);
 	process_stage_entries (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, process_dislink_stage_entry, FALSE);
-	process_stage_entries (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, process_dislink_stage_entry, TRUE);
+	process_stage_entries (NUM_DISLINK_TRACK_STAGE_ENTRIES, &next_dislink_track_stage_entry, dislink_track_stage_entries, process_dislink_stage_entry, TRUE);
 }
 
 void
@@ -843,7 +850,7 @@ sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, g
 #endif
 
 	if (obj)
-		*link = HIDE_POINTER (obj, track);
+		*link = HIDE_POINTER (obj, FALSE);
 	else
 		*link = NULL;
 
@@ -853,11 +860,23 @@ sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, g
 		process_dislink_stage_entry (obj, link, -1, track);
 	} else {
 		int index;
+		int count;
+		volatile gint32 *next;
+		StageEntry *entries;
 		binary_protocol_dislink_update (link, obj, track, 1);
-		while ((index = add_stage_entry (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, obj, link)) == -1) {
-			if (try_lock_stage_for_processing (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry)) {
+		if (track) {
+			count = NUM_DISLINK_TRACK_STAGE_ENTRIES;
+			next = &next_dislink_track_stage_entry;
+			entries = dislink_track_stage_entries;
+		} else {
+			count = NUM_DISLINK_STAGE_ENTRIES;
+			next = &next_dislink_stage_entry;
+			entries = dislink_stage_entries;
+		}
+		while ((index = add_stage_entry (count, next, entries, obj, link)) == -1) {
+			if (try_lock_stage_for_processing (count, next)) {
 				LOCK_GC;
-				process_stage_entries (NUM_DISLINK_STAGE_ENTRIES, &next_dislink_stage_entry, dislink_stage_entries, process_dislink_stage_entry, track);
+				process_stage_entries (count, next, entries, process_dislink_stage_entry, track);
 				UNLOCK_GC;
 			}
 		}

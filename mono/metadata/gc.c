@@ -634,6 +634,7 @@ alloc_handle (HandleData *handles, MonoObject *obj, gboolean track)
 {
 	gint slot, i;
 	guint32 res;
+	g_assert (track ? handles->type == HANDLE_WEAK_TRACK : TRUE);
 	lock_handles (handles);
 	if (!handles->size) {
 		handles->size = 32;

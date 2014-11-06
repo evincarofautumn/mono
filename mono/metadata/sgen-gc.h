@@ -252,8 +252,8 @@ extern int num_ready_finalizers;
  * bit of the link (before negation) to store whether it needs
  * resurrection tracking.
  */
-#define HIDE_POINTER(p,t)	((gpointer)(~((size_t)(p)|((t)?1:0))))
-#define REVEAL_POINTER(p)	((gpointer)((~(size_t)(p))&~1UL))
+#define HIDE_POINTER(p,t)	((gpointer)~(size_t)(p))
+#define REVEAL_POINTER(p)	((gpointer)~(size_t)(p))
 
 #ifdef SGEN_ALIGN_NURSERY
 #define SGEN_PTR_IN_NURSERY(p,bits,start,end)	(((mword)(p) & ~((1 << (bits)) - 1)) == (mword)(start))

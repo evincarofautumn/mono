@@ -81,6 +81,11 @@ static HANDLE pending_done_event;
 static HANDLE shutdown_event;
 #endif
 
+#define GC_HANDLE_TYPE_SHIFT (3)
+#define GC_HANDLE_TYPE_MASK ((1 << GC_HANDLE_TYPE_SHIFT) - 1)
+#define GC_HANDLE_TYPE(x) (((x) & GC_HANDLE_TYPE_MASK) - 1)
+#define GC_HANDLE_SLOT(x) ((x) >> GC_HANDLE_TYPE_SHIFT)
+
 GCStats gc_stats;
 
 static void
@@ -514,8 +519,6 @@ typedef enum {
 	HANDLE_PINNED
 } HandleType;
 
-static HandleType mono_gchandle_get_type (guint32 gchandle);
-
 MonoObject *
 ves_icall_System_GCHandle_GetTarget (guint32 handle)
 {
@@ -559,7 +562,7 @@ ves_icall_System_GCHandle_GetAddrOfPinnedObject (guint32 handle)
 {
 	MonoObject *obj;
 
-	if (mono_gchandle_get_type (handle) != HANDLE_PINNED)
+	if (GC_HANDLE_TYPE (handle) != HANDLE_PINNED)
 		return (gpointer)-2;
 	obj = mono_gchandle_get_target (handle);
 	if (obj) {
@@ -776,17 +779,7 @@ mono_gchandle_new (MonoObject *obj, gboolean pinned)
 guint32
 mono_gchandle_new_weakref (MonoObject *obj, gboolean track_resurrection)
 {
-	guint32 handle = alloc_handle (&gc_handles [track_resurrection? HANDLE_WEAK_TRACK: HANDLE_WEAK], obj, track_resurrection);
-
-	return handle;
-}
-
-static HandleType
-mono_gchandle_get_type (guint32 gchandle)
-{
-	guint type = (gchandle & 7) - 1;
-
-	return type;
+	return alloc_handle (&gc_handles [track_resurrection? HANDLE_WEAK_TRACK: HANDLE_WEAK], obj, track_resurrection);
 }
 
 /**
@@ -802,8 +795,8 @@ mono_gchandle_get_type (guint32 gchandle)
 MonoObject*
 mono_gchandle_get_target (guint32 gchandle)
 {
-	guint slot = gchandle >> 3;
-	guint type = (gchandle & 7) - 1;
+	guint slot = GC_HANDLE_SLOT (gchandle);
+	guint type = GC_HANDLE_TYPE (gchandle);
 	HandleData *handles = &gc_handles [type];
 	MonoObject *obj = NULL;
 	if (type > 3)
@@ -826,8 +819,8 @@ mono_gchandle_get_target (guint32 gchandle)
 static void
 mono_gchandle_set_target (guint32 gchandle, MonoObject *obj)
 {
-	guint slot = gchandle >> 3;
-	guint type = (gchandle & 7) - 1;
+	guint slot = GC_HANDLE_SLOT (gchandle);
+	guint type = GC_HANDLE_TYPE (gchandle);
 	HandleData *handles = &gc_handles [type];
 	MonoObject *old_obj = NULL;
 
@@ -863,8 +856,8 @@ mono_gchandle_set_target (guint32 gchandle, MonoObject *obj)
 gboolean
 mono_gchandle_is_in_domain (guint32 gchandle, MonoDomain *domain)
 {
-	guint slot = gchandle >> 3;
-	guint type = (gchandle & 7) - 1;
+	guint slot = GC_HANDLE_SLOT (gchandle);
+	guint type = GC_HANDLE_TYPE (gchandle);
 	HandleData *handles = &gc_handles [type];
 	gboolean result = FALSE;
 	if (type > 3)
@@ -899,8 +892,8 @@ mono_gchandle_is_in_domain (guint32 gchandle, MonoDomain *domain)
 void
 mono_gchandle_free (guint32 gchandle)
 {
-	guint slot = gchandle >> 3;
-	guint type = (gchandle & 7) - 1;
+	guint slot = GC_HANDLE_SLOT (gchandle);
+	guint type = GC_HANDLE_TYPE (gchandle);
 	HandleData *handles = &gc_handles [type];
 	if (type > 3)
 		return;

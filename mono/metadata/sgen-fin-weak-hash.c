@@ -615,9 +615,6 @@ static void
 add_or_remove_disappearing_link (MonoObject *obj, void **link, int generation, gboolean track)
 {
 	SgenHashTable *hash_table = get_dislink_hash_table (generation, track);
-	// g_print ("add_or_remove_disappearing_link(%p, %p, %d, %d)\n", obj, link, generation, !!track);
-
-	// SGEN_ASSERT (0, !*link || DISLINK_TRACK (link) == !!track, "Tracking links should have their tracking bit set");
 
 	if (!obj) {
 		if (sgen_hash_table_remove (hash_table, link, NULL)) {
@@ -644,8 +641,6 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 
 	SGEN_HASH_TABLE_FOREACH (hash, link, dummy) {
 		char *object;
-
-		// SGEN_ASSERT (0, !*link || DISLINK_TRACK (link) == !!track, "Tracking and non-tracking links should be segregated.");
 
 		/*
 		We null a weak link before unregistering it, so it's possible that a thread is
@@ -800,8 +795,6 @@ process_dislink_stage_entry (MonoObject *obj, void *_link, int index, gboolean t
 {
 	void **link = _link;
 
-	// SGEN_ASSERT (0, !*link || (DISLINK_TRACK (link) == !!track), "Tracking links should have their tracking bit set");
-
 	if (index >= 0)
 		binary_protocol_dislink_process_staged (link, obj, index);
 
@@ -836,8 +829,6 @@ void
 sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, gboolean in_gc)
 {
 
-	// g_print ("sgen_register_disappearing_link(%p, %p, %d, %d)\n", obj, link, !!track, !!in_gc);
-
 #ifdef ENABLE_DTRACE
 	if (MONO_GC_WEAK_UPDATE_ENABLED ()) {
 		MonoVTable *vt = obj ? (MonoVTable*)SGEN_LOAD_VTABLE (obj) : NULL;
@@ -855,8 +846,6 @@ sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, g
 		*link = HIDE_POINTER (obj, track);
 	else
 		*link = NULL;
-
-	// SGEN_ASSERT (0, !*link || DISLINK_TRACK (link) == !!track, "Tracking links should have their tracking bit set");
 
 #if 1
 	if (in_gc) {

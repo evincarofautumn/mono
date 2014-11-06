@@ -768,11 +768,6 @@ mono_gchandle_new (MonoObject *obj, gboolean pinned)
  * garbage collector.  In this case the value of the GCHandle will be
  * set to zero.
  * 
- * If @pinned is false the address of the object can not be obtained, if it is
- * true the address of the object can be obtained.  This will also pin the
- * object so it will not be possible by a moving garbage collector to move the
- * object. 
- * 
  * Returns: a handle that can be used to access the object from
  * unmanaged code.
  */

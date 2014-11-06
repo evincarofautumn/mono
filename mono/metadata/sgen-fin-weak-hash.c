@@ -800,12 +800,10 @@ process_dislink_stage_entry (MonoObject *obj, void *_link, int index, gboolean t
 
 	add_or_remove_disappearing_link (NULL, link, GENERATION_NURSERY, track);
 	add_or_remove_disappearing_link (NULL, link, GENERATION_OLD, track);
-	if (obj) {
-		if (ptr_in_nursery (obj))
-			add_or_remove_disappearing_link (obj, link, GENERATION_NURSERY, track);
-		else
-			add_or_remove_disappearing_link (obj, link, GENERATION_OLD, track);
-	}
+	if (!obj)
+		return;
+
+	add_or_remove_disappearing_link (obj, link, ptr_in_nursery (obj) ? GENERATION_NURSERY : GENERATION_OLD, track);
 }
 
 #define NUM_DISLINK_STAGE_ENTRIES	1024

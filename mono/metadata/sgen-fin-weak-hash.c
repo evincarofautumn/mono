@@ -629,89 +629,69 @@ add_or_remove_disappearing_link (MonoObject *obj, void **link, int generation, g
 			obj, obj->vtable->klass->name, link, sgen_generation_name (generation));
 }
 
+/*
+ * Returns whether to remove the link from its hash.
+ */
+static gboolean
+null_link_if_necessary (const int generation, char *const object, void **const link, const ScanCopyContext ctx, const gboolean track)
+{
+	char *copy = object;
+	if (sgen_gc_is_object_ready_for_finalization (object)) {
+		*link = NULL;
+		binary_protocol_dislink_update (link, NULL, 0, 0);
+		SGEN_LOG (5, "Dislink nullified at %p to GCed object %p", link, object);
+		return TRUE;
+	}
+	ctx.copy_func ((void**)&copy, ctx.queue);
+	/* Update pointer if it's moved. If the object has been moved out of the
+	 * nursery, we need to remove the link from the minor hash table to the
+	 * major one.
+	 *
+	 * FIXME: what if an object is moved earlier?
+	 */
+	if (generation == GENERATION_NURSERY && !ptr_in_nursery (copy)) {
+		g_assert (copy);
+		*link = HIDE_POINTER (copy);
+		add_or_remove_disappearing_link ((MonoObject*)copy, link, GENERATION_OLD, track);
+		binary_protocol_dislink_update (link, copy, track, 0);
+		SGEN_LOG (5, "Upgraded dislink at %p to major because object %p moved to %p", link, object, copy);
+		return TRUE;
+	}
+	*link = HIDE_POINTER (copy);
+	binary_protocol_dislink_update (link, copy, track, 0);
+	SGEN_LOG (5, "Updated dislink at %p to %p", link, DISLINK_OBJECT (link));
+	return FALSE;
+}
+
 /* LOCKING: requires that the GC lock is held */
 void
-sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx, gboolean track)
+sgen_null_link_in_range (int generation, ScanCopyContext ctx, gboolean track)
 {
-	CopyOrMarkObjectFunc copy_func = ctx.copy_func;
-	GrayQueue *queue = ctx.queue;
 	void **link;
 	gpointer dummy;
 	SgenHashTable *hash = get_dislink_hash_table (generation, track);
-
 	SGEN_HASH_TABLE_FOREACH (hash, link, dummy) {
 		char *object;
-
-		/*
-		We null a weak link before unregistering it, so it's possible that a thread is
-		suspended right in between setting the content to null and staging the unregister.
-
-		The rest of this code cannot handle null links as DISLINK_OBJECT (NULL) produces an invalid address.
-
-		We should simply skip the entry as the staged removal will take place during the next GC.
-		*/
+		/* We null a weak link before unregistering it, so it's possible that a
+		 * thread is suspended right in between setting the content to null and
+		 * staging the unregister. The rest of this code cannot handle null
+		 * links as DISLINK_OBJECT (NULL) produces an invalid address. We should
+		 * simply skip the entry as the staged removal will take place during
+		 * the next GC.
+		 */
 		if (!*link) {
 			SGEN_LOG (5, "Dislink %p was externally nullified", link);
 			continue;
 		}
-
-		/*
-		 * Tracked references are processed after
-		 * finalization handling whereas standard weak
-		 * references are processed before.  If an
-		 * object is still not marked after finalization
-		 * handling it means that it either doesn't have
-		 * a finalizer or the finalizer has already run,
-		 * so we must null a tracking reference.
-		 */
-		if (track != before_finalization) {
-			object = DISLINK_OBJECT (link);
-			/*
-			We should guard against a null object been hidden. This can sometimes happen.
-			*/
-			if (!object) {
-				SGEN_LOG (5, "Dislink %p with a hidden null object", link);
-				continue;
-			}
-
-			if (!major_collector.is_object_live (object)) {
-				if (sgen_gc_is_object_ready_for_finalization (object)) {
-					*link = NULL;
-					binary_protocol_dislink_update (link, NULL, 0, 0);
-					SGEN_LOG (5, "Dislink nullified at %p to GCed object %p", link, object);
-					SGEN_HASH_TABLE_FOREACH_REMOVE (TRUE);
-					continue;
-				} else {
-					char *copy = object;
-					copy_func ((void**)&copy, queue);
-
-					/* Update pointer if it's moved.  If the object
-					 * has been moved out of the nursery, we need to
-					 * remove the link from the minor hash table to
-					 * the major one.
-					 *
-					 * FIXME: what if an object is moved earlier?
-					 */
-
-					if (hash == get_dislink_hash_table (GENERATION_NURSERY, track) && !ptr_in_nursery (copy)) {
-						SGEN_HASH_TABLE_FOREACH_REMOVE (TRUE);
-
-						g_assert (copy);
-						*link = HIDE_POINTER (copy, track);
-						add_or_remove_disappearing_link ((MonoObject*)copy, link, GENERATION_OLD, track);
-						binary_protocol_dislink_update (link, copy, track, 0);
-
-						SGEN_LOG (5, "Upgraded dislink at %p to major because object %p moved to %p", link, object, copy);
-
-						continue;
-					} else {
-						*link = HIDE_POINTER (copy, track);
-						binary_protocol_dislink_update (link, copy, track, 0);
-						SGEN_LOG (5, "Updated dislink at %p to %p", link, DISLINK_OBJECT (link));
-					}
-				}
-			}
+		object = DISLINK_OBJECT (link);
+		if (!object) {
+			SGEN_LOG (5, "Dislink %p with a hidden null object", link);
+			continue;
 		}
+		if (major_collector.is_object_live (object))
+			continue;
+		if (null_link_if_necessary (generation, object, link, ctx, track))
+			SGEN_HASH_TABLE_FOREACH_REMOVE (TRUE);
 	} SGEN_HASH_TABLE_FOREACH_END;
 }
 
@@ -841,7 +821,7 @@ sgen_register_disappearing_link (MonoObject *obj, void **link, gboolean track, g
 #endif
 
 	if (obj)
-		*link = HIDE_POINTER (obj, track);
+		*link = HIDE_POINTER (obj);
 	else
 		*link = NULL;
 

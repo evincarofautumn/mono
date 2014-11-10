@@ -252,7 +252,7 @@ extern int num_ready_finalizers;
  * bit of the link (before negation) to store whether it needs
  * resurrection tracking.
  */
-#define HIDE_POINTER(p,t)	((gpointer)~(size_t)(p))
+#define HIDE_POINTER(p)	((gpointer)~(size_t)(p))
 #define REVEAL_POINTER(p)	((gpointer)~(size_t)(p))
 
 #ifdef SGEN_ALIGN_NURSERY
@@ -906,7 +906,7 @@ const char* sgen_generation_name (int generation) MONO_INTERNAL;
 
 void sgen_collect_bridge_objects (int generation, ScanCopyContext ctx) MONO_INTERNAL;
 void sgen_finalize_in_range (int generation, ScanCopyContext ctx) MONO_INTERNAL;
-void sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx, gboolean track) MONO_INTERNAL;
+void sgen_null_link_in_range (int generation, ScanCopyContext ctx, gboolean track) MONO_INTERNAL;
 void sgen_null_links_for_domain (MonoDomain *domain, int generation, gboolean track) MONO_INTERNAL;
 void sgen_remove_finalizers_for_domain (MonoDomain *domain, int generation) MONO_INTERNAL;
 void sgen_process_fin_stage_entries (void) MONO_INTERNAL;

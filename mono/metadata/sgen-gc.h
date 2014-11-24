@@ -1136,6 +1136,10 @@ extern LOCK_DECLARE (gc_mutex);
 
 extern int do_pin_stats;
 
+extern guint32 sgen_probably_dead_block_count;
+extern guint32 sgen_block_count;
+extern SGEN_TV_DECLARE (sgen_last_gc_timestamp);
+
 /* Nursery helpers. */
 
 static inline void

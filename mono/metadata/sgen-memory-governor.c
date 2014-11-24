@@ -129,16 +129,29 @@ sgen_memgov_try_calculate_minor_collection_allowance (gboolean overwrite)
 	need_calculate_minor_collection_allowance = FALSE;
 }
 
+/* If the number of probably-alive blocks does not exceed this proportion of
+ * probably-dead blocks, a GC is likely to have a high yield.
+ */
+#define SGEN_YIELD_PREDICTION_SKIP_THRESHOLD (0.10)
+
+/* It is assumed that written blocks constitute about this proportion of actual
+ * live blocks in typical applications.
+*/
+#define SGEN_YIELD_PREDICTION_WRITE_READ_RATIO (0.125)
 
 gboolean
 sgen_need_major_collection (mword space_needed)
 {
 	mword los_alloced;
+	gboolean plague;
+	mword heap_size;
 	if (sgen_concurrent_collection_in_progress ())
 		return FALSE;
 	los_alloced = los_memory_usage - MIN (last_collection_los_memory_usage, los_memory_usage);
-	return (space_needed > sgen_memgov_available_free_space ()) ||
-		minor_collection_sections_alloced * major_collector.section_size + los_alloced > minor_collection_allowance;
+	heap_size = minor_collection_sections_alloced * major_collector.section_size + los_alloced;
+	plague = ((sgen_block_count - sgen_probably_dead_block_count) * SGEN_YIELD_PREDICTION_WRITE_READ_RATIO) <= SGEN_YIELD_PREDICTION_SKIP_THRESHOLD * sgen_block_count;
+	return space_needed > sgen_memgov_available_free_space ()
+		|| (heap_size > minor_collection_allowance && plague);
 }
 
 void

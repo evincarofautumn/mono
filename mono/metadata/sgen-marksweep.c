@@ -77,6 +77,9 @@ struct _MSBlockInfo {
 	unsigned int has_pinned : 1;	/* means cannot evacuate */
 	unsigned int is_to_space : 1;
 	unsigned int swept : 1;
+	unsigned int predicted_dead : 1;
+	unsigned int mispredicted_dead : 1;
+	unsigned int has_live : 1;
 	void **free_list;
 	MSBlockInfo *next_free;
 	size_t pin_queue_first_entry;
@@ -85,6 +88,7 @@ struct _MSBlockInfo {
 	guint8 *cardtable_mod_union;
 #endif
 	mword mark_words [MS_NUM_MARK_WORDS];
+	SGEN_TV_DECLARE (access);
 };
 
 #define MS_BLOCK_FOR_BLOCK_INFO(b)	((char*)(b))
@@ -1363,6 +1367,7 @@ major_start_major_collection (void)
 static void
 major_finish_major_collection (ScannedObjectCounts *counts)
 {
+	MSBlockInfo *block;
 #ifdef SGEN_HEAVY_BINARY_PROTOCOL
 	if (binary_protocol_is_enabled ()) {
 		counts->num_scanned_objects = scanned_objects_list.next_slot;
@@ -1373,6 +1378,14 @@ major_finish_major_collection (ScannedObjectCounts *counts)
 		sgen_pointer_queue_clear (&scanned_objects_list);
 	}
 #endif
+	SGEN_TV_DECLARE (now);
+	SGEN_TV_GETTIME (now);
+	FOREACH_BLOCK (block) {
+		block->access += SGEN_TV_ELAPSED (sgen_last_gc_timestamp, now);
+		block->mispredicted_dead = block->has_live && (block->predicted_dead || block->mispredicted_dead);
+	} END_FOREACH_BLOCK;
+	SGEN_TV_GETTIME (sgen_last_gc_timestamp);
+	sgen_probably_dead_block_count = 0;
 }
 
 #if SIZEOF_VOID_P != 8
@@ -1697,6 +1710,8 @@ skip_card (guint8 *card_data, guint8 *card_data_end)
 #define MS_BLOCK_OBJ_FAST(b,os,i)			((b) + MS_BLOCK_SKIP + (os) * (i))
 #define MS_OBJ_ALLOCED_FAST(o,b)		(*(void**)(o) && (*(char**)(o) < (b) || *(char**)(o) >= (b) + MS_BLOCK_SIZE))
 
+#define SGEN_YIELD_PREDICTION_YOUNG_OLD_RATIO (0.01)
+
 static void
 major_scan_card_table (gboolean mod_union, SgenGrayQueue *queue)
 {
@@ -1711,12 +1726,19 @@ major_scan_card_table (gboolean mod_union, SgenGrayQueue *queue)
 	g_assert (!mod_union);
 #endif
 
+	SGEN_TV_DECLARE (now);
+	SGEN_TV_GETTIME (now);
+
 	FOREACH_BLOCK_HAS_REFERENCES (block, has_references) {
 		int block_obj_size;
 		char *block_start;
 
+		block->has_live = FALSE;
+
 		if (!has_references)
 			continue;
+
+		++sgen_block_count;
 
 		block_obj_size = block->obj_size;
 		block_start = MS_BLOCK_FOR_BLOCK_INFO (block);
@@ -1756,6 +1778,18 @@ major_scan_card_table (gboolean mod_union, SgenGrayQueue *queue)
 			base = sgen_card_table_align_pointer (obj);
 
 			cards += MS_BLOCK_SKIP >> CARD_BITS;
+
+			{
+				guint8 *current_card = cards;
+				guint8 *card_data_end = cards + CARDS_PER_BLOCK;
+				while (current_card < card_data_end) {
+					if (*current_card++) {
+						block->access = now;
+						block->has_live = TRUE;
+						break;
+					}
+				}
+			}
 
 			while (obj < end) {
 				size_t card_offset;
@@ -1813,6 +1847,7 @@ major_scan_card_table (gboolean mod_union, SgenGrayQueue *queue)
 
 			card_data += MS_BLOCK_SKIP >> CARD_BITS;
 
+			gboolean found_marked_card = FALSE;
 			for (card_data = initial_skip_card (card_data); card_data < card_data_end; ++card_data) { //card_data = skip_card (card_data + 1, card_data_end)) {
 				size_t index;
 				size_t idx = card_data - card_base;
@@ -1824,6 +1859,8 @@ major_scan_card_table (gboolean mod_union, SgenGrayQueue *queue)
 
 				if (!*card_data)
 					continue;
+
+				found_marked_card = TRUE;
 
 				if (!block->swept)
 					sweep_block (block, FALSE);
@@ -1857,6 +1894,21 @@ major_scan_card_table (gboolean mod_union, SgenGrayQueue *queue)
 				}
 				HEAVY_STAT (if (*card_data) ++remarked_cards);
 				binary_protocol_card_scan (first_obj, obj - first_obj);
+			}
+			if (found_marked_card) {
+				block->access = now;
+				block->has_live = TRUE;
+			}
+		}
+		{
+			gint64 block_age = SGEN_TV_ELAPSED (block->access, now);
+			gint64 gc_time = SGEN_TV_ELAPSED (sgen_last_gc_timestamp, now);
+			gint64 limit = SGEN_YIELD_PREDICTION_YOUNG_OLD_RATIO * gc_time;
+			if (block_age >= limit && !block->mispredicted_dead) {
+				block->predicted_dead = TRUE;
+				++sgen_probably_dead_block_count;
+			} else {
+				block->predicted_dead = FALSE;
 			}
 		}
 	} END_FOREACH_BLOCK;

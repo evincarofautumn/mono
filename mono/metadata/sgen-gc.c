@@ -360,6 +360,10 @@ FILE* gc_debug_file;
 
 static MonoGCFinalizerCallbacks fin_callbacks;
 
+guint32 sgen_probably_dead_block_count;
+guint32 sgen_block_count;
+SGEN_TV_DECLARE (sgen_last_gc_timestamp);
+
 /*
 void
 mono_gc_flush_info (void)

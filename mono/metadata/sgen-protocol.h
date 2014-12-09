@@ -223,24 +223,9 @@ typedef struct {
 } SGenProtocolCement;
 
 typedef struct {
-	gpointer link;
 	gpointer obj;
 	int track;
-	int staged;
 } SGenProtocolDislinkUpdate;
-
-typedef struct {
-	gpointer link;
-	gpointer obj;
-	int track;
-	int index;
-} SGenProtocolDislinkUpdateStaged;
-
-typedef struct {
-	gpointer link;
-	gpointer obj;
-	int index;
-} SGenProtocolDislinkProcessStaged;
 
 typedef struct {
 	gpointer domain;
@@ -305,9 +290,7 @@ void binary_protocol_ptr_update (gpointer ptr, gpointer old_value, gpointer new_
 void binary_protocol_cleanup (gpointer ptr, gpointer vtable, int size) MONO_INTERNAL;
 void binary_protocol_empty (gpointer start, int size) MONO_INTERNAL;
 void binary_protocol_card_scan (gpointer start, int size) MONO_INTERNAL;
-void binary_protocol_dislink_update (gpointer link, gpointer obj, int track, int staged) MONO_INTERNAL;
-void binary_protocol_dislink_update_staged (gpointer link, gpointer obj, int track, int index) MONO_INTERNAL;
-void binary_protocol_dislink_process_staged (gpointer link, gpointer obj, int index) MONO_INTERNAL;
+void binary_protocol_dislink_update (gpointer obj, int track) MONO_INTERNAL;
 void binary_protocol_gray_enqueue (gpointer queue, gpointer cursor, gpointer value) MONO_INTERNAL;
 void binary_protocol_gray_dequeue (gpointer queue, gpointer cursor, gpointer value) MONO_INTERNAL;
 
@@ -331,9 +314,7 @@ void binary_protocol_gray_dequeue (gpointer queue, gpointer cursor, gpointer val
 #define binary_protocol_cleanup(ptr, vtable, size)
 #define binary_protocol_empty(start, size)
 #define binary_protocol_card_scan(start, size)
-#define binary_protocol_dislink_update(link,obj,track,staged)
-#define binary_protocol_dislink_update_staged(link,obj,track,index)
-#define binary_protocol_dislink_process_staged(link,obj,index)
+#define binary_protocol_dislink_update(obj,track)
 #define binary_protocol_gray_enqueue(queue,cursor,value)
 #define binary_protocol_gray_dequeue(queue,cursor,value)
 

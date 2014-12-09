@@ -4513,7 +4513,7 @@ mono_gc_base_init (void)
 
 	SGEN_TV_GETTIME (sgen_init_timestamp);
 
-	LOCK_INIT (gc_mutex);
+	mono_mutex_init_recursive (&gc_mutex);
 
 	pagesize = mono_pagesize ();
 	gc_debug_file = stderr;

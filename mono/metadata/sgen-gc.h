@@ -239,13 +239,8 @@ extern int num_ready_finalizers;
 #define ONE_P 1ll
 #endif
 
-/*
- * The link pointer is hidden by negating each bit.  We use the lowest
- * bit of the link (before negation) to store whether it needs
- * resurrection tracking.
- */
-#define HIDE_POINTER(p,t)	((gpointer)(~((size_t)(p)|((t)?1:0))))
-#define REVEAL_POINTER(p)	((gpointer)((~(size_t)(p))&~3L))
+#define HIDE_POINTER(p) ((gpointer)~(size_t)(p))
+#define REVEAL_POINTER(p) ((gpointer)~(size_t)(p))
 
 #define SGEN_PTR_IN_NURSERY(p,bits,start,end)	(((mword)(p) & ~((1 << (bits)) - 1)) == (mword)(start))
 
@@ -924,7 +919,7 @@ gboolean sgen_compare_bridge_processor_results (SgenBridgeProcessor *a, SgenBrid
 
 typedef mono_bool (*WeakLinkAlivePredicateFunc) (MonoObject*, void*);
 
-void sgen_null_links_with_predicate (int generation, WeakLinkAlivePredicateFunc predicate, void *data);
+void sgen_null_links_with_predicate (int generation, WeakLinkAlivePredicateFunc predicate, void *data, gboolean track);
 
 gboolean sgen_gc_is_object_ready_for_finalization (void *object);
 void sgen_gc_lock (void);
@@ -936,7 +931,7 @@ const char* sgen_generation_name (int generation);
 
 void sgen_collect_bridge_objects (int generation, ScanCopyContext ctx);
 void sgen_finalize_in_range (int generation, ScanCopyContext ctx);
-void sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx);
+void sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx, gboolean track);
 void sgen_null_links_for_domain (MonoDomain *domain, int generation);
 void sgen_remove_finalizers_for_domain (MonoDomain *domain, int generation);
 void sgen_process_fin_stage_entries (void);

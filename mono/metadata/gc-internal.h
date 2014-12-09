@@ -167,6 +167,17 @@ void  mono_gc_free_fixed             (void* addr);
 gboolean mono_gchandle_is_in_domain (guint32 gchandle, MonoDomain *domain);
 void     mono_gchandle_free_domain  (MonoDomain *domain);
 
+typedef enum {
+	HANDLE_TYPE_MIN = 0,
+	HANDLE_WEAK = HANDLE_TYPE_MIN,
+	HANDLE_WEAK_TRACK,
+	HANDLE_NORMAL,
+	HANDLE_PINNED,
+	HANDLE_TYPE_MAX
+} GCHandleType;
+
+void mono_gchandle_iterate (GCHandleType handle_type, gpointer callback(gpointer, GCHandleType, gpointer), gpointer user);
+
 typedef void (*FinalizerThreadCallback) (gpointer user_data);
 
 /* if there are finalizers to run, run them. Returns the number of finalizers run */

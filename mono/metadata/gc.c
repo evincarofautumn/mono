@@ -536,14 +536,7 @@ ves_icall_System_GC_get_ephemeron_tombstone (void)
 static mono_mutex_t allocator_section;
 static mono_mutex_t handle_section;
 
-typedef enum {
-	HANDLE_WEAK,
-	HANDLE_WEAK_TRACK,
-	HANDLE_NORMAL,
-	HANDLE_PINNED
-} HandleType;
-
-static HandleType mono_gchandle_get_type (guint32 gchandle);
+static GCHandleType mono_gchandle_get_type (guint32 gchandle);
 
 MonoObject *
 ves_icall_System_GCHandle_GetTarget (guint32 handle)
@@ -759,6 +752,23 @@ alloc_handle (HandleData *handles, MonoObject *obj, gboolean track)
 	return res;
 }
 
+void
+mono_gchandle_iterate (GCHandleType handle_type, gpointer callback(gpointer, GCHandleType, gpointer), gpointer user)
+{
+	HandleData *handle_data = &gc_handles [handle_type];
+	size_t i;
+	for (i = 0; i < handle_data->size; ++i) {
+		gpointer *entry = &handle_data->entries [i];
+		guint32 bit = 1 << (i % 32);
+		gboolean used = !!(handle_data->bitmap [i / 32] & bit);
+		/* Table must contain no garbage pointers. */
+		g_assert (*entry ? used : TRUE);
+		if (!*entry)
+			continue;
+		*entry = callback (*entry, handle_type, user);
+	}
+}
+
 /**
  * mono_gchandle_new:
  * @obj: managed object to get a handle for
@@ -809,7 +819,7 @@ mono_gchandle_new_weakref (MonoObject *obj, gboolean track_resurrection)
 	return handle;
 }
 
-static HandleType
+static GCHandleType
 mono_gchandle_get_type (guint32 gchandle)
 {
 	guint type = (gchandle & 7) - 1;

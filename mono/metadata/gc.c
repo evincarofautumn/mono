@@ -27,6 +27,7 @@
 #include <mono/metadata/threadpool-internals.h>
 #include <mono/metadata/threads-types.h>
 #include <mono/metadata/sgen-conf.h>
+#include <mono/metadata/sgen-gc.h>
 #include <mono/utils/mono-logger-internal.h>
 #include <mono/metadata/gc-internal.h>
 #include <mono/metadata/marshal.h> /* for mono_delegate_free_ftnptr () */
@@ -534,7 +535,10 @@ ves_icall_System_GC_get_ephemeron_tombstone (void)
 #define mono_allocator_lock() mono_mutex_lock (&allocator_section)
 #define mono_allocator_unlock() mono_mutex_unlock (&allocator_section)
 static mono_mutex_t allocator_section;
+
+#ifndef HAVE_SGEN_GC
 static mono_mutex_t handle_section;
+#endif
 
 static GCHandleType mono_gchandle_get_type (guint32 gchandle);
 
@@ -627,8 +631,13 @@ static HandleData gc_handles [] = {
 	{NULL, NULL, 0, HANDLE_PINNED, 0}
 };
 
+#ifdef HAVE_SGEN_GC
+#define lock_handles(handles) sgen_gc_lock ()
+#define unlock_handles(handles) sgen_gc_unlock ()
+#else
 #define lock_handles(handles) mono_mutex_lock (&handle_section)
 #define unlock_handles(handles) mono_mutex_unlock (&handle_section)
+#endif
 
 static int
 find_first_unset (guint32 bitmap)
@@ -757,6 +766,7 @@ mono_gchandle_iterate (GCHandleType handle_type, gpointer callback(gpointer, GCH
 {
 	HandleData *handle_data = &gc_handles [handle_type];
 	size_t i;
+	lock_handles (handle_data);
 	for (i = 0; i < handle_data->size; ++i) {
 		gpointer *entry = &handle_data->entries [i];
 		guint32 bit = 1 << (i % 32);
@@ -767,6 +777,7 @@ mono_gchandle_iterate (GCHandleType handle_type, gpointer callback(gpointer, GCH
 			continue;
 		*entry = callback (*entry, handle_type, user);
 	}
+	unlock_handles (handle_data);
 }
 
 /**
@@ -1181,7 +1192,9 @@ mono_gc_init_finalizer_thread (void)
 void
 mono_gc_init (void)
 {
+#ifndef HAVE_SGEN_GC
 	mono_mutex_init_recursive (&handle_section);
+#endif
 	mono_mutex_init_recursive (&allocator_section);
 
 	mono_mutex_init_recursive (&finalizer_mutex);
@@ -1275,7 +1288,9 @@ mono_gc_cleanup (void)
 
 	mono_reference_queue_cleanup ();
 
+#ifndef HAVE_SGEN_GC
 	mono_mutex_destroy (&handle_section);
+#endif
 	mono_mutex_destroy (&allocator_section);
 	mono_mutex_destroy (&finalizer_mutex);
 	mono_mutex_destroy (&reference_queue_mutex);

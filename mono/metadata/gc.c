@@ -622,13 +622,15 @@ typedef struct {
 	guint16  *domain_ids;
 } HandleData;
 
+#define EMPTY_HANDLE_DATA(type) {NULL, NULL, 0, (type), 0}
+
 /* weak and weak-track arrays will be allocated in malloc memory 
  */
 static HandleData gc_handles [] = {
-	{NULL, NULL, 0, HANDLE_WEAK, 0},
-	{NULL, NULL, 0, HANDLE_WEAK_TRACK, 0},
-	{NULL, NULL, 0, HANDLE_NORMAL, 0},
-	{NULL, NULL, 0, HANDLE_PINNED, 0}
+	EMPTY_HANDLE_DATA (HANDLE_WEAK),
+	EMPTY_HANDLE_DATA (HANDLE_WEAK_TRACK),
+	EMPTY_HANDLE_DATA (HANDLE_NORMAL),
+	EMPTY_HANDLE_DATA (HANDLE_PINNED)
 };
 
 #ifdef HAVE_SGEN_GC

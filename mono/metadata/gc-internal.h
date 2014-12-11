@@ -71,6 +71,14 @@ typedef struct {
 /* useful until we keep track of gc-references in corlib etc. */
 #define IS_GC_REFERENCE(t) (mono_gc_is_moving () ? FALSE : ((t)->type == MONO_TYPE_U && class->image == mono_defaults.corlib))
 
+#ifndef HIDE_POINTER
+#define HIDE_POINTER(p) ((gpointer)~(size_t)(p))
+#endif
+
+#ifndef REVEAL_POINTER
+#define REVEAL_POINTER(p) ((gpointer)~(size_t)(p))
+#endif
+
 extern GCStats gc_stats MONO_INTERNAL;
 
 void   mono_object_register_finalizer               (MonoObject  *obj) MONO_INTERNAL;
@@ -399,6 +407,8 @@ void mono_gc_memmove_aligned (void *dest, const void *src, size_t size) MONO_INT
 guint mono_gc_get_vtable_bits (MonoClass *klass) MONO_INTERNAL;
 
 void mono_gc_register_altstack (gpointer stack, gint32 stack_size, gpointer altstack, gint32 altstack_size) MONO_INTERNAL;
+
+gboolean mono_gc_object_older_than (MonoObject *object, int generation) MONO_INTERNAL;
 
 #endif /* __MONO_METADATA_GC_INTERNAL_H__ */
 

@@ -785,7 +785,7 @@ mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer ca
 		gpointer *entry = &handle_data->entries [i];
 		/* Table must contain no garbage pointers. */
 		g_assert (*entry ? slot_occupied (handle_data, i) : TRUE);
-		if (!*entry)
+		if (!*entry || !slot_occupied (handle_data, i) || mono_gc_object_older_than (REVEAL_POINTER (*entry), max_generation))
 			continue;
 		*entry = callback (entry, handle_type, user);
 	}

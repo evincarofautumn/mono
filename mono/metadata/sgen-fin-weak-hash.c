@@ -632,22 +632,22 @@ mono_gc_finalizers_for_domain (MonoDomain *domain, MonoObject **out_array, int o
  * Returns whether to remove the link from its hash.
  */
 static gpointer
-null_link_if_necessary (gpointer hidden_entry, GCHandleType handle_type, gpointer user)
+null_link_if_necessary (gpointer *hidden_entry, GCHandleType handle_type, gpointer user)
 {
 	ScanCopyContext *ctx = (ScanCopyContext *)user;
-	gpointer entry = REVEAL_POINTER (hidden_entry);
-	/* FIXME: Generation? */
+	gpointer entry = REVEAL_POINTER (*hidden_entry);
 	char *copy = entry;
 	gboolean entry_in_nursery = ptr_in_nursery (entry);
 	if (sgen_get_current_collection_generation () == GENERATION_NURSERY && !entry_in_nursery)
-		return hidden_entry;
+		return *hidden_entry;
+	/* Clear link if object is ready for finalization. */
 	if (sgen_gc_is_object_ready_for_finalization (entry)) {
-		SGEN_LOG (5, "Dislink nullified at %p to GCed object %p", link, entry);
 		return NULL;
 	}
-	ctx->ops->copy_or_mark_object ((void**)&copy, ctx->queue);
+	ctx->ops->copy_or_mark_object ((void **)&copy, ctx->queue);
 	g_assert (copy);
 	/* Update pointer if it's moved. */
+	binary_protocol_dislink_update (hidden_entry, copy, handle_type == HANDLE_WEAK_TRACK);
 	return HIDE_POINTER (copy);
 }
 
@@ -670,19 +670,20 @@ typedef struct {
 } WeakLinkAlivePredicateClosure;
 
 static gpointer
-null_link_if_alive (gpointer hidden_entry, GCHandleType handle_type, gpointer user)
+null_link_if_alive (gpointer *hidden_entry, GCHandleType handle_type, gpointer user)
 {
 	/* Strictly speaking, function pointers are not guaranteed to have the same size as data pointers. */
 	WeakLinkAlivePredicateClosure *closure = (WeakLinkAlivePredicateClosure *)user;
-	gpointer entry = REVEAL_POINTER (hidden_entry);
+	gpointer entry = REVEAL_POINTER (*hidden_entry);
 	gboolean is_alive;
 	if (!entry)
 		return NULL;
 	is_alive = closure->predicate ((MonoObject*)entry, closure->data);
 	if (!is_alive) {
+		binary_protocol_dislink_update (hidden_entry, NULL, 0);
 		return NULL;
 	}
-	return hidden_entry;
+	return *hidden_entry;
 }
 
 /* LOCKING: requires that the GC lock is held */

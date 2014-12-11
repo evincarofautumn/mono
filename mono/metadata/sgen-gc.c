@@ -4326,12 +4326,14 @@ mono_gc_enable_events (void)
 void
 mono_gc_weak_link_add (void **link_addr, MonoObject *obj, gboolean track)
 {
+	binary_protocol_dislink_add ((gpointer)link_addr, obj, track);
 	*link_addr = (void*)HIDE_POINTER (obj);
 }
 
 void
 mono_gc_weak_link_remove (void **link_addr, gboolean track)
 {
+	binary_protocol_dislink_remove ((gpointer)link_addr, track);
 	*link_addr = NULL;
 }
 

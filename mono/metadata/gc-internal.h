@@ -71,6 +71,14 @@ typedef struct {
 /* useful until we keep track of gc-references in corlib etc. */
 #define IS_GC_REFERENCE(t) (mono_gc_is_moving () ? FALSE : ((t)->type == MONO_TYPE_U && class->image == mono_defaults.corlib))
 
+#ifndef HIDE_POINTER
+#define HIDE_POINTER(p) ((gpointer)~(size_t)(p))
+#endif
+
+#ifndef REVEAL_POINTER
+#define REVEAL_POINTER(p) ((gpointer)~(size_t)(p))
+#endif
+
 extern GCStats gc_stats;
 
 void   mono_object_register_finalizer               (MonoObject  *obj);
@@ -176,7 +184,7 @@ typedef enum {
 	HANDLE_TYPE_MAX
 } GCHandleType;
 
-void mono_gchandle_iterate (GCHandleType handle_type, gpointer callback(gpointer *, GCHandleType, gpointer), gpointer user);
+void mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer callback(gpointer *, GCHandleType, gpointer), gpointer user);
 
 typedef void (*FinalizerThreadCallback) (gpointer user_data);
 
@@ -407,6 +415,8 @@ extern gboolean log_finalizers;
 
 /* If set, do not run finalizers. */
 extern gboolean do_not_finalize;
+
+gboolean mono_gc_object_older_than (MonoObject *object, int generation);
 
 #endif /* __MONO_METADATA_GC_INTERNAL_H__ */
 

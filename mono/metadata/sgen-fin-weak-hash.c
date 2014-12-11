@@ -655,7 +655,7 @@ null_link_if_necessary (gpointer *hidden_entry, GCHandleType handle_type, gpoint
 void
 sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx, gboolean track)
 {
-	mono_gchandle_iterate (track ? HANDLE_WEAK_TRACK : HANDLE_WEAK, null_link_if_necessary, &ctx);
+	mono_gchandle_iterate (track ? HANDLE_WEAK_TRACK : HANDLE_WEAK, generation, null_link_if_necessary, &ctx);
 }
 
 /* LOCKING: requires that the GC lock is held */
@@ -691,7 +691,7 @@ void
 sgen_null_links_with_predicate (int generation, WeakLinkAlivePredicateFunc predicate, void *data, gboolean track)
 {
 	WeakLinkAlivePredicateClosure closure = { predicate, data };
-	mono_gchandle_iterate (track ? HANDLE_WEAK_TRACK : HANDLE_WEAK, null_link_if_alive, &closure);
+	mono_gchandle_iterate (track ? HANDLE_WEAK_TRACK : HANDLE_WEAK, generation, null_link_if_alive, &closure);
 }
 
 void

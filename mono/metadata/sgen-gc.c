@@ -5319,6 +5319,10 @@ mono_gc_register_finalizer_callbacks (MonoGCFinalizerCallbacks *callbacks)
 	fin_callbacks = *callbacks;
 }
 
+gboolean
+mono_gc_object_older_than (MonoObject *object, int generation) {
+	return generation == GENERATION_NURSERY && !sgen_ptr_in_nursery (object);
+}
 
 
 

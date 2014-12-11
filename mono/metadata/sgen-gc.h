@@ -239,9 +239,6 @@ extern int num_ready_finalizers;
 #define ONE_P 1ll
 #endif
 
-#define HIDE_POINTER(p) ((gpointer)~(size_t)(p))
-#define REVEAL_POINTER(p) ((gpointer)~(size_t)(p))
-
 #define SGEN_PTR_IN_NURSERY(p,bits,start,end)	(((mword)(p) & ~((1 << (bits)) - 1)) == (mword)(start))
 
 #ifdef USER_CONFIG

@@ -176,7 +176,7 @@ typedef enum {
 	HANDLE_TYPE_MAX
 } GCHandleType;
 
-void mono_gchandle_iterate (GCHandleType handle_type, gpointer callback(gpointer, GCHandleType, gpointer), gpointer user) MONO_INTERNAL;
+void mono_gchandle_iterate (GCHandleType handle_type, int generation, gpointer callback(gpointer *, GCHandleType, gpointer), gpointer user) MONO_INTERNAL;
 
 typedef void (*FinalizerThreadCallback) (gpointer user_data);
 

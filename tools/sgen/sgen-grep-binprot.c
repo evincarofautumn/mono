@@ -55,9 +55,9 @@ read_entry (FILE *in, void **data)
 	case SGEN_PROTOCOL_CARD_SCAN: size = sizeof (SGenProtocolCardScan); break;
 	case SGEN_PROTOCOL_CEMENT: size = sizeof (SGenProtocolCement); break;
 	case SGEN_PROTOCOL_CEMENT_RESET: size = 0; break;
+	case SGEN_PROTOCOL_DISLINK_ADD: size = sizeof (SGenProtocolDislinkAdd); break;
+	case SGEN_PROTOCOL_DISLINK_REMOVE: size = sizeof (SGenProtocolDislinkRemove); break;
 	case SGEN_PROTOCOL_DISLINK_UPDATE: size = sizeof (SGenProtocolDislinkUpdate); break;
-	case SGEN_PROTOCOL_DISLINK_UPDATE_STAGED: size = sizeof (SGenProtocolDislinkUpdateStaged); break;
-	case SGEN_PROTOCOL_DISLINK_PROCESS_STAGED: size = sizeof (SGenProtocolDislinkProcessStaged); break;
 	case SGEN_PROTOCOL_DOMAIN_UNLOAD_BEGIN: size = sizeof (SGenProtocolDomainUnload); break;
 	case SGEN_PROTOCOL_DOMAIN_UNLOAD_END: size = sizeof (SGenProtocolDomainUnload); break;
 	case SGEN_PROTOCOL_GRAY_ENQUEUE: size = sizeof (SGenProtocolGrayQueue); break;
@@ -281,27 +281,31 @@ print_entry (int type, void *data)
 		printf ("cement_reset\n");
 		break;
 	}
+	case SGEN_PROTOCOL_DISLINK_ADD: {
+		SGenProtocolDislinkAdd *entry = data;
+		printf ("dislink_add link %p obj %p", entry->link, entry->obj);
+		if (entry->obj)
+			printf (" track %d\n", entry->track);
+		else
+			printf ("\n");
+		break;
+	}
+	case SGEN_PROTOCOL_DISLINK_REMOVE: {
+		SGenProtocolDislinkRemove *entry = data;
+		printf ("dislink_remove link %p", entry->link);
+		if (entry->link)
+			printf (" track %d\n", entry->track);
+		else
+			printf ("\n");
+		break;
+	}
 	case SGEN_PROTOCOL_DISLINK_UPDATE: {
 		SGenProtocolDislinkUpdate *entry = data;
-		printf ("dislink_update link %p obj %p staged %d", entry->link, entry->obj, entry->staged);
+		printf ("dislink_update link %p obj %p", entry->link, entry->obj);
 		if (entry->obj)
 			printf (" track %d\n", entry->track);
 		else
 			printf ("\n");
-		break;
-	}
-	case SGEN_PROTOCOL_DISLINK_UPDATE_STAGED: {
-		SGenProtocolDislinkUpdateStaged *entry = data;
-		printf ("dislink_update_staged link %p obj %p index %d", entry->link, entry->obj, entry->index);
-		if (entry->obj)
-			printf (" track %d\n", entry->track);
-		else
-			printf ("\n");
-		break;
-	}
-	case SGEN_PROTOCOL_DISLINK_PROCESS_STAGED: {
-		SGenProtocolDislinkProcessStaged *entry = data;
-		printf ("dislink_process_staged link %p obj %p index %d\n", entry->link, entry->obj, entry->index);
 		break;
 	}
 	case SGEN_PROTOCOL_DOMAIN_UNLOAD_BEGIN: {
@@ -407,16 +411,16 @@ is_match (gpointer ptr, int type, void *data)
 		SGenProtocolCement *entry = data;
 		return matches_interval (ptr, entry->obj, entry->size);
 	}
+	case SGEN_PROTOCOL_DISLINK_ADD: {
+		SGenProtocolDislinkAdd *entry = data;
+		return ptr == entry->obj || ptr == entry->link;
+	}
+	case SGEN_PROTOCOL_DISLINK_REMOVE: {
+		SGenProtocolDislinkRemove *entry = data;
+		return ptr == entry->link;
+	}
 	case SGEN_PROTOCOL_DISLINK_UPDATE: {
 		SGenProtocolDislinkUpdate *entry = data;
-		return ptr == entry->obj || ptr == entry->link;
-	}
-	case SGEN_PROTOCOL_DISLINK_UPDATE_STAGED: {
-		SGenProtocolDislinkUpdateStaged *entry = data;
-		return ptr == entry->obj || ptr == entry->link;
-	}
-	case SGEN_PROTOCOL_DISLINK_PROCESS_STAGED: {
-		SGenProtocolDislinkProcessStaged *entry = data;
 		return ptr == entry->obj || ptr == entry->link;
 	}
 	case SGEN_PROTOCOL_GRAY_ENQUEUE: {

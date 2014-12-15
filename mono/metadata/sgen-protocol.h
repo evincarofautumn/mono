@@ -59,6 +59,8 @@ enum {
 	SGEN_PROTOCOL_CARD_SCAN,
 	SGEN_PROTOCOL_CEMENT,
 	SGEN_PROTOCOL_CEMENT_RESET,
+	SGEN_PROTOCOL_DISLINK_ADD,
+	SGEN_PROTOCOL_DISLINK_REMOVE,
 	SGEN_PROTOCOL_DISLINK_UPDATE,
 	SGEN_PROTOCOL_DISLINK_UPDATE_STAGED,
 	SGEN_PROTOCOL_DISLINK_PROCESS_STAGED,
@@ -223,8 +225,21 @@ typedef struct {
 } SGenProtocolCement;
 
 typedef struct {
+	gpointer *link;
 	gpointer obj;
 	int track;
+} SGenProtocolDislinkAdd;
+
+typedef struct {
+	gpointer *link;
+	int track;
+} SGenProtocolDislinkRemove;
+
+typedef struct {
+	gpointer *link;
+	gpointer obj;
+	int track;
+	int staged;
 } SGenProtocolDislinkUpdate;
 
 typedef struct {
@@ -290,7 +305,9 @@ void binary_protocol_ptr_update (gpointer ptr, gpointer old_value, gpointer new_
 void binary_protocol_cleanup (gpointer ptr, gpointer vtable, int size) MONO_INTERNAL;
 void binary_protocol_empty (gpointer start, int size) MONO_INTERNAL;
 void binary_protocol_card_scan (gpointer start, int size) MONO_INTERNAL;
-void binary_protocol_dislink_update (gpointer obj, int track) MONO_INTERNAL;
+void binary_protocol_dislink_add (gpointer *link, gpointer obj, int track) MONO_INTERNAL;
+void binary_protocol_dislink_remove (gpointer *link, int track) MONO_INTERNAL;
+void binary_protocol_dislink_update (gpointer *link, gpointer obj, int track) MONO_INTERNAL;
 void binary_protocol_gray_enqueue (gpointer queue, gpointer cursor, gpointer value) MONO_INTERNAL;
 void binary_protocol_gray_dequeue (gpointer queue, gpointer cursor, gpointer value) MONO_INTERNAL;
 
@@ -314,7 +331,9 @@ void binary_protocol_gray_dequeue (gpointer queue, gpointer cursor, gpointer val
 #define binary_protocol_cleanup(ptr, vtable, size)
 #define binary_protocol_empty(start, size)
 #define binary_protocol_card_scan(start, size)
-#define binary_protocol_dislink_update(obj,track)
+#define binary_protocol_dislink_add(link,obj,track)
+#define binary_protocol_dislink_remove(link,track)
+#define binary_protocol_dislink_update(link,obj,track)
 #define binary_protocol_gray_enqueue(queue,cursor,value)
 #define binary_protocol_gray_dequeue(queue,cursor,value)
 

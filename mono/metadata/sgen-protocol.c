@@ -571,9 +571,23 @@ binary_protocol_card_scan (gpointer start, int size)
 }
 
 void
-binary_protocol_dislink_update (gpointer obj, int track)
+binary_protocol_dislink_add (gpointer *link, gpointer obj, int track)
 {
-	SGenProtocolDislinkUpdate entry = { obj, track };
+	SGenProtocolDislinkAdd entry = { link, obj, track };
+	protocol_entry (SGEN_PROTOCOL_DISLINK_ADD, &entry, sizeof (SGenProtocolDislinkAdd));
+}
+
+void
+binary_protocol_dislink_remove (gpointer *link, int track)
+{
+	SGenProtocolDislinkRemove entry = { link, track };
+	protocol_entry (SGEN_PROTOCOL_DISLINK_REMOVE, &entry, sizeof (SGenProtocolDislinkRemove));
+}
+
+void
+binary_protocol_dislink_update (gpointer *link, gpointer obj, int track)
+{
+	SGenProtocolDislinkUpdate entry = { link, obj, track, 0 };
 	protocol_entry (SGEN_PROTOCOL_DISLINK_UPDATE, &entry, sizeof (SGenProtocolDislinkUpdate));
 }
 

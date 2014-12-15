@@ -776,7 +776,7 @@ alloc_handle (HandleData *handles, MonoObject *obj, gboolean track)
 }
 
 void
-mono_gchandle_iterate (GCHandleType handle_type, gpointer callback(gpointer, GCHandleType, gpointer), gpointer user)
+mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer callback(gpointer *, GCHandleType, gpointer), gpointer user)
 {
 	HandleData *handle_data = &gc_handles [handle_type];
 	size_t i;
@@ -787,7 +787,7 @@ mono_gchandle_iterate (GCHandleType handle_type, gpointer callback(gpointer, GCH
 		g_assert (*entry ? slot_occupied (handle_data, i) : TRUE);
 		if (!*entry)
 			continue;
-		*entry = callback (*entry, handle_type, user);
+		*entry = callback (entry, handle_type, user);
 	}
 	unlock_handles (handle_data);
 }

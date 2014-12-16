@@ -1496,13 +1496,8 @@ reference_queue_proccess (MonoReferenceQueue *queue)
 	RefQueueEntry **iter = &queue->queue;
 	RefQueueEntry *entry;
 	while ((entry = *iter)) {
-#ifdef HAVE_SGEN_GC
-		if (queue->should_be_deleted || !mono_gc_weak_link_get (&entry->dis_link)) {
-			mono_gc_weak_link_remove (&entry->dis_link, TRUE);
-#else
 		if (queue->should_be_deleted || !mono_gchandle_get_target (entry->gchandle)) {
 			mono_gchandle_free ((guint32)entry->gchandle);
-#endif
 			ref_list_remove_element (iter, entry);
 			queue->callback (entry->user_data);
 			g_free (entry);
@@ -1557,11 +1552,7 @@ reference_queue_clear_for_domain (MonoDomain *domain)
 		RefQueueEntry *entry;
 		while ((entry = *iter)) {
 			if (entry->domain == domain) {
-#ifdef HAVE_SGEN_GC
-				mono_gc_weak_link_remove (&entry->dis_link, TRUE);
-#else
 				mono_gchandle_free ((guint32)entry->gchandle);
-#endif
 				ref_list_remove_element (iter, entry);
 				queue->callback (entry->user_data);
 				g_free (entry);
@@ -1625,12 +1616,8 @@ mono_gc_reference_queue_add (MonoReferenceQueue *queue, MonoObject *obj, void *u
 	entry->user_data = user_data;
 	entry->domain = mono_object_domain (obj);
 
-#ifdef HAVE_SGEN_GC
-	mono_gc_weak_link_add (&entry->dis_link, obj, TRUE);
-#else
 	entry->gchandle = mono_gchandle_new_weakref (obj, TRUE);
 	mono_object_register_finalizer (obj);
-#endif
 
 	ref_list_push (&queue->queue, entry);
 	return TRUE;

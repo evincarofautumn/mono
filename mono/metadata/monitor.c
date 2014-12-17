@@ -193,7 +193,7 @@ mono_locks_dump (gboolean include_untaken)
 					to_recycle++;
 			} else {
 				if (!monitor_is_on_freelist (mon->data)) {
-					MonoObject *holder = mono_gc_weak_link_get (&mon->data);
+					MonoObject *holder = (MonoObject *)mono_gchandle_get_target ((guint32)mon->data);
 					if (mon->owner) {
 						g_print ("Lock %p in object %p held by thread %p, nest level: %d\n",
 							mon, holder, (void*)mon->owner, mon->nest);
@@ -260,7 +260,7 @@ mon_new (gsize id)
 							new->wait_list = g_slist_remove (new->wait_list, new->wait_list->data);
 						}
 					}
-					mono_gc_weak_link_remove (&new->data, TRUE);
+					mono_gchandle_free ((guint32)new->data);
 					new->data = monitor_freelist;
 					monitor_freelist = new;
 				}
@@ -428,7 +428,7 @@ retry:
 		mono_monitor_allocator_lock ();
 		mon = mon_new (id);
 		if (InterlockedCompareExchangePointer ((gpointer*)&obj->synchronisation, mon, NULL) == NULL) {
-			mono_gc_weak_link_add (&mon->data, obj, TRUE);
+			mon->data = (void *)(guint64)mono_gchandle_new_weakref (obj, TRUE);
 			mono_monitor_allocator_unlock ();
 			/* Successfully locked */
 			return 1;
@@ -443,7 +443,7 @@ retry:
 				lw.sync = mon;
 				lw.lock_word |= LOCK_WORD_FAT_HASH;
 				if (InterlockedCompareExchangePointer ((gpointer*)&obj->synchronisation, lw.sync, oldlw) == oldlw) {
-					mono_gc_weak_link_add (&mon->data, obj, TRUE);
+					mon->data = (void *)(guint64)mono_gchandle_new_weakref (obj, TRUE);
 					mono_monitor_allocator_unlock ();
 					/* Successfully locked */
 					return 1;
@@ -482,7 +482,7 @@ retry:
 			lw.sync = mon;
 			lw.lock_word |= LOCK_WORD_FAT_HASH;
 			if (InterlockedCompareExchangePointer ((gpointer*)&obj->synchronisation, lw.sync, oldlw) == oldlw) {
-				mono_gc_weak_link_add (&mon->data, obj, TRUE);
+				mon->data = (void *)(guint64)mono_gchandle_new_weakref (obj, TRUE);
 				mono_monitor_allocator_unlock ();
 				/* Successfully locked */
 				return 1;
@@ -755,8 +755,8 @@ mono_monitor_exit (MonoObject *obj)
 	}
 }
 
-void**
-mono_monitor_get_object_monitor_weak_link (MonoObject *object)
+guint32
+mono_monitor_get_object_monitor_gchandle (MonoObject *object)
 {
 	LockWord lw;
 	MonoThreadsSync *sync = NULL;
@@ -769,9 +769,7 @@ mono_monitor_get_object_monitor_weak_link (MonoObject *object)
 		sync = lw.sync;
 	}
 
-	if (sync && sync->data)
-		return &sync->data;
-	return NULL;
+	return sync ? (guint32)sync->data : 0;
 }
 
 #ifndef DISABLE_JIT

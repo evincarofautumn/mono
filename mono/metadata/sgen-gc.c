@@ -677,9 +677,9 @@ clear_domain_process_object (char *obj, MonoDomain *domain)
 	remove = need_remove_object_for_domain (obj, domain);
 
 	if (remove && ((MonoObject*)obj)->synchronisation) {
-		void **dislink = mono_monitor_get_object_monitor_weak_link ((MonoObject*)obj);
+		guint32 dislink = mono_monitor_get_object_monitor_gchandle ((MonoObject*)obj);
 		if (dislink)
-			*dislink = NULL;
+			mono_gchandle_free (dislink);
 	}
 
 	return remove;

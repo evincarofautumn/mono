@@ -389,6 +389,7 @@ common_sources = \
 	mini-ops.h		\
 	mini-arch.h		\
 	dominators.c		\
+	regions.c		\
 	cfold.c			\
 	regalloc.c		\
 	regalloc.h		\

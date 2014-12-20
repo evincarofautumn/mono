@@ -92,8 +92,12 @@ static __thread char *tlab_start;
 static __thread char *tlab_next;
 static __thread char *tlab_temp_end;
 static __thread char *tlab_real_end;
+static __thread char **tlab_regions_begin;
+static __thread char **tlab_regions_end;
+static __thread char **tlab_regions_capacity;
 /* Used by the managed allocator/wbarrier */
 static __thread char **tlab_next_addr;
+static __thread char *tlab_stuck_addr;
 #endif
 
 #ifdef HAVE_KW_THREAD
@@ -101,11 +105,19 @@ static __thread char **tlab_next_addr;
 #define TLAB_NEXT	tlab_next
 #define TLAB_TEMP_END	tlab_temp_end
 #define TLAB_REAL_END	tlab_real_end
+#define TLAB_REGIONS_BEGIN	tlab_regions_begin
+#define TLAB_REGIONS_END	tlab_regions_end
+#define TLAB_REGIONS_CAPACITY	tlab_regions_capacity
+#define TLAB_STUCK tlab_stuck
 #else
 #define TLAB_START	(__thread_info__->tlab_start)
 #define TLAB_NEXT	(__thread_info__->tlab_next)
 #define TLAB_TEMP_END	(__thread_info__->tlab_temp_end)
 #define TLAB_REAL_END	(__thread_info__->tlab_real_end)
+#define TLAB_REGIONS_BEGIN	(__thread_info__->tlab_regions_begin)
+#define TLAB_REGIONS_END	(__thread_info__->tlab_regions_end)
+#define TLAB_REGIONS_CAPACITY	(__thread_info__->tlab_regions_capacity)
+#define TLAB_STUCK (__thread_info__->tlab_stuck)
 #endif
 
 static void*
@@ -171,6 +183,122 @@ zero_tlab_if_necessary (void *p, size_t size)
 			SGEN_ASSERT (0, !memcmp (p, zeros, size), "TLAB segment must be zeroed out.");
 		}
 	}
+}
+
+void
+sgen_init_tlab_info (SgenThreadInfo *info)
+{
+#ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = info;
+#endif
+	info->tlab_start_addr = &TLAB_START;
+	info->tlab_next_addr = &TLAB_NEXT;
+	info->tlab_temp_end_addr = &TLAB_TEMP_END;
+	info->tlab_real_end_addr = &TLAB_REAL_END;
+	info->tlab_regions_begin_addr = &TLAB_REGIONS_BEGIN;
+	info->tlab_regions_end_addr = &TLAB_REGIONS_END;
+	info->tlab_regions_capacity_addr = &TLAB_REGIONS_CAPACITY;
+#ifdef HAVE_KW_THREAD
+	tlab_next_addr = &tlab_next;
+#endif
+}
+
+/* Intercepts writes of 'src' into 'dst'. If they are not in the same region,
+ * then this sticks the region of 'src'.
+ */
+void
+mono_gc_stick_region_if_necessary (gpointer src, gpointer dst) {
+#ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+#endif
+	char **src_region = sgen_ptr_region (src);
+	char **dst_region = sgen_ptr_region (dst);
+	if (src_region && (!dst_region || dst_region < src_region)) {
+		char *tlab_stuck = TLAB_STUCK;
+		char *src_end = (char *)src + ALIGN_UP (sgen_safe_object_get_size (src));
+		if (tlab_stuck < TLAB_START || tlab_stuck >= TLAB_REAL_END)
+			tlab_stuck = NULL;
+		TLAB_STUCK = MAX (tlab_stuck, src_end);
+		TLAB_REGIONS_END [-1] = TLAB_STUCK;
+	}
+}
+
+void
+mono_gc_region_enter (void)
+{
+#ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+#endif
+	sgen_gc_lock ();
+	SGEN_ASSERT (0, TLAB_REGIONS_END <= TLAB_REGIONS_CAPACITY, "Region stack overflow");
+	if (!TLAB_REGIONS_BEGIN) {
+		TLAB_REGIONS_BEGIN = g_malloc0 (1024 * sizeof (*TLAB_REGIONS_BEGIN));
+		TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
+		TLAB_REGIONS_CAPACITY = TLAB_REGIONS_BEGIN + 1024;
+	} else if (TLAB_REGIONS_END == TLAB_REGIONS_CAPACITY) {
+		const size_t size = TLAB_REGIONS_END - TLAB_REGIONS_BEGIN;
+		const size_t capacity = TLAB_REGIONS_CAPACITY - TLAB_REGIONS_BEGIN;
+		const size_t new_capacity = capacity + capacity / 2;
+		TLAB_REGIONS_BEGIN = g_realloc (TLAB_REGIONS_BEGIN, new_capacity * sizeof (*TLAB_REGIONS_BEGIN));
+		TLAB_REGIONS_END = TLAB_REGIONS_BEGIN + size;
+		TLAB_REGIONS_CAPACITY = TLAB_REGIONS_BEGIN + new_capacity;
+	}
+	*TLAB_REGIONS_END++ = TLAB_NEXT;
+	sgen_gc_unlock ();
+}
+
+void
+mono_gc_region_exit ()
+{
+#ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+#endif
+	char **region;
+	sgen_gc_lock ();
+	if (!TLAB_REGIONS_END)
+		goto end;
+	if (TLAB_REGIONS_END == TLAB_REGIONS_BEGIN) {
+		/* g_print ("Exiting nonexistent region\n"); */
+		goto end;
+	}
+	region = TLAB_REGIONS_END - 1;
+	SGEN_ASSERT (0, TLAB_REGIONS_BEGIN && TLAB_REGIONS_END && TLAB_REGIONS_CAPACITY, "Region stack not initialized");
+	SGEN_ASSERT (0, region < TLAB_REGIONS_CAPACITY, "Region stack overflow");
+	SGEN_ASSERT (0, region >= TLAB_REGIONS_BEGIN, "Region stack underflow");
+	/* g_print ("region_exit\n"); */
+	if (*region >= TLAB_STUCK) {
+		/* Clear region. */
+#if 0
+		{
+			size_t region_size = TLAB_NEXT - *region;
+			if (region_size)
+				g_print ("clearing %lu bytes\n", region_size);
+			memset (*region, 0, region_size);
+		}
+#endif
+		/* Reset TLAB pointer. */
+#if 0
+		TLAB_NEXT = TLAB_REGIONS_END [-1];
+#endif
+		--TLAB_REGIONS_END;
+	}
+end:
+	sgen_gc_unlock ();
+}
+
+char **
+sgen_ptr_region (gpointer p)
+{
+#ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+#endif
+	char **region;
+	if (!p || !sgen_ptr_in_nursery (p) || (char *)p < TLAB_START || (char *)p >= TLAB_REAL_END)
+		return NULL;
+	for (region = TLAB_REGIONS_BEGIN; region < TLAB_REGIONS_END; ++region)
+		if (*region && (char *)p >= *region)
+			return region;
+	return NULL;
 }
 
 /*
@@ -239,6 +367,8 @@ mono_gc_alloc_obj_nolock (MonoVTable *vtable, size_t size)
 		p = (void**)TLAB_NEXT;
 		/* FIXME: handle overflow */
 		new_next = (char*)p + size;
+		if (mono_class_has_finalizer (vtable->klass))
+			TLAB_STUCK = new_next;
 		TLAB_NEXT = new_next;
 
 		if (G_LIKELY (new_next < TLAB_TEMP_END)) {
@@ -336,14 +466,19 @@ mono_gc_alloc_obj_nolock (MonoVTable *vtable, size_t size)
 				/* Allocate a new TLAB from the current nursery fragment */
 				TLAB_START = (char*)p;
 				TLAB_NEXT = TLAB_START;
+				TLAB_STUCK = TLAB_START;
 				TLAB_REAL_END = TLAB_START + alloc_size;
 				TLAB_TEMP_END = TLAB_START + MIN (SGEN_SCAN_START_SIZE, alloc_size);
+				/* init_regions (mono_thread_info_current ()); */
 
 				zero_tlab_if_necessary (TLAB_START, alloc_size);
 
 				/* Allocate from the TLAB */
-				p = (void*)TLAB_NEXT;
-				TLAB_NEXT += size;
+				p = (void *)TLAB_NEXT;
+				new_next = (char *)p + size;
+				if (mono_class_has_finalizer (vtable->klass))
+					TLAB_STUCK = new_next;
+				TLAB_NEXT = new_next;
 				sgen_set_nursery_scan_start ((char*)p);
 			}
 		} else {
@@ -441,6 +576,7 @@ mono_gc_try_alloc_obj_nolock (MonoVTable *vtable, size_t size)
 			TLAB_NEXT = new_next + size;
 			TLAB_REAL_END = new_next + alloc_size;
 			TLAB_TEMP_END = new_next + MIN (SGEN_SCAN_START_SIZE, alloc_size);
+			/* init_regions (mono_thread_info_current ()); */
 			sgen_set_nursery_scan_start ((char*)p);
 
 			zero_tlab_if_necessary (new_next, alloc_size);
@@ -697,23 +833,6 @@ mono_gc_free_fixed (void* addr)
 	free (addr);
 }
 
-void
-sgen_init_tlab_info (SgenThreadInfo* info)
-{
-#ifndef HAVE_KW_THREAD
-	SgenThreadInfo *__thread_info__ = info;
-#endif
-
-	info->tlab_start_addr = &TLAB_START;
-	info->tlab_next_addr = &TLAB_NEXT;
-	info->tlab_temp_end_addr = &TLAB_TEMP_END;
-	info->tlab_real_end_addr = &TLAB_REAL_END;
-
-#ifdef HAVE_KW_THREAD
-	tlab_next_addr = &tlab_next;
-#endif
-}
-
 /*
  * Clear the thread local TLAB variables for all threads.
  */
@@ -721,13 +840,13 @@ void
 sgen_clear_tlabs (void)
 {
 	SgenThreadInfo *info;
-
 	FOREACH_THREAD (info) {
 		/* A new TLAB will be allocated when the thread does its first allocation */
 		*info->tlab_start_addr = NULL;
 		*info->tlab_next_addr = NULL;
 		*info->tlab_temp_end_addr = NULL;
 		*info->tlab_real_end_addr = NULL;
+		*info->tlab_regions_end_addr = *info->tlab_regions_begin_addr;
 	} END_FOREACH_THREAD
 }
 

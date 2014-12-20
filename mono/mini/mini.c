@@ -5270,6 +5270,7 @@ mini_method_compile (MonoMethod *method, guint32 opts, MonoDomain *domain, JitFl
 	if (cfg->opt & MONO_OPT_LOOP) {
 		mono_compile_dominator_info (cfg, MONO_COMP_DOM | MONO_COMP_IDOM);
 		mono_compute_natural_loops (cfg);
+		mono_instrument_regions (cfg);
 	}
 
 	/* after method_to_ir */
@@ -7415,6 +7416,8 @@ register_icalls (void)
 
 	register_icall (mono_trace_enter_method, "mono_trace_enter_method", NULL, TRUE);
 	register_icall (mono_trace_leave_method, "mono_trace_leave_method", NULL, TRUE);
+	register_icall (mono_gc_region_enter, "mono_gc_region_enter", "void", TRUE);
+	register_icall (mono_gc_region_exit, "mono_gc_region_exit", "void", TRUE);
 	register_icall (mono_get_lmf_addr, "mono_get_lmf_addr", "ptr", TRUE);
 	register_icall (mono_jit_thread_attach, "mono_jit_thread_attach", "ptr ptr", TRUE);
 	register_icall (mono_jit_set_domain, "mono_jit_set_domain", "void ptr", TRUE);

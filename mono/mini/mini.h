@@ -2528,6 +2528,7 @@ void          mono_invoke_unhandled_exception_hook  (MonoObject *exc);
 /* Dominator/SSA methods */
 void        mono_compile_dominator_info         (MonoCompile *cfg, int dom_flags) MONO_INTERNAL;
 void        mono_compute_natural_loops          (MonoCompile *cfg) MONO_INTERNAL;
+void        mono_instrument_regions             (MonoCompile *cfg) MONO_INTERNAL;
 MonoBitSet* mono_compile_iterated_dfrontier     (MonoCompile *cfg, MonoBitSet *set) MONO_INTERNAL;
 void        mono_ssa_compute                    (MonoCompile *cfg) MONO_INTERNAL;
 void        mono_ssa_remove                     (MonoCompile *cfg) MONO_INTERNAL;

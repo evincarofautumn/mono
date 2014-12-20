@@ -506,7 +506,7 @@ __thread char *stack_end;
  * FIXME: Tune this.
  * FIXME: Make this self-tuning for each thread.
  */
-guint32 tlab_size = (1024 * 4);
+guint32 tlab_size = TLAB_SIZE;
 
 #define MAX_SMALL_OBJ_SIZE	SGEN_MAX_SMALL_OBJ_SIZE
 
@@ -4039,6 +4039,7 @@ void
 mono_gc_wbarrier_set_field (MonoObject *obj, gpointer field_ptr, MonoObject* value)
 {
 	HEAVY_STAT (++stat_wbarrier_set_field);
+	mono_gc_stick_region_if_necessary (value, obj);
 	if (ptr_in_nursery (field_ptr)) {
 		*(void**)field_ptr = value;
 		return;
@@ -4054,6 +4055,7 @@ void
 mono_gc_wbarrier_set_arrayref (MonoArray *arr, gpointer slot_ptr, MonoObject* value)
 {
 	HEAVY_STAT (++stat_wbarrier_set_arrayref);
+	mono_gc_stick_region_if_necessary (value, arr);
 	if (ptr_in_nursery (slot_ptr)) {
 		*(void**)slot_ptr = value;
 		return;
@@ -4069,6 +4071,7 @@ void
 mono_gc_wbarrier_arrayref_copy (gpointer dest_ptr, gpointer src_ptr, int count)
 {
 	HEAVY_STAT (++stat_wbarrier_arrayref_copy);
+	mono_gc_stick_region_if_necessary (src_ptr, dest_ptr);
 	/*This check can be done without taking a lock since dest_ptr array is pinned*/
 	if (ptr_in_nursery (dest_ptr) || count <= 0) {
 		mono_gc_memmove_aligned (dest_ptr, src_ptr, count * sizeof (gpointer));
@@ -4181,8 +4184,10 @@ mono_gc_wbarrier_generic_store (gpointer ptr, MonoObject* value)
 {
 	SGEN_LOG (8, "Wbarrier store at %p to %p (%s)", ptr, value, value ? safe_name (value) : "null");
 	SGEN_UPDATE_REFERENCE_ALLOW_NULL (ptr, value);
-	if (ptr_in_nursery (value))
+	if (ptr_in_nursery (value)) {
+		mono_gc_stick_region_if_necessary (value, ptr);
 		mono_gc_wbarrier_generic_nostore (ptr);
+	}
 	sgen_dummy_use (value);
 }
 
@@ -4198,8 +4203,10 @@ mono_gc_wbarrier_generic_store_atomic (gpointer ptr, MonoObject *value)
 
 	InterlockedWritePointer (ptr, value);
 
-	if (ptr_in_nursery (value))
+	if (ptr_in_nursery (value)) {
+		mono_gc_stick_region_if_necessary (value, ptr);
 		mono_gc_wbarrier_generic_nostore (ptr);
+	}
 
 	sgen_dummy_use (value);
 }
@@ -4250,6 +4257,7 @@ mono_gc_wbarrier_value_copy (gpointer dest, gpointer src, int count, MonoClass *
 	if (ptr_in_nursery (dest) || ptr_on_stack (dest) || !SGEN_CLASS_HAS_REFERENCES (klass)) {
 		size_t element_size = mono_class_value_size (klass, NULL);
 		size_t size = count * element_size;
+		/* mono_gc_stick_region_if_necessary (src, dest); */
 		mono_gc_memmove_atomic (dest, src, size);		
 		return;
 	}
@@ -4282,6 +4290,7 @@ mono_gc_wbarrier_object_copy (MonoObject* obj, MonoObject *src)
 	HEAVY_STAT (++stat_wbarrier_object_copy);
 
 	if (ptr_in_nursery (obj) || ptr_on_stack (obj)) {
+		/* mono_gc_stick_region_if_necessary (src, obj); */
 		size = mono_object_class (obj)->instance_size;
 		mono_gc_memmove_aligned ((char*)obj + sizeof (MonoObject), (char*)src + sizeof (MonoObject),
 				size - sizeof (MonoObject));

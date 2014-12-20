@@ -72,6 +72,8 @@ NurseryClearPolicy sgen_get_nursery_clear_policy (void) MONO_INTERNAL;
 #define SGEN_POSIX_STW 1
 #endif
 
+#define TLAB_SIZE (1024 * 4)
+
 /* eventually share with MonoThread? */
 /*
  * This structure extends the MonoThreadInfo structure.
@@ -100,6 +102,9 @@ struct _SgenThreadInfo {
 	char **tlab_start_addr;
 	char **tlab_temp_end_addr;
 	char **tlab_real_end_addr;
+	char ***tlab_regions_begin_addr;
+	char ***tlab_regions_end_addr;
+	char ***tlab_regions_capacity_addr;
 	gpointer runtime_data;
 
 #ifdef SGEN_POSIX_STW
@@ -124,6 +129,12 @@ struct _SgenThreadInfo {
 	char *tlab_next;
 	char *tlab_temp_end;
 	char *tlab_real_end;
+	/* A stack of pointers to region starts. */
+	char **tlab_regions_begin;
+	char **tlab_regions_end;
+	char **tlab_regions_capacity;
+	/* Address below which we cannot clear regions, due to escaped pointers. */
+	char *tlab_stuck;
 #endif
 };
 
@@ -276,6 +287,9 @@ extern int sgen_nursery_bits MONO_INTERNAL;
 
 extern char *sgen_nursery_start MONO_INTERNAL;
 extern char *sgen_nursery_end MONO_INTERNAL;
+
+char **sgen_ptr_region (gpointer) MONO_INTERNAL;
+void sgen_stick_region (char **) MONO_INTERNAL;
 
 static inline MONO_ALWAYS_INLINE gboolean
 sgen_ptr_in_nursery (void *p)

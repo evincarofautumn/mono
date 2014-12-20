@@ -94,6 +94,10 @@ extern void mono_gc_init (void) MONO_INTERNAL;
 extern void mono_gc_base_init (void) MONO_INTERNAL;
 extern void mono_gc_cleanup (void) MONO_INTERNAL;
 
+extern void mono_gc_stick_region_if_necessary (gpointer src, gpointer dst) MONO_INTERNAL;
+extern void mono_gc_region_enter (void) MONO_INTERNAL;
+extern void mono_gc_region_exit (void) MONO_INTERNAL;
+
 /*
  * Return whenever the current thread is registered with the GC (i.e. started
  * by the GC pthread wrappers on unix.

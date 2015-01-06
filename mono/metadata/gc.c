@@ -673,7 +673,7 @@ handle_data_next_unset (HandleData *handles)
 {
 	gint slot;
 	for (slot = handles->slot_hint; slot < handles->size / BITMAP_SIZE; ++slot) {
-		if (handles->bitmap [slot] == 0xffffffff)
+		if (!~handles->bitmap [slot])
 			continue;
 		handles->slot_hint = slot;
 		return find_first_unset (handles->bitmap [slot]);
@@ -686,7 +686,7 @@ handle_data_first_unset (HandleData *handles)
 {
 	gint slot;
 	for (slot = 0; slot < handles->slot_hint; ++slot) {
-		if (handles->bitmap [slot] == 0xffffffff)
+		if (!~handles->bitmap [slot])
 			continue;
 		handles->slot_hint = slot;
 		return find_first_unset (handles->bitmap [slot]);

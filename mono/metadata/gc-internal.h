@@ -72,12 +72,23 @@ typedef struct {
 #define IS_GC_REFERENCE(t) (mono_gc_is_moving () ? FALSE : ((t)->type == MONO_TYPE_U && class->image == mono_defaults.corlib))
 
 #ifndef HIDE_POINTER
-#define HIDE_POINTER(p) ((gpointer)~(size_t)(p))
+#define HIDE_POINTER(p,t) ((gpointer)((~(size_t)(p) & ~3UL) | (t & 3UL)))
 #endif
 
 #ifndef REVEAL_POINTER
-#define REVEAL_POINTER(p) ((gpointer)~(size_t)(p))
+#define REVEAL_POINTER(p) ((gpointer)(~(size_t)(p) & ~3UL))
 #endif
+
+#define POINTER_TAG(p) ((size_t)(p) & 3UL)
+
+#define GC_HANDLE_OCCUPIED_MASK (1)
+#define GC_HANDLE_VALID_MASK (2)
+
+#define GC_HANDLE_OCCUPIED(slot) ((size_t)(slot) & GC_HANDLE_OCCUPIED_MASK)
+#define GC_HANDLE_VALID(slot) ((size_t)(slot) & GC_HANDLE_VALID_MASK)
+
+#define GC_HANDLE_DOMAIN_POINTER(p) (HIDE_POINTER ((p), GC_HANDLE_OCCUPIED_MASK))
+#define GC_HANDLE_OBJECT_POINTER(p) (HIDE_POINTER ((p), GC_HANDLE_OCCUPIED_MASK | ((p) ? GC_HANDLE_VALID_MASK : 0)))
 
 extern GCStats gc_stats;
 
@@ -127,9 +138,9 @@ extern MONO_API gpointer mono_gc_out_of_memory (size_t size);
 extern MONO_API void     mono_gc_enable_events (void);
 
 /* disappearing link functionality */
-void        mono_gc_weak_link_add    (void **link_addr, MonoObject *obj, gboolean track);
-void        mono_gc_weak_link_remove (void **link_addr, gboolean track);
-MonoObject *mono_gc_weak_link_get    (void **link_addr);
+void        mono_gc_weak_link_add    (volatile gpointer *link_addr, MonoObject *obj, gboolean track);
+void        mono_gc_weak_link_remove (volatile gpointer *link_addr, gboolean track);
+MonoObject *mono_gc_weak_link_get    (volatile gpointer *link_addr);
 
 /*Ephemeron functionality. Sgen only*/
 gboolean    mono_gc_ephemeron_array_add (MonoObject *obj);

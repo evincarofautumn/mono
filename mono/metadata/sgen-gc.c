@@ -4324,21 +4324,21 @@ mono_gc_enable_events (void)
 }
 
 void
-mono_gc_weak_link_add (void **link_addr, MonoObject *obj, gboolean track)
+mono_gc_weak_link_add (volatile gpointer *link_addr, MonoObject *obj, gboolean track)
 {
 	binary_protocol_dislink_add ((gpointer)link_addr, obj, track);
-	*link_addr = (void*)HIDE_POINTER (obj);
+	*link_addr = GC_HANDLE_OBJECT_POINTER (obj);
 }
 
 void
-mono_gc_weak_link_remove (void **link_addr, gboolean track)
+mono_gc_weak_link_remove (volatile gpointer *link_addr, gboolean track)
 {
 	binary_protocol_dislink_remove ((gpointer)link_addr, track);
 	*link_addr = NULL;
 }
 
 MonoObject*
-mono_gc_weak_link_get (void **link_addr)
+mono_gc_weak_link_get (volatile gpointer *link_addr)
 {
 	void * volatile *link_addr_volatile;
 	void *ptr;

@@ -642,13 +642,14 @@ null_link_if_necessary (gpointer *hidden_entry, GCHandleType handle_type, gpoint
 		return *hidden_entry;
 	/* Clear link if object is ready for finalization. */
 	if (sgen_gc_is_object_ready_for_finalization (entry)) {
-		return NULL;
+		binary_protocol_dislink_update (hidden_entry, entry, 0);
+		return GC_HANDLE_DOMAIN_POINTER (mono_object_domain (entry));
 	}
 	ctx->ops->copy_or_mark_object ((void **)&copy, ctx->queue);
 	g_assert (copy);
-	/* Update pointer if it's moved. */
 	binary_protocol_dislink_update (hidden_entry, copy, handle_type == HANDLE_WEAK_TRACK);
-	return HIDE_POINTER (copy);
+	/* Update link if object was moved. */
+	return GC_HANDLE_OBJECT_POINTER (copy);
 }
 
 /* LOCKING: requires that the GC lock is held */
@@ -681,7 +682,7 @@ null_link_if_alive (gpointer *hidden_entry, GCHandleType handle_type, gpointer u
 	is_alive = closure->predicate ((MonoObject*)entry, closure->data);
 	if (!is_alive) {
 		binary_protocol_dislink_update (hidden_entry, NULL, 0);
-		return NULL;
+		return GC_HANDLE_DOMAIN_POINTER (mono_object_domain (entry));
 	}
 	return *hidden_entry;
 }

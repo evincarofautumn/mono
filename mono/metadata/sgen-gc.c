@@ -4473,15 +4473,23 @@ mono_gc_enable_events (void)
 void
 mono_gc_weak_link_add (void **link_addr, MonoObject *obj, gboolean track)
 {
+	void *volatile *link_addr_volatile = link_addr;
+	void *old;
 	binary_protocol_dislink_add ((gpointer)link_addr, obj, track);
-	*link_addr = (void*)HIDE_POINTER (obj);
+	do {
+		old = *link_addr;
+	} while (InterlockedCompareExchangePointer (link_addr_volatile, (void *)HIDE_POINTER (obj), old) != old);
 }
 
 void
 mono_gc_weak_link_remove (void **link_addr, gboolean track)
 {
+	void *volatile *link_addr_volatile = link_addr;
+	void *old;
 	binary_protocol_dislink_remove ((gpointer)link_addr, track);
-	*link_addr = NULL;
+	do {
+		old = *link_addr;
+	} while (InterlockedCompareExchangePointer (link_addr_volatile, NULL, old) != old);
 }
 
 MonoObject*

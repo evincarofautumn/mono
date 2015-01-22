@@ -2128,7 +2128,8 @@ emit_instrumentation_call (MonoCompile *cfg, void *func)
 	if (cfg->method != cfg->current_method)
 		return;
 
-	if (cfg->prof_options & MONO_PROFILE_ENTER_LEAVE) {
+	/* FIXME: Don't hardcode these function names. */
+	if (cfg->prof_options & MONO_PROFILE_ENTER_LEAVE || func == mono_gc_region_enter || func == mono_gc_region_exit) {
 		EMIT_NEW_METHODCONST (cfg, iargs [0], cfg->method);
 		mono_emit_jit_icall (cfg, func, iargs);
 	}
@@ -2590,6 +2591,7 @@ mono_emit_call_args (MonoCompile *cfg, MonoMethodSignature *sig,
 
 	if (tail) {
 		emit_instrumentation_call (cfg, mono_profiler_method_leave);
+		emit_instrumentation_call (cfg, mono_gc_region_exit);
 
 		MONO_INST_NEW_CALL (cfg, call, OP_TAILCALL);
 	} else
@@ -8705,7 +8707,9 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 			if (mono_security_cas_enabled ())
 				CHECK_CFG_EXCEPTION;
 
+			/* FIXME: Can this not be a jmp for a loop or conditional? */
 			emit_instrumentation_call (cfg, mono_profiler_method_leave);
+			emit_instrumentation_call (cfg, mono_gc_region_exit);
 
 			if (ARCH_HAVE_OP_TAIL_CALL) {
 				MonoMethodSignature *fsig = mono_method_signature (cmethod);
@@ -9565,6 +9569,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 					tail_call = TRUE;
 				} else {
 					emit_instrumentation_call (cfg, mono_profiler_method_leave);
+					emit_instrumentation_call (cfg, mono_gc_region_exit);
 
 					MONO_INST_NEW_CALL (cfg, call, OP_JMP);
 					call->tail_call = TRUE;
@@ -9694,6 +9699,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 				} 
 			} else {
 				emit_instrumentation_call (cfg, mono_profiler_method_leave);
+				emit_instrumentation_call (cfg, mono_gc_region_exit);
 
 				if (cfg->lmf_var && cfg->cbb->in_count)
 					emit_pop_lmf (cfg);
@@ -13142,6 +13148,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 	cfg->cbb = init_localsbb;
 	emit_instrumentation_call (cfg, mono_profiler_method_enter);
+	emit_instrumentation_call (cfg, mono_gc_region_enter);
 
 	if (seq_points) {
 		MonoBasicBlock *bb;

@@ -2514,6 +2514,8 @@ mono_resume_unwind (MonoContext *ctx)
 	mono_handle_exception_internal (&new_ctx, jit_tls->resume_state.ex_obj, TRUE, NULL);
 
 	mono_restore_context (&new_ctx);
+	mono_gc_region_exit ();
+
 }
 
 #ifdef MONO_ARCH_HAVE_HANDLER_BLOCK_GUARD

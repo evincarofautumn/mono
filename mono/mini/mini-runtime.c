@@ -3223,6 +3223,8 @@ register_icalls (void)
 	 */
 	register_icall (mono_profiler_method_enter, "mono_profiler_method_enter", "void ptr", TRUE);
 	register_icall (mono_profiler_method_leave, "mono_profiler_method_leave", "void ptr", TRUE);
+	register_icall (mono_gc_region_enter, "mono_gc_region_enter", "void", TRUE);
+	register_icall (mono_gc_region_exit, "mono_gc_region_exit", "void", TRUE);
 
 	register_icall (mono_trace_enter_method, "mono_trace_enter_method", NULL, TRUE);
 	register_icall (mono_trace_leave_method, "mono_trace_leave_method", NULL, TRUE);

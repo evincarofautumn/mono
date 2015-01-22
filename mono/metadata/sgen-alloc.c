@@ -173,6 +173,16 @@ zero_tlab_if_necessary (void *p, size_t size)
 	}
 }
 
+void
+mono_gc_region_enter (void)
+{
+}
+
+void
+mono_gc_region_exit ()
+{
+}
+
 /*
  * Provide a variant that takes just the vtable for small fixed-size objects.
  * The aligned size is already computed and stored in vt->gc_descr.

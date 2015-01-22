@@ -119,12 +119,16 @@ struct _SgenThreadInfo {
 	gpointer regs[ARCH_NUM_REGS];	    /* ditto */
 #endif
 
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	char *tlab_start;
 	char *tlab_next;
 	char *tlab_temp_end;
 	char *tlab_real_end;
-#endif
+	/* Stack of pointers to region starts. */
+	char **tlab_regions_begin, **tlab_regions_end, **tlab_regions_capacity;
+	/* Address below which we cannot clear regions, due to escaped pointers. */
+	char *tlab_stuck;
+// #endif
 };
 
 /*
@@ -148,6 +152,8 @@ struct _GCMemSection {
 	size_t num_scan_start;
 };
 
+extern THREAD_INFO_TYPE *volatile gc_lock_holder;
+
 /*
  * Recursion is not allowed for the thread lock.
  */
@@ -158,10 +164,11 @@ struct _GCMemSection {
 #define LOCK_GC do {						\
 		MONO_TRY_BLOCKING	\
 		mono_mutex_lock (&gc_mutex);			\
+		gc_lock_holder = mono_thread_info_current (); \
 		MONO_GC_LOCKED ();				\
 		MONO_FINISH_TRY_BLOCKING	\
 	} while (0)
-#define UNLOCK_GC do { sgen_gc_unlock (); } while (0)
+#define UNLOCK_GC do { gc_lock_holder = NULL; sgen_gc_unlock (); } while (0)
 
 extern LOCK_DECLARE (sgen_interruption_mutex);
 
@@ -285,6 +292,8 @@ sgen_get_nursery_end (void)
 {
 	return sgen_nursery_end;
 }
+
+gboolean sgen_ptr_on_stack (gpointer ptr);
 
 /* Structure that corresponds to a MonoVTable: desc is a mword so requires
  * no cast from a pointer to an integer

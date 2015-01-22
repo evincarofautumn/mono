@@ -94,6 +94,11 @@ extern void mono_gc_init (void);
 extern void mono_gc_base_init (void);
 extern void mono_gc_cleanup (void);
 
+extern void mono_gc_stick_region_if_necessary (gpointer src, gpointer dst);
+extern void mono_gc_region_bail (void);
+extern void mono_gc_region_enter (void);
+extern void mono_gc_region_exit (MonoObject *ret);
+
 /*
  * Return whenever the current thread is registered with the GC (i.e. started
  * by the GC pthread wrappers on unix.

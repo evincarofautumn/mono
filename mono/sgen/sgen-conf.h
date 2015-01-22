@@ -37,7 +37,7 @@ typedef guint64 mword;
  * Turning on heavy statistics will turn off the managed allocator and
  * the managed write barrier.
  */
-// #define HEAVY_STATISTICS
+#define HEAVY_STATISTICS
 
 #ifdef HEAVY_STATISTICS
 #define HEAVY_STAT(x)	x
@@ -58,7 +58,7 @@ typedef guint64 mword;
  * option enables very fine-grained binary protocol events, which will make the GC a tiny
  * bit less efficient even if no binary protocol file is generated.
  */
-//#define SGEN_HEAVY_BINARY_PROTOCOL
+// #define SGEN_HEAVY_BINARY_PROTOCOL
 
 /*
  * This extends the heavy binary protocol to record the provenance of an object
@@ -124,7 +124,7 @@ typedef guint64 mword;
  * Making this a constant enables us to put logging in a lot of places and
  * not pay its cost on release builds.
  */
-#define SGEN_MAX_DEBUG_LEVEL 2
+#define SGEN_MAX_DEBUG_LEVEL 9
 
 /*
  * Maximum level of asserts to enable on this build.

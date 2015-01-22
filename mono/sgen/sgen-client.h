@@ -231,6 +231,11 @@ gpointer sgen_client_get_provenance (void);
 void sgen_client_describe_invalid_pointer (GCObject *ptr);
 
 /*
+ * Called to test whether a pointer is on the stack of the current thread.
+ */
+gboolean sgen_client_ptr_on_stack (gpointer ptr);
+
+/*
  * These client binary protocol functions are called from the respective binary protocol
  * functions.  No action is necessary.  We suggest implementing them as inline functions in
  * the client header file so that no overhead is incurred if they don't actually do

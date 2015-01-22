@@ -2116,6 +2116,73 @@ emit_instrumentation_call (MonoCompile *cfg, void *func)
 	}
 }
 
+static void
+emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
+{
+	MonoInst *iargs [1];
+	MonoWrapperType allowed_types[] = {
+		MONO_WRAPPER_NONE,
+		/* MONO_WRAPPER_DELEGATE_INVOKE, */
+		/* MONO_WRAPPER_DELEGATE_BEGIN_INVOKE, */
+		/* MONO_WRAPPER_DELEGATE_END_INVOKE, */
+		/* MONO_WRAPPER_RUNTIME_INVOKE, */
+		/* MONO_WRAPPER_NATIVE_TO_MANAGED, */
+		/* MONO_WRAPPER_MANAGED_TO_NATIVE, */
+		/* MONO_WRAPPER_MANAGED_TO_MANAGED, */
+		/* MONO_WRAPPER_REMOTING_INVOKE, */
+		/* MONO_WRAPPER_REMOTING_INVOKE_WITH_CHECK, */
+		/* MONO_WRAPPER_XDOMAIN_INVOKE, */
+		/* MONO_WRAPPER_XDOMAIN_DISPATCH, */
+		/* MONO_WRAPPER_LDFLD, */
+		/* MONO_WRAPPER_STFLD, */
+		/* MONO_WRAPPER_LDFLD_REMOTE, */
+		/* MONO_WRAPPER_STFLD_REMOTE, */
+
+		/* This is okay. */
+		MONO_WRAPPER_SYNCHRONIZED,
+
+		/* MONO_WRAPPER_DYNAMIC_METHOD, */
+		/* Instrumenting this is safe, but incredibly slow. */
+		/* MONO_WRAPPER_ISINST, */
+		/* MONO_WRAPPER_CASTCLASS, */
+		/* MONO_WRAPPER_PROXY_ISINST, */
+		/* MONO_WRAPPER_STELEMREF, */
+		/* MONO_WRAPPER_UNBOX, */
+		/* MONO_WRAPPER_LDFLDA, */
+		/* MONO_WRAPPER_WRITE_BARRIER, */
+		/* MONO_WRAPPER_UNKNOWN, */
+		/* MONO_WRAPPER_COMINTEROP_INVOKE, */
+		/* MONO_WRAPPER_COMINTEROP, */
+
+		/* This can't be instrumented because its
+		 * allocations would immediately be reclaimed!
+		 */
+		/* MONO_WRAPPER_ALLOC, */
+	};
+	size_t num_allowed_types = sizeof (allowed_types) / sizeof (*allowed_types);
+	size_t i;
+	gboolean allowed_type = FALSE;
+	for (i = 0; i < num_allowed_types; ++i) {
+		/* FIXME: Should this use orig_method? */
+		if (cfg->method->wrapper_type == allowed_types [i]) {
+			allowed_type = TRUE;
+			break;
+		}
+	}
+	if (cfg->method->wrapper_type == MONO_WRAPPER_MANAGED_TO_NATIVE) {
+#if 0
+		EMIT_NEW_PCONST (cfg, iargs [0], NULL);
+		mono_emit_jit_icall (cfg, mono_gc_region_bail, iargs);
+#endif
+	} else if (allowed_type) {
+		if (ret)
+			iargs [0] = ret;
+		else
+			EMIT_NEW_PCONST (cfg, iargs [0], NULL);
+		mono_emit_jit_icall (cfg, func, iargs);
+	}
+}
+
 static int
 ret_type_to_call_opcode (MonoCompile *cfg, MonoType *type, int calli, int virt, MonoGenericSharingContext *gsctx)
 {
@@ -2563,6 +2630,7 @@ mono_emit_call_args (MonoCompile *cfg, MonoMethodSignature *sig,
 
 	if (tail) {
 		emit_instrumentation_call (cfg, mono_profiler_method_leave);
+		emit_region_call (cfg, mono_gc_region_exit, NULL);
 
 		MONO_INST_NEW_CALL (cfg, call, OP_TAILCALL);
 	} else
@@ -8500,7 +8568,9 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 			if (cfg->generic_sharing_context && mono_method_check_context_used (cmethod))
 				GENERIC_SHARING_FAILURE (CEE_JMP);
 
+			/* FIXME: Can this not be a jmp for a loop or conditional? */
 			emit_instrumentation_call (cfg, mono_profiler_method_leave);
+			emit_region_call (cfg, mono_gc_region_exit, NULL);
 
 			if (ARCH_HAVE_OP_TAIL_CALL) {
 				MonoMethodSignature *fsig = mono_method_signature (cmethod);
@@ -9354,6 +9424,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 					tail_call = TRUE;
 				} else {
 					emit_instrumentation_call (cfg, mono_profiler_method_leave);
+					emit_region_call (cfg, mono_gc_region_exit, NULL);
 
 					MONO_INST_NEW_CALL (cfg, call, OP_JMP);
 					call->tail_call = TRUE;
@@ -9472,6 +9543,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 					MonoInst *store;
 					CHECK_STACK (1);
+					emit_region_call (cfg, mono_gc_region_exit, sp [-1]->type == STACK_OBJ ? sp [-1] : NULL);
 					--sp;
 
 					if ((method->wrapper_type == MONO_WRAPPER_DYNAMIC_METHOD || method->wrapper_type == MONO_WRAPPER_NONE) && target_type_is_incompatible (cfg, ret_type, *sp))
@@ -9480,7 +9552,9 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 					//g_assert (returnvar != -1);
 					EMIT_NEW_TEMPSTORE (cfg, store, return_var->inst_c0, *sp);
 					cfg->ret_var_set = TRUE;
-				} 
+				} else {
+					emit_region_call (cfg, mono_gc_region_exit, NULL);
+				}
 			} else {
 				emit_instrumentation_call (cfg, mono_profiler_method_leave);
 
@@ -9504,6 +9578,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 					g_assert (!return_var);
 					CHECK_STACK (1);
+					emit_region_call (cfg, mono_gc_region_exit, sp [-1]->type == STACK_OBJ ? sp [-1] : NULL);
 					--sp;
 
 					if ((method->wrapper_type == MONO_WRAPPER_DYNAMIC_METHOD || method->wrapper_type == MONO_WRAPPER_NONE) && target_type_is_incompatible (cfg, ret_type, *sp))
@@ -9538,6 +9613,8 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 						mono_arch_emit_setret (cfg, method, *sp);
 #endif
 					}
+				} else {
+					emit_region_call (cfg, mono_gc_region_exit, NULL);
 				}
 			}
 			if (sp != stack_start)
@@ -10840,15 +10917,15 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 					if (sp [0]->opcode != OP_LDADDR)
 						store->flags |= MONO_INST_FAULT;
 
-				if (cfg->gen_write_barriers && mini_type_to_stind (cfg, field->type) == CEE_STIND_REF && !(sp [1]->opcode == OP_PCONST && sp [1]->inst_c0 == 0)) {
-					/* insert call to write barrier */
-					MonoInst *ptr;
-					int dreg;
+					if (cfg->gen_write_barriers && mini_type_to_stind (cfg, field->type) == CEE_STIND_REF && !(sp [1]->opcode == OP_PCONST && sp [1]->inst_c0 == 0)) {
+						/* insert call to write barrier */
+						MonoInst *ptr;
+						int dreg;
 
-					dreg = alloc_ireg_mp (cfg);
-					EMIT_NEW_BIALU_IMM (cfg, ptr, OP_PADD_IMM, dreg, sp [0]->dreg, foffset);
-					emit_write_barrier (cfg, ptr, sp [1]);
-				}
+						dreg = alloc_ireg_mp (cfg);
+						EMIT_NEW_BIALU_IMM (cfg, ptr, OP_PADD_IMM, dreg, sp [0]->dreg, foffset);
+						emit_write_barrier (cfg, ptr, sp [1]);
+					}
 
 					store->flags |= ins_flag;
 				}
@@ -11130,9 +11207,18 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 				*sp++ = ins;
 			} else if (op == CEE_STSFLD) {
 				MonoInst *store;
-
 				EMIT_NEW_STORE_MEMBASE_TYPE (cfg, store, ftype, ins->dreg, 0, store_val->dreg);
+
 				store->flags |= ins_flag;
+
+				if (cfg->gen_write_barriers && store_val->type == STACK_OBJ) {
+					/* FIXME: This is for the region allocator, and could be an
+					 * icall to mono_gc_stick_region_if_necessary() rather than
+					 * a write barrier.
+					 */
+					emit_write_barrier (cfg, ins, store_val);
+				}
+
 			} else {
 				gboolean is_const = FALSE;
 				MonoVTable *vtable = NULL;
@@ -12894,6 +12980,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 	cfg->cbb = init_localsbb;
 	emit_instrumentation_call (cfg, mono_profiler_method_enter);
+	emit_region_call (cfg, mono_gc_region_enter, NULL);
 
 	if (seq_points) {
 		MonoBasicBlock *bb;

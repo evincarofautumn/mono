@@ -114,10 +114,17 @@ mono_gc_wbarrier_value_copy (gpointer dest, gpointer src, int count, MonoClass *
 
 	SGEN_LOG (8, "Adding value remset at %p, count %d, descr %p for class %s (%p)", dest, count, klass->gc_descr, klass->name, klass);
 
-	if (sgen_ptr_in_nursery (dest) || ptr_on_stack (dest) || !sgen_gc_descr_has_references ((mword)klass->gc_descr)) {
+	if (sgen_ptr_in_nursery (dest) || sgen_client_ptr_on_stack (dest) || !sgen_gc_descr_has_references ((mword)klass->gc_descr)) {
+#if 0
+		size_t i;
+#endif
 		size_t element_size = mono_class_value_size (klass, NULL);
 		size_t size = count * element_size;
 		mono_gc_memmove_atomic (dest, src, size);		
+#if 0
+		for (i = 0; i < size; ++i)
+			mono_gc_stick_region_if_necessary (((gpointer *)src) [i], ((gpointer *)dest) [i]);
+#endif
 		return;
 	}
 
@@ -136,6 +143,23 @@ mono_gc_wbarrier_value_copy (gpointer dest, gpointer src, int count, MonoClass *
 	sgen_get_remset ()->wbarrier_value_copy (dest, src, count, mono_class_value_size (klass, NULL));
 }
 
+#undef HANDLE_PTR
+#define HANDLE_PTR(ptr,obj) \
+	do { \
+		gpointer o = *(gpointer*)(ptr); \
+		if ((o)) { \
+			sgen_gc_stick_region_if_necessary (o, dest); \
+		} \
+	} while (0)
+
+static void
+scan_object_for_region_sticking_copy_wbarrier (gpointer dest, char *start, mword desc)
+{
+#define SCAN_OBJECT_NOVTABLE
+#include "sgen/sgen-scan-object.h"
+}
+
+
 /**
  * mono_gc_wbarrier_object_copy:
  *
@@ -147,8 +171,12 @@ mono_gc_wbarrier_object_copy (MonoObject* obj, MonoObject *src)
 	int size;
 
 	HEAVY_STAT (++stat_wbarrier_object_copy);
+	mono_gc_stick_region_if_necessary (src, obj);
+#if 1
+	scan_object_for_region_sticking_copy_wbarrier (obj, (char *)src, (mword) src->vtable->gc_descr);
+#endif
 
-	if (sgen_ptr_in_nursery (obj) || ptr_on_stack (obj) || !SGEN_OBJECT_HAS_REFERENCES (src)) {
+	if (sgen_ptr_in_nursery (obj) || sgen_client_ptr_on_stack (obj) || !SGEN_OBJECT_HAS_REFERENCES (src)) {
 		size = mono_object_class (obj)->instance_size;
 		mono_gc_memmove_aligned ((char*)obj + sizeof (MonoObject), (char*)src + sizeof (MonoObject),
 				size - sizeof (MonoObject));
@@ -167,6 +195,8 @@ void
 mono_gc_wbarrier_set_arrayref (MonoArray *arr, gpointer slot_ptr, MonoObject* value)
 {
 	HEAVY_STAT (++stat_wbarrier_set_arrayref);
+	/* FIXME: Why doesn't this work with 'slot_ptr' instead of 'arr'? */
+	mono_gc_stick_region_if_necessary (value, slot_ptr);
 	if (sgen_ptr_in_nursery (slot_ptr)) {
 		*(void**)slot_ptr = value;
 		return;
@@ -181,6 +211,8 @@ mono_gc_wbarrier_set_arrayref (MonoArray *arr, gpointer slot_ptr, MonoObject* va
 void
 mono_gc_wbarrier_set_field (MonoObject *obj, gpointer field_ptr, MonoObject* value)
 {
+	/* FIXME: Why doesn't this work with 'field_ptr' instead of 'obj'? */
+	mono_gc_stick_region_if_necessary (value, field_ptr);
 	mono_gc_wbarrier_set_arrayref ((MonoArray*)obj, field_ptr, value);
 }
 
@@ -2857,6 +2889,12 @@ sgen_client_describe_invalid_pointer (GCObject *ptr)
 	sgen_bridge_describe_pointer (ptr);
 }
 
+gboolean
+sgen_client_ptr_on_stack (gpointer ptr)
+{
+	return ptr_on_stack (ptr);
+}
+
 void
 mono_gc_base_init (void)
 {
@@ -2887,6 +2925,30 @@ gboolean
 mono_gc_is_null (void)
 {
 	return FALSE;
+}
+
+void
+mono_gc_region_bail (void)
+{
+	sgen_gc_region_bail ();
+}
+
+void
+mono_gc_region_enter (void)
+{
+	sgen_gc_region_enter ();
+}
+
+void
+mono_gc_region_exit (gpointer ret)
+{
+	sgen_gc_region_exit (ret);
+}
+
+void
+mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
+{
+	sgen_gc_stick_region_if_necessary (src, dst);
 }
 
 #endif

@@ -94,9 +94,10 @@ struct _GCMemSection {
 #define LOCK_GC do {						\
 		MONO_TRY_BLOCKING	\
 		mono_mutex_lock (&gc_mutex);			\
+		gc_lock_holder = mono_thread_info_current (); \
 		MONO_FINISH_TRY_BLOCKING	\
 	} while (0)
-#define UNLOCK_GC do { sgen_gc_unlock (); } while (0)
+#define UNLOCK_GC do { gc_lock_holder = NULL; sgen_gc_unlock (); } while (0)
 
 extern LOCK_DECLARE (sgen_interruption_mutex);
 
@@ -215,6 +216,11 @@ sgen_get_nursery_end (void)
 {
 	return sgen_nursery_end;
 }
+
+void sgen_gc_stick_region_if_necessary (gpointer src, gpointer dst);
+void sgen_gc_region_bail (void);
+void sgen_gc_region_enter (void);
+void sgen_gc_region_exit (gpointer ret);
 
 /*
  * We use the lowest three bits in the vtable pointer of objects to tag whether they're
@@ -396,12 +402,16 @@ struct _SgenThreadInfo {
 	char **tlab_temp_end_addr;
 	char **tlab_real_end_addr;
 
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	char *tlab_start;
 	char *tlab_next;
 	char *tlab_temp_end;
 	char *tlab_real_end;
-#endif
+	/* Stack of pointers to region starts. */
+	char **tlab_regions_begin, **tlab_regions_end, **tlab_regions_capacity;
+	/* Address below which we cannot clear regions, due to escaped pointers. */
+	char *tlab_stuck;
+// #endif
 };
 
 gboolean sgen_is_worker_thread (MonoNativeThreadId thread);
@@ -475,6 +485,8 @@ SgenFragment* sgen_fragment_allocator_alloc (void);
 void sgen_clear_allocator_fragments (SgenFragmentAllocator *allocator);
 void sgen_clear_range (char *start, char *end);
 
+
+extern THREAD_INFO_TYPE *volatile gc_lock_holder;
 
 /*
 This is a space/speed compromise as we need to make sure the from/to space check is both O(1)

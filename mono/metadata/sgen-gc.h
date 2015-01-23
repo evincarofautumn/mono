@@ -124,6 +124,10 @@ struct _SgenThreadInfo {
 	char *tlab_next;
 	char *tlab_temp_end;
 	char *tlab_real_end;
+	/* Stack of pointers to region starts. */
+	char **tlab_regions_begin, **tlab_regions_end, **tlab_regions_capacity;
+	/* Address below which we cannot clear regions, due to escaped pointers. */
+	char *tlab_stuck;
 #endif
 };
 

@@ -94,6 +94,11 @@ static __thread char *tlab_temp_end;
 static __thread char *tlab_real_end;
 /* Used by the managed allocator/wbarrier */
 static __thread char **tlab_next_addr MONO_ATTR_USED;
+/* Stack of pointers to region starts. */
+static __thread char **tlab_regions_begin, **tlab_regions_end, **tlab_regions_capacity;
+/* Address below which we cannot clear regions, due to escaped pointers. */
+char *tlab_stuck;
+
 #endif
 
 #ifdef HAVE_KW_THREAD
@@ -101,11 +106,19 @@ static __thread char **tlab_next_addr MONO_ATTR_USED;
 #define TLAB_NEXT	tlab_next
 #define TLAB_TEMP_END	tlab_temp_end
 #define TLAB_REAL_END	tlab_real_end
+#define TLAB_REGIONS_BEGIN	tlab_regions_begin
+#define TLAB_REGIONS_END	tlab_regions_end
+#define TLAB_REGIONS_CAPACITY	tlab_regions_capacity
+#define TLAB_STUCK	tlab_stuck
 #else
 #define TLAB_START	(__thread_info__->tlab_start)
 #define TLAB_NEXT	(__thread_info__->tlab_next)
 #define TLAB_TEMP_END	(__thread_info__->tlab_temp_end)
 #define TLAB_REAL_END	(__thread_info__->tlab_real_end)
+#define TLAB_REGIONS_BEGIN	(__thread_info__->tlab_regions_begin)
+#define TLAB_REGIONS_END	(__thread_info__->tlab_regions_end)
+#define TLAB_REGIONS_CAPACITY	(__thread_info__->tlab_regions_capacity)
+#define TLAB_STUCK	(__thread_info__->tlab_stuck)
 #endif
 
 static void*
@@ -176,11 +189,54 @@ zero_tlab_if_necessary (void *p, size_t size)
 void
 mono_gc_region_enter (void)
 {
+#ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+#endif
+	sgen_gc_lock ();
+	SGEN_ASSERT (0, TLAB_REGIONS_END <= TLAB_REGIONS_CAPACITY, "Region stack overflow");
+	/* If not allocated or full then (re)allocate. */
+	if (TLAB_REGIONS_END == TLAB_REGIONS_CAPACITY) {
+		const size_t size = TLAB_REGIONS_END - TLAB_REGIONS_BEGIN;
+		const size_t capacity = TLAB_REGIONS_CAPACITY - TLAB_REGIONS_BEGIN;
+		size_t new_capacity = capacity + capacity / 2;
+		if (!new_capacity)
+			new_capacity = 1024;
+		TLAB_REGIONS_BEGIN = g_realloc (TLAB_REGIONS_BEGIN, new_capacity * sizeof (*TLAB_REGIONS_BEGIN));
+		TLAB_REGIONS_END = TLAB_REGIONS_BEGIN + size;
+		TLAB_REGIONS_CAPACITY = TLAB_REGIONS_BEGIN + new_capacity;
+	}
+	/* Save TLAB pointer. */
+	*TLAB_REGIONS_END++ = TLAB_NEXT;
+	sgen_gc_unlock ();
 }
 
 void
 mono_gc_region_exit ()
 {
+#ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+#endif
+	char **region;
+	sgen_gc_lock ();
+	SGEN_ASSERT (0, TLAB_REGIONS_END > TLAB_REGIONS_BEGIN, "Region stack underflow");
+	region = &TLAB_REGIONS_END [-1];
+	if (*region >= TLAB_STUCK) {
+		/* Clear region. */
+#if 1
+		size_t region_size = TLAB_NEXT - *region;
+		if (region_size) {
+			g_print ("clearing %lu bytes from %p to %p, start %p, next %p, stuck %p\n", region_size, *region, *region + region_size, TLAB_START, TLAB_NEXT, TLAB_STUCK);
+			memset (*region, 0x42, region_size);
+		}
+#endif
+		/* Reset TLAB pointer. */
+#if 0
+		TLAB_NEXT = *region;
+#endif
+		--TLAB_REGIONS_END;
+	}
+	/* TODO: If region is stuck, should the region stack below TLAB_STUCK be erased? */
+	sgen_gc_unlock ();
 }
 
 /*

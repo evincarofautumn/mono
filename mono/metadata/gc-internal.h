@@ -196,6 +196,7 @@ typedef enum {
 } GCHandleType;
 
 void mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer callback(gpointer *, GCHandleType, gpointer), gpointer user);
+MonoDomain *mono_gchandle_slot_domain (GCHandleType, volatile gpointer *);
 
 typedef void (*FinalizerThreadCallback) (gpointer user_data);
 

@@ -659,10 +659,24 @@ sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyC
 	mono_gchandle_iterate (track ? HANDLE_WEAK_TRACK : HANDLE_WEAK, generation, null_link_if_necessary, &ctx);
 }
 
+static gpointer
+null_link_if_in_domain (gpointer *hidden_entry, GCHandleType handle_type, gpointer user)
+{
+	MonoDomain *domain = user;
+	gpointer entry = REVEAL_POINTER (*hidden_entry);
+	if (!entry)
+		return NULL;
+	if (mono_gchandle_slot_domain (handle_type, entry) == domain)
+		return NULL;
+	return *hidden_entry;
+}
+
 /* LOCKING: requires that the GC lock is held */
 void
 sgen_null_links_for_domain (MonoDomain *domain, int generation)
 {
+	mono_gchandle_iterate (HANDLE_WEAK_TRACK, generation, null_link_if_in_domain, domain);
+	mono_gchandle_iterate (HANDLE_WEAK, generation, null_link_if_in_domain, domain);
 }
 
 typedef struct {
@@ -671,7 +685,7 @@ typedef struct {
 } WeakLinkAlivePredicateClosure;
 
 static gpointer
-null_link_if_alive (gpointer *hidden_entry, GCHandleType handle_type, gpointer user)
+null_link_if_dead (gpointer *hidden_entry, GCHandleType handle_type, gpointer user)
 {
 	/* Strictly speaking, function pointers are not guaranteed to have the same size as data pointers. */
 	WeakLinkAlivePredicateClosure *closure = (WeakLinkAlivePredicateClosure *)user;
@@ -692,7 +706,7 @@ void
 sgen_null_links_with_predicate (int generation, WeakLinkAlivePredicateFunc predicate, void *data, gboolean track)
 {
 	WeakLinkAlivePredicateClosure closure = { predicate, data };
-	mono_gchandle_iterate (track ? HANDLE_WEAK_TRACK : HANDLE_WEAK, generation, null_link_if_alive, &closure);
+	mono_gchandle_iterate (track ? HANDLE_WEAK_TRACK : HANDLE_WEAK, generation, null_link_if_dead, &closure);
 }
 
 void

@@ -986,9 +986,10 @@ mono_gchandle_set_target (guint32 gchandle, MonoObject *obj)
 	}
 }
 
-static MonoDomain *
-slot_domain (HandleData *handles, volatile gpointer *slot_addr)
+MonoDomain *
+mono_gchandle_slot_domain (GCHandleType handle_type, volatile gpointer *slot_addr)
 {
+	HandleData *handles = &gc_handles [handle_type];
 	gpointer slot = *slot_addr;
 	if (!GC_HANDLE_OCCUPIED (slot))
 		return NULL;
@@ -1012,7 +1013,7 @@ gchandle_domain (guint32 gchandle) {
 	if (index >= handles->capacity)
 		return NULL;
 	bucketize (index, &bucket, &offset);
-	return slot_domain (handles, &handles->entries [bucket] [offset]);
+	return mono_gchandle_slot_domain (type, &handles->entries [bucket] [offset]);
 }
 
 /**
@@ -1082,7 +1083,7 @@ mono_gchandle_free_domain (MonoDomain *domain)
 			slot = handles->entries [bucket] [offset];
 			if (!GC_HANDLE_OCCUPIED (slot))
 				continue;
-			if (domain->domain_id == slot_domain (handles, &handles->entries [bucket] [offset])->domain_id) {
+			if (domain->domain_id == mono_gchandle_slot_domain (type, &handles->entries [bucket] [offset])->domain_id) {
 				if (GC_HANDLE_TYPE_IS_WEAK (type) && REVEAL_POINTER (slot))
 					mono_gc_weak_link_remove (&handles->entries [bucket] [offset], handles->type == HANDLE_WEAK_TRACK);
 				handles->entries [bucket] [offset] = NULL;

@@ -533,10 +533,8 @@ mono_gc_deregister_root (char* addr)
 }
 
 void
-mono_gc_weak_link_add (volatile gpointer *link_addr, MonoObject *obj, gboolean track)
+mono_gc_weak_link_register (volatile gpointer *link_addr, MonoObject *obj, gboolean track)
 {
-	/* libgc requires that we use HIDE_POINTER... */
-	*link_addr = (void*)HIDE_POINTER (obj);
 	if (track)
 		GC_REGISTER_LONG_LINK ((gpointer *)link_addr, obj);
 	else
@@ -544,29 +542,17 @@ mono_gc_weak_link_add (volatile gpointer *link_addr, MonoObject *obj, gboolean t
 }
 
 void
-mono_gc_weak_link_remove (volatile gpointer *link_addr, gboolean track)
+mono_gc_weak_link_unregister (volatile gpointer *link_addr, gboolean track)
 {
 	if (track)
 		GC_unregister_long_link ((gpointer *)link_addr);
 	else
 		GC_unregister_disappearing_link ((gpointer *)link_addr);
-	*link_addr = NULL;
 }
 
-static gpointer
-reveal_link (gpointer link_addr)
+void
+mono_gc_ensure_weak_links_accessible (void)
 {
-	void **link_a = link_addr;
-	return REVEAL_POINTER (*link_a);
-}
-
-MonoObject*
-mono_gc_weak_link_get (volatile gpointer *link_addr)
-{
-	MonoObject *obj = GC_call_with_alloc_lock (reveal_link, (gpointer *)link_addr);
-	if (obj == (MonoObject *) -1)
-		return NULL;
-	return obj;
 }
 
 void*

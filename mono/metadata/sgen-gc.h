@@ -221,7 +221,7 @@ extern int current_collection_generation;
 
 extern unsigned int sgen_global_stop_count;
 
-extern gboolean bridge_processing_in_progress;
+extern volatile gboolean bridge_processing_in_progress;
 extern MonoGCBridgeCallbacks bridge_callbacks;
 
 extern int num_ready_finalizers;
@@ -928,7 +928,7 @@ const char* sgen_generation_name (int generation);
 
 void sgen_collect_bridge_objects (int generation, ScanCopyContext ctx);
 void sgen_finalize_in_range (int generation, ScanCopyContext ctx);
-void sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx, gboolean track);
+void sgen_null_link_in_range (int generation, ScanCopyContext ctx, gboolean track);
 void sgen_null_links_for_domain (MonoDomain *domain, int generation);
 void sgen_remove_finalizers_for_domain (MonoDomain *domain, int generation);
 void sgen_process_fin_stage_entries (void);
@@ -1158,23 +1158,6 @@ void sgen_check_for_xdomain_refs (void);
 char* sgen_find_object_for_ptr (char *ptr);
 
 void mono_gc_scan_for_specific_ref (MonoObject *key, gboolean precise);
-
-/* Write barrier support */
-
-/*
- * This causes the compile to extend the liveness of 'v' till the call to dummy_use
- */
-static inline void
-sgen_dummy_use (gpointer v) {
-#if defined(__GNUC__)
-	__asm__ volatile ("" : "=r"(v) : "r"(v));
-#elif defined(_MSC_VER)
-	static volatile gpointer ptr;
-	ptr = v;
-#else
-#error "Implement sgen_dummy_use for your compiler"
-#endif
-}
 
 /* Environment variable parsing */
 

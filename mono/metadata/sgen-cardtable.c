@@ -87,7 +87,7 @@ sgen_card_table_wbarrier_set_field (MonoObject *obj, gpointer field_ptr, MonoObj
 	*(void**)field_ptr = value;
 	if (need_mod_union || sgen_ptr_in_nursery (value))
 		sgen_card_table_mark_address ((mword)field_ptr);
-	sgen_dummy_use (value);
+	mono_gc_dummy_use (value);
 }
 
 static void
@@ -96,7 +96,7 @@ sgen_card_table_wbarrier_set_arrayref (MonoArray *arr, gpointer slot_ptr, MonoOb
 	*(void**)slot_ptr = value;
 	if (need_mod_union || sgen_ptr_in_nursery (value))
 		sgen_card_table_mark_address ((mword)slot_ptr);
-	sgen_dummy_use (value);	
+	mono_gc_dummy_use (value);
 }
 
 static void
@@ -116,7 +116,7 @@ sgen_card_table_wbarrier_arrayref_copy (gpointer dest_ptr, gpointer src_ptr, int
 			SGEN_UPDATE_REFERENCE_ALLOW_NULL (dest, value);
 			if (need_mod_union || sgen_ptr_in_nursery (value))
 				sgen_card_table_mark_address ((mword)dest);
-			sgen_dummy_use (value);
+			mono_gc_dummy_use (value);
 		}
 	} else {
 		gpointer *end = dest + count;
@@ -125,7 +125,7 @@ sgen_card_table_wbarrier_arrayref_copy (gpointer dest_ptr, gpointer src_ptr, int
 			SGEN_UPDATE_REFERENCE_ALLOW_NULL (dest, value);
 			if (need_mod_union || sgen_ptr_in_nursery (value))
 				sgen_card_table_mark_address ((mword)dest);
-			sgen_dummy_use (value);
+			mono_gc_dummy_use (value);
 		}
 	}	
 }

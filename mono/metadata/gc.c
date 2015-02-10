@@ -545,7 +545,6 @@ static mono_mutex_t handle_section;
 #define GC_HANDLE_TYPE_MASK ((1 << GC_HANDLE_TYPE_SHIFT) - 1)
 #define GC_HANDLE_TYPE(x) (((x) & GC_HANDLE_TYPE_MASK) - 1)
 #define GC_HANDLE_INDEX(x) ((x) >> GC_HANDLE_TYPE_SHIFT)
-#define GC_HANDLE_TYPE_IS_WEAK(x) ((x) <= HANDLE_WEAK_TRACK)
 #define GC_HANDLE(index, type) (((index) << GC_HANDLE_TYPE_SHIFT) | (((type) & GC_HANDLE_TYPE_MASK) + 1))
 
 MonoObject *
@@ -657,6 +656,15 @@ typedef struct {
 } HandleData;
 
 static inline guint
+bucket_size (guint index)
+{
+	return 1 << (index + MIN_BUCKET_BITS);
+}
+
+/* Computes floor(log2(index + MIN_BUCKET_SIZE)) - 1, giving the index
+ * of the bucket containing a slot.
+ */
+static inline guint
 index_bucket (guint index)
 {
 #ifdef __GNUC__
@@ -676,34 +684,25 @@ static inline void
 bucketize (guint index, guint *bucket, guint *offset)
 {
 	*bucket = index_bucket (index);
-	*offset = index - (1 << (*bucket + MIN_BUCKET_BITS)) + MIN_BUCKET_SIZE;
+	*offset = index - bucket_size (*bucket) + MIN_BUCKET_SIZE;
 }
 
 static inline gboolean
-slot_occupied (HandleData *handles, guint bucket, guint offset)
+try_set_slot (volatile gpointer *slot, MonoObject *obj, gpointer old, GCHandleType type)
 {
-	volatile gpointer *entries = handles->entries [bucket];
-	g_assert (entries);
-	return GC_HANDLE_OCCUPIED (entries [offset]);
-}
-
-static inline void
-vacate_slot (HandleData *handles, guint bucket, guint offset)
-{
-	volatile gpointer *entries = handles->entries [bucket];
-	g_assert (entries);
-	entries [offset] = NULL;
+    if (obj)
+		return InterlockedCompareExchangePointer (slot, MONO_GC_HANDLE_OBJECT_POINTER (obj, GC_HANDLE_TYPE_IS_WEAK (type)), old) == old;
+    return InterlockedCompareExchangePointer (slot, MONO_GC_HANDLE_DOMAIN_POINTER (mono_domain_get (), GC_HANDLE_TYPE_IS_WEAK (type)), old) == old;
 }
 
 /* Try to claim a slot by setting its occupied bit. */
 static inline gboolean
-try_occupy_slot (HandleData *handles, guint bucket, guint offset)
+try_occupy_slot (HandleData *handles, guint bucket, guint offset, MonoObject *obj, gboolean track)
 {
-	volatile gpointer *entries = handles->entries [bucket];
-	g_assert (entries);
-	if (GC_HANDLE_OCCUPIED (entries [offset]))
+	volatile gpointer *link_addr = &(handles->entries [bucket] [offset]);
+	if (MONO_GC_HANDLE_OCCUPIED (*link_addr))
 		return FALSE;
-	return InterlockedCompareExchangePointer (&entries [offset], GC_HANDLE_OBJECT_POINTER (NULL), NULL) == NULL;
+	return try_set_slot (link_addr, obj, NULL, handles->type);
 }
 
 #define EMPTY_HANDLE_DATA(type) { { NULL }, 0, 0, (type) }
@@ -717,60 +716,34 @@ static HandleData gc_handles [] = {
 	EMPTY_HANDLE_DATA (HANDLE_PINNED)
 };
 
+static HandleData *
+gc_handles_for_type (GCHandleType type)
+{
+	g_assert (type < HANDLE_TYPE_MAX);
+	return &gc_handles [type];
+}
+
+/* This assumes that the world is stopped. */
 static void
 mark_gc_handles (void *addr, MonoGCMarkFunc mark_func, void *gc_data)
 {
-	/* HandleData *gc_handles = (HandleData *)addr; */
-	guint type;
-	for (type = HANDLE_TYPE_MIN; type < HANDLE_PINNED; ++type) {
-		HandleData *handles;
-		volatile gpointer *volatile *bucket_addr;
-		guint32 capacity;
-		guint32 bucket_capacity;
-		guint32 processed;
-
-		if (GC_HANDLE_TYPE_IS_WEAK (type))
-			continue;
-
-		handles = &gc_handles [type];
-		bucket_addr = &handles->entries [0];
-		capacity = handles->capacity;
-		bucket_capacity = MIN_BUCKET_SIZE;
-		processed = 0;
-
-		while (processed < capacity) {
-			guint32 index;
-			volatile gpointer *bucket = *bucket_addr;
-			if (!bucket)
-				break;
-			for (index = 0; index < bucket_capacity; ++index) {
-				volatile gpointer *ptr = &bucket [index];
-				gpointer hidden = *ptr;
-				gpointer revealed = REVEAL_POINTER (hidden);
-				guint tag = POINTER_TAG (hidden);
-				if (revealed && (tag & GC_HANDLE_OCCUPIED_MASK) && (tag & GC_HANDLE_VALID_MASK)) {
-					mark_func (&revealed, gc_data);
-					*ptr = HIDE_POINTER (revealed, tag);
-				}
-			}
-			processed += bucket_capacity;
-			bucket_capacity *= 2;
-			++bucket_addr;
+	HandleData *handles = gc_handles_for_type (HANDLE_NORMAL);
+	size_t bucket, offset;
+	const guint max_bucket = index_bucket (handles->capacity);
+	for (bucket = 0; bucket < max_bucket; ++bucket) {
+		volatile gpointer *entries = handles->entries [bucket];
+		for (offset = 0; offset < bucket_size (bucket); ++offset) {
+			volatile gpointer *entry = &entries [offset];
+			gpointer hidden = *entry;
+			gpointer revealed = MONO_GC_REVEAL_POINTER (hidden, FALSE);
+			if (!MONO_GC_HANDLE_IS_OBJECT_POINTER (hidden))
+				continue;
+			mark_func (&revealed, gc_data);
+			g_assert (revealed);
+			*entry = MONO_GC_HANDLE_OBJECT_POINTER (revealed, FALSE);
 		}
 	}
 }
-
-/*
-static void*
-make_root_descr_all_refs (int numbits, gboolean pinned)
-{
-#ifdef HAVE_SGEN_GC
-	if (pinned)
-		return NULL;
-#endif
-	return mono_gc_make_root_descr_all_refs (numbits);
-}
-*/
 
 static guint
 handle_data_find_unset (HandleData *handles, guint32 begin, guint32 end)
@@ -782,7 +755,7 @@ handle_data_find_unset (HandleData *handles, guint32 begin, guint32 end)
 		bucketize (index, &bucket, &offset);
 		entries = handles->entries [bucket];
 		g_assert (entries);
-		if (!GC_HANDLE_OCCUPIED (entries [offset]))
+		if (!MONO_GC_HANDLE_OCCUPIED (entries [offset]))
 			return index;
 	}
 	return -1;
@@ -790,21 +763,35 @@ handle_data_find_unset (HandleData *handles, guint32 begin, guint32 end)
 
 /* Adds a bucket if necessary and possible. */
 static void
-handle_data_grow (HandleData *handles, gboolean track, guint32 old_capacity)
+handle_data_grow (HandleData *handles, guint32 old_capacity)
 {
-	guint new_bucket = index_bucket (old_capacity);
-	guint32 growth = 1 << (new_bucket + MIN_BUCKET_BITS);
-	guint32 new_capacity = old_capacity + growth;
+	const guint new_bucket = index_bucket (old_capacity);
+	const guint32 growth = bucket_size (new_bucket);
+	const guint32 new_capacity = old_capacity + growth;
 	gpointer *entries;
+	const size_t new_bucket_size = sizeof (**handles->entries) * growth;
 	if (handles->capacity >= new_capacity)
 		return;
-	entries = g_malloc0 (sizeof (**handles->entries) * growth);
-	if (InterlockedCompareExchange ((volatile gint32 *)&handles->capacity, new_capacity, old_capacity) == old_capacity) {
-		handles->entries [new_bucket] = entries;
+	entries = g_malloc0 (new_bucket_size);
+#ifdef HAVE_BOEHM_GC
+	if (!GC_HANDLE_TYPE_IS_WEAK (handles->type))
+		mono_gc_register_root ((char *)entries, new_bucket_size, handles->type == HANDLE_PINNED ? NULL : mono_gc_make_root_descr_all_refs (new_bucket_size * CHAR_BIT));
+#endif
+#ifdef HAVE_SGEN_GC
+	if (handles->type == HANDLE_PINNED)
+		mono_gc_register_root ((char *)entries, new_bucket_size, NULL);
+#endif
+	if (InterlockedCompareExchangePointer ((volatile gpointer *)&handles->entries [new_bucket], entries, NULL) == NULL) {
+		if (InterlockedCompareExchange ((volatile gint32 *)&handles->capacity, new_capacity, old_capacity) != old_capacity)
+			g_assert_not_reached ();
 		handles->slot_hint = old_capacity;
+		mono_memory_write_barrier ();
 		return;
 	}
 	/* Someone beat us to the allocation. */
+#ifdef HAVE_BOEHM_GC
+	mono_gc_deregister_root ((char *)entries);
+#endif
 	g_free (entries);
 }
 
@@ -817,7 +804,7 @@ alloc_handle (HandleData *handles, MonoObject *obj, gboolean track)
 	guint32 capacity;
 	guint32 slot_hint;
 	if (!handles->capacity)
-		handle_data_grow (handles, track, 0);
+		handle_data_grow (handles, 0);
 retry:
 	capacity = handles->capacity;
 	slot_hint = handles->slot_hint;
@@ -825,21 +812,14 @@ retry:
 	if (index == -1)
 		index = handle_data_find_unset (handles, 0, slot_hint);
 	if (index == -1) {
-		handle_data_grow (handles, track, capacity);
+		handle_data_grow (handles, capacity);
 		goto retry;
 	}
 	bucketize (index, &bucket, &offset);
-	if (!try_occupy_slot (handles, bucket, offset))
+	if (!try_occupy_slot (handles, bucket, offset, obj, track))
 		goto retry;
-	if (GC_HANDLE_TYPE_IS_WEAK (handles->type)) {
-		if (obj)
-			mono_gc_weak_link_add (&(handles->entries [bucket] [offset]), obj, track);
-		else
-			/* FIXME: Which domain should be used? */
-			handles->entries [bucket] [offset] = GC_HANDLE_DOMAIN_POINTER (mono_domain_get ());
-	} else {
-		handles->entries [bucket] [offset] = GC_HANDLE_OBJECT_POINTER (obj);
-	}
+	if (obj && GC_HANDLE_TYPE_IS_WEAK (handles->type))
+		mono_gc_weak_link_register (&handles->entries [bucket] [offset], obj, track);
 	/* Ensure that a GC handle cannot be given to another thread without the slot having been set. */
 	mono_memory_write_barrier ();
 #ifndef DISABLE_PERFCOUNTERS
@@ -855,23 +835,34 @@ retry:
  * This assumes that the world is stopped!
  */
 void
-mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer callback(gpointer *, GCHandleType, gpointer), gpointer user)
+mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer callback(MonoObject *, GCHandleType, gpointer), gpointer user)
 {
-	HandleData *handle_data = &gc_handles [handle_type];
+	HandleData *handle_data = gc_handles_for_type (handle_type);
 	size_t bucket, offset;
 	guint max_bucket = index_bucket (handle_data->capacity);
+	/* If a new bucket has been allocated, but the capacity has not yet been
+	 * increased, nothing can yet have been allocated in the bucket because the
+	 * world is stopped, so we shouldn't miss any handles during iteration.
+	 */
 	for (bucket = 0; bucket < max_bucket; ++bucket) {
-		volatile gpointer *entries;
-		/* It may be that the capacity has increased, but the bucket has not yet been assigned. */
-		while (!(entries = handle_data->entries [bucket])) {}
-		for (offset = 0; offset < (1 << (bucket + MIN_BUCKET_BITS)); ++offset) {
-			gpointer slot = entries [offset];
+		volatile gpointer *entries = handle_data->entries [bucket];
+		for (offset = 0; offset < bucket_size (bucket); ++offset) {
+			gpointer hidden = entries [offset];
+			gpointer revealed;
+			gpointer result;
 			/* Table must contain no garbage pointers. */
-			gboolean occupied = GC_HANDLE_OCCUPIED (slot);
-			g_assert (slot ? occupied : TRUE);
-			if (!REVEAL_POINTER (slot) || !occupied || !GC_HANDLE_VALID (slot) || mono_gc_object_older_than (REVEAL_POINTER (slot), max_generation))
+			gboolean occupied = MONO_GC_HANDLE_OCCUPIED (hidden);
+			g_assert (hidden ? occupied : !occupied);
+			if (!occupied || !MONO_GC_HANDLE_VALID (hidden))
 				continue;
-			entries [offset] = callback ((gpointer *)&entries [offset], handle_type, user);
+			revealed = MONO_GC_REVEAL_POINTER (hidden, GC_HANDLE_TYPE_IS_WEAK (handle_type));
+			g_assert (revealed);
+			if (mono_gc_object_older_than (revealed, max_generation))
+				continue;
+			result = callback (revealed, handle_type, user);
+			if (result)
+				g_assert (MONO_GC_HANDLE_OCCUPIED (result));
+			entries [offset] = result;
 		}
 	}
 }
@@ -896,7 +887,7 @@ mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer ca
 guint32
 mono_gchandle_new (MonoObject *obj, gboolean pinned)
 {
-	return alloc_handle (&gc_handles [pinned? HANDLE_PINNED: HANDLE_NORMAL], obj, FALSE);
+	return alloc_handle (gc_handles_for_type (pinned ? HANDLE_PINNED : HANDLE_NORMAL), obj, FALSE);
 }
 
 /**
@@ -921,9 +912,51 @@ mono_gchandle_new (MonoObject *obj, gboolean pinned)
 guint32
 mono_gchandle_new_weakref (MonoObject *obj, gboolean track_resurrection)
 {
-	guint32 handle = alloc_handle (&gc_handles [track_resurrection? HANDLE_WEAK_TRACK: HANDLE_WEAK], obj, track_resurrection);
+	guint32 handle = alloc_handle (gc_handles_for_type (track_resurrection ? HANDLE_WEAK_TRACK : HANDLE_WEAK), obj, track_resurrection);
 
 	return handle;
+}
+
+static MonoObject *
+link_get (volatile gpointer *link_addr, gboolean is_weak)
+{
+	void *volatile *link_addr_volatile;
+	void *ptr;
+	MonoObject *obj;
+retry:
+	link_addr_volatile = link_addr;
+	ptr = (void*)*link_addr_volatile;
+	/*
+	 * At this point we have a hidden pointer.  If the GC runs
+	 * here, it will not recognize the hidden pointer as a
+	 * reference, and if the object behind it is not referenced
+	 * elsewhere, it will be freed.  Once the world is restarted
+	 * we reveal the pointer, giving us a pointer to a freed
+	 * object.  To make sure we don't return it, we load the
+	 * hidden pointer again.  If it's still the same, we can be
+	 * sure the object reference is valid.
+	 */
+	if (ptr && MONO_GC_HANDLE_IS_OBJECT_POINTER (ptr))
+		obj = (MonoObject *)MONO_GC_REVEAL_POINTER (ptr, is_weak);
+	else
+		return NULL;
+
+	/* Note [dummy use]:
+	 *
+	 * If a GC happens here, obj needs to be on the stack or in a
+	 * register, so we need to prevent this from being reordered
+	 * wrt the check.
+	 */
+	mono_gc_dummy_use (obj);
+	mono_memory_barrier ();
+
+	if (is_weak)
+		mono_gc_ensure_weak_links_accessible ();
+
+	if ((void*)*link_addr_volatile != ptr)
+		goto retry;
+
+	return obj;
 }
 
 /**
@@ -941,20 +974,11 @@ mono_gchandle_get_target (guint32 gchandle)
 {
 	guint index = GC_HANDLE_INDEX (gchandle);
 	guint type = GC_HANDLE_TYPE (gchandle);
-	HandleData *handles = &gc_handles [type];
-	MonoObject *obj = NULL;
+	HandleData *handles = gc_handles_for_type (type);
 	guint bucket, offset;
-	gpointer slot;
-	if (type >= HANDLE_TYPE_MAX)
-		return NULL;
+	g_assert (index < handles->capacity);
 	bucketize (index, &bucket, &offset);
-	slot = handles->entries [bucket] [offset];
-	if (index < handles->capacity && GC_HANDLE_OCCUPIED (slot) && GC_HANDLE_VALID (slot)) {
-		obj = REVEAL_POINTER (slot);
-	} else {
-		/* print a warning? */
-	}
-	return obj;
+	return link_get (&handles->entries [bucket] [offset], GC_HANDLE_TYPE_IS_WEAK (type));
 }
 
 static void
@@ -962,58 +986,60 @@ mono_gchandle_set_target (guint32 gchandle, MonoObject *obj)
 {
 	guint index = GC_HANDLE_INDEX (gchandle);
 	guint type = GC_HANDLE_TYPE (gchandle);
-	HandleData *handles = &gc_handles [type];
-	MonoObject *old_obj = NULL;
+	HandleData *handles = gc_handles_for_type (type);
+	gboolean track = handles->type == HANDLE_WEAK_TRACK;
 	guint bucket, offset;
+	gpointer slot;
 
-	g_assert (type < HANDLE_TYPE_MAX);
+	g_assert (index < handles->capacity);
 	bucketize (index, &bucket, &offset);
-	if (index < handles->capacity && slot_occupied (handles, bucket, offset)) {
-		if (GC_HANDLE_TYPE_IS_WEAK (handles->type)) {
-			old_obj = handles->entries [bucket] [offset];
-			if (GC_HANDLE_OCCUPIED (old_obj) && GC_HANDLE_VALID (old_obj))
-				mono_gc_weak_link_remove (&handles->entries [bucket] [offset], handles->type == HANDLE_WEAK_TRACK);
-			if (obj)
-				mono_gc_weak_link_add (&handles->entries [bucket] [offset], obj, handles->type == HANDLE_WEAK_TRACK);
-			else
-				/* FIXME: Which domain should be used? */
-				handles->entries [bucket] [offset] = GC_HANDLE_DOMAIN_POINTER (mono_domain_get ());
-		} else {
-			handles->entries [bucket] [offset] = GC_HANDLE_OBJECT_POINTER (obj);
-		}
-	} else {
-		/* print a warning? */
-	}
+
+retry:
+	slot = handles->entries [bucket] [offset];
+	g_assert (MONO_GC_HANDLE_OCCUPIED (slot));
+	if (!try_set_slot (&handles->entries [bucket] [offset], obj, slot, GC_HANDLE_TYPE_IS_WEAK (handles->type)))
+		goto retry;
+	if (MONO_GC_HANDLE_IS_OBJECT_POINTER (slot))
+		mono_gc_weak_link_unregister (&handles->entries [bucket] [offset], track);
+	if (obj)
+		mono_gc_weak_link_register (&handles->entries [bucket] [offset], obj, track);
 }
 
-MonoDomain *
-mono_gchandle_slot_domain (GCHandleType handle_type, volatile gpointer *slot_addr)
+static MonoDomain *
+mono_gchandle_slot_domain (volatile gpointer *slot_addr, gboolean is_weak)
 {
-	HandleData *handles = &gc_handles [handle_type];
-	gpointer slot = *slot_addr;
-	if (!GC_HANDLE_OCCUPIED (slot))
+	gpointer slot;
+	MonoDomain *domain;
+retry:
+	slot = *slot_addr;
+	if (!MONO_GC_HANDLE_OCCUPIED (slot))
 		return NULL;
-	if (GC_HANDLE_TYPE_IS_WEAK (handles->type)) {
-		if (GC_HANDLE_VALID (slot))
-			return mono_object_domain (mono_gc_weak_link_get (slot_addr));
-		return (MonoDomain *)REVEAL_POINTER (slot);
+	if (MONO_GC_HANDLE_IS_OBJECT_POINTER (slot)) {
+		MonoObject *obj = MONO_GC_REVEAL_POINTER (slot, is_weak);
+		/* See note [dummy use]. */
+		mono_gc_dummy_use (obj);
+		if (*slot_addr != slot)
+			goto retry;
+		return mono_object_domain (obj);
 	}
-	{
-		MonoObject *object = REVEAL_POINTER (slot);
-		return object ? mono_object_domain (object) : NULL;
-	}
+	domain = MONO_GC_REVEAL_POINTER (slot, is_weak);
+	/* See note [dummy use]. */
+	mono_gc_dummy_use (domain);
+	if (*slot_addr != slot)
+		goto retry;
+	return domain;
 }
 
 static MonoDomain *
 gchandle_domain (guint32 gchandle) {
 	guint index = GC_HANDLE_INDEX (gchandle);
 	guint type = GC_HANDLE_TYPE (gchandle);
-	HandleData *handles = &gc_handles [type];
+	HandleData *handles = gc_handles_for_type (type);
 	guint bucket, offset;
 	if (index >= handles->capacity)
 		return NULL;
 	bucketize (index, &bucket, &offset);
-	return mono_gchandle_slot_domain (type, &handles->entries [bucket] [offset]);
+	return mono_gchandle_slot_domain (&handles->entries [bucket] [offset], GC_HANDLE_TYPE_IS_WEAK (type));
 }
 
 /**
@@ -1042,16 +1068,13 @@ mono_gchandle_free (guint32 gchandle)
 {
 	guint index = GC_HANDLE_INDEX (gchandle);
 	guint type = GC_HANDLE_TYPE (gchandle);
-	HandleData *handles = &gc_handles [type];
+	HandleData *handles = gc_handles_for_type (type);
 	guint bucket, offset;
-	if (type >= HANDLE_TYPE_MAX)
-		return;
 	bucketize (index, &bucket, &offset);
-	if (index < handles->capacity && GC_HANDLE_OCCUPIED (handles->entries [bucket] [offset])) {
+	if (index < handles->capacity && MONO_GC_HANDLE_OCCUPIED (handles->entries [bucket] [offset])) {
 		if (GC_HANDLE_TYPE_IS_WEAK (handles->type))
-			mono_gc_weak_link_remove (&handles->entries [bucket] [offset], handles->type == HANDLE_WEAK_TRACK);
-		else
-			handles->entries [bucket] [offset] = NULL;
+			mono_gc_weak_link_unregister (&handles->entries [bucket] [offset], handles->type == HANDLE_WEAK_TRACK);
+		handles->entries [bucket] [offset] = NULL;
 	} else {
 		/* print a warning? */
 	}
@@ -1063,31 +1086,48 @@ mono_gchandle_free (guint32 gchandle)
 
 /**
  * mono_gchandle_free_domain:
- * @domain: domain that is unloading
+ * @unloading: domain that is unloading
  *
  * Function used internally to cleanup any GC handle for objects belonging
  * to the specified domain during appdomain unload.
  */
 void
-mono_gchandle_free_domain (MonoDomain *domain)
+mono_gchandle_free_domain (MonoDomain *unloading)
 {
 	guint type;
+	/* All non-pinned handle types. */
 	for (type = HANDLE_TYPE_MIN; type < HANDLE_PINNED; ++type) {
+		const gboolean is_weak = GC_HANDLE_TYPE_IS_WEAK (type);
 		guint index;
-		HandleData *handles = &gc_handles [type];
+		HandleData *handles = gc_handles_for_type (type);
 		guint32 capacity = handles->capacity;
 		for (index = 0; index < capacity; ++index) {
 			guint bucket, offset;
 			gpointer slot;
 			bucketize (index, &bucket, &offset);
-			slot = handles->entries [bucket] [offset];
-			if (!GC_HANDLE_OCCUPIED (slot))
+			MonoObject *obj = NULL;
+			MonoDomain *domain;
+			volatile gpointer *slot_addr = &handles->entries [bucket] [offset];
+			/* NB: This should have the same behavior as mono_gchandle_slot_domain(). */
+		retry:
+			slot = *slot_addr;
+			if (!MONO_GC_HANDLE_OCCUPIED (slot))
 				continue;
-			if (domain->domain_id == mono_gchandle_slot_domain (type, &handles->entries [bucket] [offset])->domain_id) {
-				if (GC_HANDLE_TYPE_IS_WEAK (type) && REVEAL_POINTER (slot))
-					mono_gc_weak_link_remove (&handles->entries [bucket] [offset], handles->type == HANDLE_WEAK_TRACK);
-				handles->entries [bucket] [offset] = NULL;
+			if (MONO_GC_HANDLE_IS_OBJECT_POINTER (slot)) {
+				obj = MONO_GC_REVEAL_POINTER (slot, is_weak);
+				if (*slot_addr != slot)
+					goto retry;
+				domain = mono_object_domain (obj);
+			} else {
+				domain = MONO_GC_REVEAL_POINTER (slot, is_weak);
 			}
+			if (unloading->domain_id == domain->domain_id) {
+				if (GC_HANDLE_TYPE_IS_WEAK (type) && MONO_GC_REVEAL_POINTER (slot, is_weak))
+					mono_gc_weak_link_unregister (&handles->entries [bucket] [offset], handles->type == HANDLE_WEAK_TRACK);
+				*slot_addr = NULL;
+			}
+			/* See note [dummy use]. */
+			mono_gc_dummy_use (obj);
 		}
 	}
 
@@ -1292,7 +1332,9 @@ mono_gc_init (void)
 
 	mono_gc_base_init ();
 
+#ifdef HAVE_SGEN_GC
 	mono_gc_register_root ((char *)&gc_handles [0], sizeof (gc_handles), mono_gc_make_root_descr_user (mark_gc_handles));
+#endif
 
 	if (mono_gc_is_disabled ()) {
 		gc_disabled = TRUE;

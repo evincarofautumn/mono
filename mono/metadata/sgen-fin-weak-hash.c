@@ -632,43 +632,45 @@ mono_gc_finalizers_for_domain (MonoDomain *domain, MonoObject **out_array, int o
  * Returns whether to remove the link from its hash.
  */
 static gpointer
-null_link_if_necessary (gpointer *hidden_entry, GCHandleType handle_type, gpointer user)
+null_link_if_necessary (MonoObject *obj, GCHandleType handle_type, gpointer user)
 {
+	const gboolean is_weak = GC_HANDLE_TYPE_IS_WEAK (handle_type);
 	ScanCopyContext *ctx = (ScanCopyContext *)user;
-	gpointer entry = REVEAL_POINTER (*hidden_entry);
-	char *copy = entry;
-	gboolean entry_in_nursery = ptr_in_nursery (entry);
-	if (sgen_get_current_collection_generation () == GENERATION_NURSERY && !entry_in_nursery)
-		return *hidden_entry;
-	/* Clear link if object is ready for finalization. */
-	if (sgen_gc_is_object_ready_for_finalization (entry)) {
-		binary_protocol_dislink_update (hidden_entry, entry, 0);
-		return GC_HANDLE_DOMAIN_POINTER (mono_object_domain (entry));
+	char *copy = (char *)obj;
+	g_assert (obj);
+	if (major_collector.is_object_live ((char *)obj))
+		return MONO_GC_HANDLE_OBJECT_POINTER (obj, is_weak);
+	/*
+	gboolean obj_in_nursery = ptr_in_nursery (obj);
+	if (sgen_get_current_collection_generation () == GENERATION_NURSERY && !obj_in_nursery)
+		return GC_HANDLE_OBJECT_POINTER (obj);
+	*/
+	/* Clear link if object is ready for finalization. This check may be redundant wrt is_object_live(). */
+	if (sgen_gc_is_object_ready_for_finalization (obj)) {
+		/* binary_protocol_dislink_update (hidden_entry, entry, 0); */
+		return MONO_GC_HANDLE_DOMAIN_POINTER (mono_object_domain (obj), is_weak);
 	}
 	ctx->ops->copy_or_mark_object ((void **)&copy, ctx->queue);
 	g_assert (copy);
-	binary_protocol_dislink_update (hidden_entry, copy, handle_type == HANDLE_WEAK_TRACK);
+	/* binary_protocol_dislink_update (hidden_entry, copy, handle_type == HANDLE_WEAK_TRACK); */
 	/* Update link if object was moved. */
-	return GC_HANDLE_OBJECT_POINTER (copy);
+	return MONO_GC_HANDLE_OBJECT_POINTER (copy, is_weak);
 }
 
 /* LOCKING: requires that the GC lock is held */
 void
-sgen_null_link_in_range (int generation, gboolean before_finalization, ScanCopyContext ctx, gboolean track)
+sgen_null_link_in_range (int generation, ScanCopyContext ctx, gboolean track)
 {
 	mono_gchandle_iterate (track ? HANDLE_WEAK_TRACK : HANDLE_WEAK, generation, null_link_if_necessary, &ctx);
 }
 
 static gpointer
-null_link_if_in_domain (gpointer *hidden_entry, GCHandleType handle_type, gpointer user)
+null_link_if_in_domain (MonoObject *obj, GCHandleType handle_type, gpointer user)
 {
-	MonoDomain *domain = user;
-	gpointer entry = REVEAL_POINTER (*hidden_entry);
-	if (!entry)
-		return NULL;
-	if (mono_gchandle_slot_domain (handle_type, entry) == domain)
-		return NULL;
-	return *hidden_entry;
+	/* This should only happen when the root domain is being unloaded,
+	 * because that does not go through the ordinary domain unloading.
+	 */
+	return mono_object_domain (obj) == (MonoDomain *)user ? NULL : MONO_GC_HANDLE_OBJECT_POINTER (obj, GC_HANDLE_TYPE_IS_WEAK (handle_type));
 }
 
 /* LOCKING: requires that the GC lock is held */
@@ -685,20 +687,15 @@ typedef struct {
 } WeakLinkAlivePredicateClosure;
 
 static gpointer
-null_link_if_dead (gpointer *hidden_entry, GCHandleType handle_type, gpointer user)
+null_link_if_dead (MonoObject *obj, GCHandleType handle_type, gpointer user)
 {
 	/* Strictly speaking, function pointers are not guaranteed to have the same size as data pointers. */
 	WeakLinkAlivePredicateClosure *closure = (WeakLinkAlivePredicateClosure *)user;
-	gpointer entry = REVEAL_POINTER (*hidden_entry);
-	gboolean is_alive;
-	if (!entry)
+	if (!closure->predicate (obj, closure->data)) {
+		/* binary_protocol_dislink_update (hidden_entry, NULL, 0); */
 		return NULL;
-	is_alive = closure->predicate ((MonoObject*)entry, closure->data);
-	if (!is_alive) {
-		binary_protocol_dislink_update (hidden_entry, NULL, 0);
-		return GC_HANDLE_DOMAIN_POINTER (mono_object_domain (entry));
 	}
-	return *hidden_entry;
+	return MONO_GC_HANDLE_OBJECT_POINTER (obj, GC_HANDLE_TYPE_IS_WEAK (handle_type));
 }
 
 /* LOCKING: requires that the GC lock is held */

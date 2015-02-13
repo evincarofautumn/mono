@@ -816,6 +816,7 @@ retry:
 		handle_data_grow (handles, capacity);
 		goto retry;
 	}
+	handles->slot_hint = index;
 	bucketize (index, &bucket, &offset);
 	if (!try_occupy_slot (handles, bucket, offset, obj, track))
 		goto retry;

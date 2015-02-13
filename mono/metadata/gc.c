@@ -749,7 +749,8 @@ static guint
 handle_data_find_unset (HandleData *handles, guint32 begin, guint32 end)
 {
 	guint index;
-	for (index = begin; index < end; ++index) {
+	gint delta = begin < end ? +1 : -1;
+	for (index = begin; index < end; index += delta) {
 		guint bucket, offset;
 		volatile gpointer *entries;
 		bucketize (index, &bucket, &offset);

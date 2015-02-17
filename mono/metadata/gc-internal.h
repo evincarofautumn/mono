@@ -77,23 +77,6 @@ typedef struct {
 #define MONO_GC_HIDE_POINTER(p,t,h) ((gpointer)(((-(size_t)!!(h) ^ (size_t)(p)) & ~3UL) | (t & 3UL)))
 #define MONO_GC_REVEAL_POINTER(p,h) ((gpointer)((-(size_t)!!(h) ^ (size_t)(p)) & ~3UL))
 
-#define MONO_GC_POINTER_TAG(p) ((size_t)(p) & 3UL)
-
-#define MONO_GC_HANDLE_OCCUPIED_MASK (1)
-#define MONO_GC_HANDLE_VALID_MASK (2)
-#define MONO_GC_HANDLE_TAG_MASK (MONO_GC_HANDLE_OCCUPIED_MASK | MONO_GC_HANDLE_VALID_MASK)
-
-#define MONO_GC_HANDLE_DOMAIN_POINTER(p,h) (MONO_GC_HIDE_POINTER ((p), MONO_GC_HANDLE_OCCUPIED_MASK, (h)))
-#define MONO_GC_HANDLE_OBJECT_POINTER(p,h) (MONO_GC_HIDE_POINTER ((p), MONO_GC_HANDLE_OCCUPIED_MASK | MONO_GC_HANDLE_VALID_MASK, (h)))
-
-#define MONO_GC_HANDLE_OCCUPIED(slot) ((size_t)(slot) & MONO_GC_HANDLE_OCCUPIED_MASK)
-#define MONO_GC_HANDLE_VALID(slot) ((size_t)(slot) & MONO_GC_HANDLE_VALID_MASK)
-
-#define MONO_GC_HANDLE_TAG(slot) ((size_t)(slot) & MONO_GC_HANDLE_TAG_MASK)
-
-#define MONO_GC_HANDLE_IS_OBJECT_POINTER(slot) (MONO_GC_HANDLE_TAG (slot) == (MONO_GC_HANDLE_OCCUPIED_MASK | MONO_GC_HANDLE_VALID_MASK))
-#define MONO_GC_HANDLE_IS_DOMAIN_POINTER(slot) (MONO_GC_HANDLE_TAG (slot) == MONO_GC_HANDLE_OCCUPIED_MASK)
-
 extern GCStats gc_stats;
 
 void   mono_object_register_finalizer               (MonoObject  *obj);
@@ -216,7 +199,19 @@ typedef enum {
 
 #define GC_HANDLE_TYPE_IS_WEAK(x) ((x) <= HANDLE_WEAK_TRACK)
 
-void mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer callback(MonoObject *, GCHandleType, gpointer), gpointer user);
+void mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer callback(gpointer, GCHandleType, gpointer), gpointer user);
+
+void mono_gchandle_set_target (guint32 gchandle, MonoObject *obj);
+void mono_gc_weak_link_add (void **link_addr, MonoObject *obj, gboolean track);
+void mono_gc_weak_link_remove (void **link_addr, gboolean track);
+MonoObject *mono_gc_weak_link_get (void **link_addr);
+
+#define MONO_GC_HANDLE_TYPE_SHIFT (3)
+#define MONO_GC_HANDLE_TYPE_MASK ((1 << MONO_GC_HANDLE_TYPE_SHIFT) - 1)
+#define MONO_GC_HANDLE_TYPE(x) (((x) & MONO_GC_HANDLE_TYPE_MASK) - 1)
+#define MONO_GC_HANDLE_SLOT(x) ((x) >> MONO_GC_HANDLE_TYPE_SHIFT)
+#define MONO_GC_HANDLE_TYPE_IS_WEAK(x) ((x) <= HANDLE_WEAK_TRACK)
+#define MONO_GC_HANDLE(slot, type) (((slot) << MONO_GC_HANDLE_TYPE_SHIFT) | (((type) & MONO_GC_HANDLE_TYPE_MASK) + 1))
 
 typedef void (*FinalizerThreadCallback) (gpointer user_data);
 

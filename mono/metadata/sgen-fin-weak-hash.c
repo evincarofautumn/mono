@@ -632,8 +632,9 @@ mono_gc_finalizers_for_domain (MonoDomain *domain, MonoObject **out_array, int o
  * Returns whether to remove the link from its hash.
  */
 static gpointer
-null_link_if_necessary (MonoObject *obj, GCHandleType handle_type, gpointer user)
+null_link_if_necessary (gpointer ptr, GCHandleType handle_type, gpointer user)
 {
+	MonoObject *obj = ptr;
 	const gboolean is_weak = GC_HANDLE_TYPE_IS_WEAK (handle_type);
 	ScanCopyContext *ctx = (ScanCopyContext *)user;
 	char *copy = (char *)obj;
@@ -665,8 +666,9 @@ sgen_null_link_in_range (int generation, ScanCopyContext ctx, gboolean track)
 }
 
 static gpointer
-null_link_if_in_domain (MonoObject *obj, GCHandleType handle_type, gpointer user)
+null_link_if_in_domain (gpointer ptr, GCHandleType handle_type, gpointer user)
 {
+	MonoObject *obj = ptr;
 	/* This should only happen when the root domain is being unloaded,
 	 * because that does not go through the ordinary domain unloading.
 	 */
@@ -687,8 +689,9 @@ typedef struct {
 } WeakLinkAlivePredicateClosure;
 
 static gpointer
-null_link_if_dead (MonoObject *obj, GCHandleType handle_type, gpointer user)
+null_link_if_dead (gpointer ptr, GCHandleType handle_type, gpointer user)
 {
+	MonoObject *obj = ptr;
 	/* Strictly speaking, function pointers are not guaranteed to have the same size as data pointers. */
 	WeakLinkAlivePredicateClosure *closure = (WeakLinkAlivePredicateClosure *)user;
 	if (!closure->predicate (obj, closure->data)) {

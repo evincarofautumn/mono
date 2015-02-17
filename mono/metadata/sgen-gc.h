@@ -1202,7 +1202,24 @@ gboolean nursery_canaries_enabled (void);
 					canary_copy[CANARY_SIZE] = 0;	\
 					g_error ("CORRUPT CANARY:\naddr->%p\ntype->%s\nexcepted->'%s'\nfound->'%s'\n", (char*) addr, ((MonoObject*)addr)->vtable->klass->name, CANARY_STRING, canary_copy);	\
 				} }
-				 
+
+#define MONO_GC_POINTER_TAG(p) ((size_t)(p) & 3UL)
+
+#define MONO_GC_HANDLE_OCCUPIED_MASK (1)
+#define MONO_GC_HANDLE_VALID_MASK (2)
+#define MONO_GC_HANDLE_TAG_MASK (MONO_GC_HANDLE_OCCUPIED_MASK | MONO_GC_HANDLE_VALID_MASK)
+
+#define MONO_GC_HANDLE_OCCUPIED(slot) ((size_t)(slot) & MONO_GC_HANDLE_OCCUPIED_MASK)
+#define MONO_GC_HANDLE_VALID(slot) ((size_t)(slot) & MONO_GC_HANDLE_VALID_MASK)
+
+#define MONO_GC_HANDLE_TAG(slot) ((size_t)(slot) & MONO_GC_HANDLE_TAG_MASK)
+
+#define MONO_GC_HANDLE_IS_OBJECT_POINTER(slot) (MONO_GC_HANDLE_TAG (slot) == (MONO_GC_HANDLE_OCCUPIED_MASK | MONO_GC_HANDLE_VALID_MASK))
+#define MONO_GC_HANDLE_IS_DOMAIN_POINTER(slot) (MONO_GC_HANDLE_TAG (slot) == MONO_GC_HANDLE_OCCUPIED_MASK)
+
+#define MONO_GC_HANDLE_DOMAIN_POINTER(p,h) (MONO_GC_HIDE_POINTER ((p), MONO_GC_HANDLE_OCCUPIED_MASK, (h)))
+#define MONO_GC_HANDLE_OBJECT_POINTER(p,h) (MONO_GC_HIDE_POINTER ((p), MONO_GC_HANDLE_OCCUPIED_MASK | MONO_GC_HANDLE_VALID_MASK, (h)))
+
 #endif /* HAVE_SGEN_GC */
 
 #endif /* __MONO_SGENGC_H__ */

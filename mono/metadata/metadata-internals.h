@@ -52,12 +52,12 @@ struct _MonoAssemblyName {
 	const char *culture;
 	const char *hash_value;
 	const mono_byte* public_key;
-	// string of 16 hex chars + 1 NULL
-	mono_byte public_key_token [MONO_PUBLIC_KEY_TOKEN_LENGTH];
 	uint32_t hash_alg;
 	uint32_t hash_len;
 	uint32_t flags;
 	uint16_t major, minor, build, revision, arch;
+	// string of 16 hex chars + 1 NULL
+	mono_byte public_key_token [MONO_PUBLIC_KEY_TOKEN_LENGTH];
 };
 
 struct MonoTypeNameParse {
@@ -70,6 +70,10 @@ struct MonoTypeNameParse {
 };
 
 struct _MonoAssembly {
+	char *basedir;
+	MonoAssemblyName aname;
+	MonoImage *image;
+	GSList *friend_assembly_names; /* Computed by mono_assembly_load_friends () */
 	/* 
 	 * The number of appdomains which have this assembly loaded plus the number of 
 	 * assemblies referencing this assembly through an entry in their image->references
@@ -79,19 +83,15 @@ struct _MonoAssembly {
 	 * The ref_count is initially 0.
 	 */
 	int ref_count; /* use atomic operations only */
-	char *basedir;
-	MonoAssemblyName aname;
-	MonoImage *image;
-	GSList *friend_assembly_names; /* Computed by mono_assembly_load_friends () */
-	guint8 friend_assembly_names_inited;
-	guint8 in_gac;
-	guint8 dynamic;
-	guint8 corlib_internal;
-	gboolean ref_only;
-	guint8 wrap_non_exception_throws;
-	guint8 wrap_non_exception_throws_inited;
-	guint8 jit_optimizer_disabled;
-	guint8 jit_optimizer_disabled_inited;
+	guint8 friend_assembly_names_inited:1;
+	guint8 in_gac:1;
+	guint8 dynamic:1;
+	guint8 corlib_internal:1;
+	guint8 ref_only:1;
+	guint8 wrap_non_exception_throws:1;
+	guint8 wrap_non_exception_throws_inited:1;
+	guint8 jit_optimizer_disabled:1;
+	guint8 jit_optimizer_disabled_inited:1;
 	/* security manager flags (one bit is for lazy initialization) */
 	guint32 ecma:2;		/* Has the ECMA key */
 	guint32 aptc:2;		/* Has the [AllowPartiallyTrustedCallers] attributes */
@@ -135,45 +135,14 @@ struct _MonoImage {
 	 * this image between calls of mono_image_open () and mono_image_close ().
 	 */
 	int   ref_count;
+	guint32 raw_data_len;
 	void *raw_data_handle;
 	char *raw_data;
-	guint32 raw_data_len;
-	guint8 raw_buffer_used    : 1;
-	guint8 raw_data_allocated : 1;
-	guint8 fileio_used : 1;
-
-#ifdef HOST_WIN32
-	/* Module was loaded using LoadLibrary. */
-	guint8 is_module_handle : 1;
-
-	/* Module entry point is _CorDllMain. */
-	guint8 has_entry_point : 1;
-#endif
-
-	/* Whenever this is a dynamically emitted module */
-	guint8 dynamic : 1;
-
-	/* Whenever this is a reflection only image */
-	guint8 ref_only : 1;
-
-	/* Whenever this image contains uncompressed metadata */
-	guint8 uncompressed_metadata : 1;
-
-	guint8 checked_module_cctor : 1;
-	guint8 has_module_cctor : 1;
-
-	guint8 idx_string_wide : 1;
-	guint8 idx_guid_wide : 1;
-	guint8 idx_blob_wide : 1;
-
-	/* Whenever this image is considered as platform code for the CoreCLR security model */
-	guint8 core_clr_platform_code : 1;
 			    
 	char *name;
 	const char *assembly_name;
 	const char *module_name;
 	char *version;
-	gint16 md_version_major, md_version_minor;
 	char *guid;
 	void *image_info;
 	MonoMemPool         *mempool; /*protected by the image lock*/
@@ -191,6 +160,9 @@ struct _MonoImage {
 	/**/
 	MonoTableInfo        tables [MONO_TABLE_NUM];
 
+	int nreferences;
+	guint32 module_count;
+
 	/*
 	 * references is initialized only by using the mono_assembly_open
 	 * function, and not by using the lowlevel mono_image_open.
@@ -198,10 +170,7 @@ struct _MonoImage {
 	 * It is NULL terminated.
 	 */
 	MonoAssembly **references;
-	int nreferences;
-
 	MonoImage **modules;
-	guint32 module_count;
 	gboolean *modules_loaded;
 
 	MonoImage **files; /*protected by the image lock*/
@@ -346,6 +315,40 @@ struct _MonoImage {
 	 * It's meant to be used only to mutate and query structures part of this image.
 	 */
 	mono_mutex_t    lock;
+
+	gint16 md_version_major, md_version_minor;
+
+	guint8 raw_buffer_used    : 1;
+	guint8 raw_data_allocated : 1;
+	guint8 fileio_used : 1;
+
+#ifdef HOST_WIN32
+	/* Module was loaded using LoadLibrary. */
+	guint8 is_module_handle : 1;
+
+	/* Module entry point is _CorDllMain. */
+	guint8 has_entry_point : 1;
+#endif
+
+	/* Whenever this is a dynamically emitted module */
+	guint8 dynamic : 1;
+
+	/* Whenever this is a reflection only image */
+	guint8 ref_only : 1;
+
+	/* Whenever this image contains uncompressed metadata */
+	guint8 uncompressed_metadata : 1;
+
+	guint8 checked_module_cctor : 1;
+	guint8 has_module_cctor : 1;
+
+	guint8 idx_string_wide : 1;
+	guint8 idx_guid_wide : 1;
+	guint8 idx_blob_wide : 1;
+
+	/* Whenever this image is considered as platform code for the CoreCLR security model */
+	guint8 core_clr_platform_code : 1;
+
 };
 
 /*
@@ -356,18 +359,18 @@ struct _MonoImage {
  * images.
  */
 typedef struct {
-	int nimages;
+	mono_mutex_t lock;
 	MonoImage **images;
 
 	GHashTable *gclass_cache, *ginst_cache, *gmethod_cache, *gsignature_cache;
-
-	mono_mutex_t    lock;
 
 	/*
 	 * Memory for generic instances owned by this image set should be allocated from
 	 * this mempool, using the mono_image_set_alloc family of functions.
 	 */
 	MonoMemPool         *mempool;
+	int nimages;
+
 } MonoImageSet;
 
 enum {
@@ -386,12 +389,12 @@ typedef struct {
 } MonoDynamicStream;
 
 typedef struct {
+	guint32 *values; /* rows * columns */
 	guint32 alloc_rows;
 	guint32 rows;
+	guint32 next_idx;
 	guint8  row_size; /*  calculated later with column_sizes */
 	guint8  columns;
-	guint32 next_idx;
-	guint32 *values; /* rows * columns */
 } MonoDynamicTable;
 
 struct _MonoDynamicAssembly {

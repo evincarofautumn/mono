@@ -18,10 +18,10 @@
 
 typedef struct {
 	void *handle;
-	int main_module;
 
 	/* If not NULL, use the methods in MonoDlFallbackHandler instead of the LL_* methods */
 	MonoDlFallbackHandler *dl_fallback;
+	int main_module;
 } MonoDl;
 
 

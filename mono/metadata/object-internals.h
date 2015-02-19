@@ -870,9 +870,9 @@ struct _MonoReflectionAssembly {
 	MonoObject *refuse;	/* PermissionSet - for SecurityAction.RequestRefuse */
 	MonoObject *granted;	/* PermissionSet - for the resolved assembly granted permissions */
 	MonoObject *denied;	/* PermissionSet - for the resolved assembly denied permissions */
+	MonoString *name;
 	/* */
 	MonoBoolean from_byte_array;
-	MonoString *name;
 };
 
 typedef struct {
@@ -1160,8 +1160,8 @@ struct _MonoReflectionModule {
 	MonoString *fqname;
 	MonoString *name;
 	MonoString *scopename;
-	MonoBoolean is_resource;
 	guint32 token;
+	MonoBoolean is_resource;
 };
 
 typedef struct {

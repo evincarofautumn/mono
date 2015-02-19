@@ -312,11 +312,11 @@ typedef struct {
 
 struct _MonoArrayType {
 	MonoClass *eklass;
+	int *sizes;
+	int *lobounds;
 	uint8_t rank;
 	uint8_t numsizes;
 	uint8_t numlobounds;
-	int *sizes;
-	int *lobounds;
 };
 
 typedef struct _MonoMethodHeader MonoMethodHeader;

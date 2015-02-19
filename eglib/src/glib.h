@@ -196,8 +196,8 @@ gchar*           g_win32_getlocale(void);
 typedef struct {
 	/* In the real glib, this is a GQuark, but we dont use/need that */
 	gpointer domain;
-	gint     code;
 	gchar   *message;
+	gint     code;
 } GError;
 
 void    g_clear_error (GError **error);

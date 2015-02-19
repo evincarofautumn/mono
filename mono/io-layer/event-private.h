@@ -29,9 +29,9 @@ struct _WapiHandle_event
 
 struct _WapiHandle_namedevent
 {
-	WapiSharedNamespace sharedns;
-	gboolean manual;
 	guint32 set_count;
+	gboolean manual;
+	WapiSharedNamespace sharedns;
 };
 
 #endif /* _WAPI_EVENT_PRIVATE_H_ */

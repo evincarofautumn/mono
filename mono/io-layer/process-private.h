@@ -68,8 +68,8 @@ struct _WapiHandle_process
 	char *proc_name;
 	size_t min_working_set;
 	size_t max_working_set;
-	gboolean exited;
 	struct MonoProcess *mono_process;
+	gboolean exited;
 };
 
 typedef struct _WapiHandle_process WapiHandle_process;

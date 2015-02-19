@@ -50,8 +50,8 @@ struct _WapiHandle_find
 {
 	gchar **namelist;
 	gchar *dir_part;
-	int num;
 	size_t count;
+	int num;
 };
 
 #endif /* _WAPI_IO_PRIVATE_H_ */

@@ -62,8 +62,8 @@ namespace System.Reflection {
 		internal string fqname;
 		internal string name;
 		internal string scopename;
-		internal bool is_resource;
 		internal int token;
+		internal bool is_resource;
 #pragma warning restore 649		
 	
 		const BindingFlags defaultBindingFlags = 

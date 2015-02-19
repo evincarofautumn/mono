@@ -2011,11 +2011,11 @@ struct malloc_state {
   tbinptr    treebins[NTREEBINS];
   size_t     footprint;
   size_t     max_footprint;
-  flag_t     mflags;
 #if USE_LOCKS
   MLOCK_T    mutex;     /* locate lock among fields that rarely change */
 #endif /* USE_LOCKS */
   msegment   seg;
+  flag_t     mflags;
 };
 
 typedef struct malloc_state*    mstate;

@@ -121,10 +121,6 @@ struct _WapiHandle_shared_ref
 struct _WapiHandleUnshared
 {
 	WapiHandleType type;
-	guint ref;
-	gboolean signalled;
-	mono_mutex_t signal_mutex;
-	pthread_cond_t signal_cond;
 	
 	union 
 	{
@@ -138,14 +134,17 @@ struct _WapiHandleUnshared
 		struct _WapiHandle_process process;
 		struct _WapiHandle_shared_ref shared;
 	} u;
+
+	mono_mutex_t signal_mutex;
+	pthread_cond_t signal_cond;
+	guint ref;
+	gboolean signalled;
+
 };
 
 struct _WapiHandleShared
 {
 	WapiHandleType type;
-	guint32 timestamp;
-	guint32 handle_refs;
-	volatile gboolean signalled;
 	
 	union
 	{
@@ -153,6 +152,11 @@ struct _WapiHandleShared
 		struct _WapiHandle_namedsem namedsem;
 		struct _WapiHandle_namedevent namedevent;
 	} u;
+
+	guint32 timestamp;
+	guint32 handle_refs;
+
+	volatile gboolean signalled;
 };
 
 #define _WAPI_SHARED_SEM_NAMESPACE 0

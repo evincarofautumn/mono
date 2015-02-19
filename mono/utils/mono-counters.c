@@ -18,8 +18,8 @@ struct _MonoCounter {
 	MonoCounter *next;
 	const char *name;
 	void *addr;
-	int type;
 	size_t size;
+	int type;
 };
 
 static MonoCounter *counters = NULL;

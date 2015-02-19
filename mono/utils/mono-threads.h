@@ -123,19 +123,19 @@ typedef struct {
 	MonoSemType finish_resume_semaphore;
 	MonoSemType resume_semaphore; 
 
-	/* only needed by the posix backend */ 
-#if (defined(_POSIX_VERSION) || defined(__native_client__)) && !defined (__MACH__)
-	MonoSemType begin_suspend_semaphore;
-	gboolean syscall_break_signal;
-	gboolean suspend_can_continue;
-#endif
-
 	/*In theory, only the posix backend needs this, but having it on mach/win32 simplifies things a lot.*/
 	MonoThreadUnwindState suspend_state;
 
 	/*async call machinery, thread MUST be suspended before accessing those fields*/
 	void (*async_target)(void*);
 	void *user_data;
+
+	/* only needed by the posix backend */ 
+#if (defined(_POSIX_VERSION) || defined(__native_client__)) && !defined (__MACH__)
+	MonoSemType begin_suspend_semaphore;
+	gboolean syscall_break_signal;
+	gboolean suspend_can_continue;
+#endif
 
 	/*
 	If true, this thread is running a critical region of code and cannot be suspended.

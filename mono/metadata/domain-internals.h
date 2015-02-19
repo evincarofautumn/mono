@@ -208,6 +208,10 @@ struct _MonoJitInfo {
 	} d;
 	struct _MonoJitInfo *next_jit_code_hash;
 	gpointer    code_start;
+
+	/* FIXME: Embed this after the structure later*/
+	gpointer    gc_info; /* Currently only used by SGen */
+	
 	guint32     unwind_info;
 	int         code_size;
 	guint32     num_clauses:15;
@@ -226,9 +230,6 @@ struct _MonoJitInfo {
 	gboolean    dbg_step_through:1;
 	gboolean    dbg_non_user_code:1;
 
-	/* FIXME: Embed this after the structure later*/
-	gpointer    gc_info; /* Currently only used by SGen */
-	
 	MonoJitExceptionInfo clauses [MONO_ZERO_LEN_ARRAY];
 	/* There is an optional MonoGenericJitInfo after the clauses */
 	/* There is an optional MonoTryBlockHoleTableJitInfo after MonoGenericJitInfo clauses*/
@@ -331,7 +332,6 @@ struct _MonoDomain {
 	/* Needed by Thread:GetDomainID() */
 	gint32             domain_id;
 	gint32             shadow_serial;
-	unsigned char      inet_family_hint; // used in socket-io.c as a cache
 	GSList             *domain_assemblies;
 	MonoAssembly       *entry_assembly;
 	char               *friendly_name;
@@ -340,8 +340,6 @@ struct _MonoDomain {
 	GHashTable         *proxy_vtable_hash;
 	/* Protected by 'jit_code_hash_lock' */
 	MonoInternalHashTable jit_code_hash;
-	mono_mutex_t    jit_code_hash_lock;
-	int		    num_jit_info_tables;
 	MonoJitInfoTable * 
 	  volatile          jit_info_table;
 	/*
@@ -383,10 +381,9 @@ struct _MonoDomain {
 	/* Information maintained by the JIT engine */
 	gpointer runtime_info;
 
-	/*thread pool jobs, used to coordinate shutdown.*/
-	volatile int			threadpool_jobs;
-	HANDLE				cleanup_semaphore;
-	
+	int		    num_jit_info_tables;
+	mono_mutex_t    jit_code_hash_lock;
+
 	/* Contains the compiled runtime invoke wrapper used by finalizers */
 	gpointer            finalize_runtime_invoke;
 
@@ -398,7 +395,6 @@ struct _MonoDomain {
 
 	/* Assembly bindings, the per-domain part */
 	GSList *assembly_bindings;
-	gboolean assembly_bindings_parsed;
 
 	/* Used by socket-io.c */
 	/* These are domain specific, since the assembly can be unloaded */
@@ -417,7 +413,15 @@ struct _MonoDomain {
 	/* that require wrappers */
 	GHashTable *ftnptrs_hash;
 
+	/*thread pool jobs, used to coordinate shutdown.*/
+	HANDLE				cleanup_semaphore;
+	volatile int			threadpool_jobs;
+
 	guint32 execution_context_field_offset;
+
+	unsigned char      inet_family_hint; // used in socket-io.c as a cache
+	gboolean assembly_bindings_parsed;
+
 };
 
 typedef struct  {

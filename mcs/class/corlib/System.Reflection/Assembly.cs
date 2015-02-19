@@ -74,8 +74,8 @@ namespace System.Reflection {
 #else
 		object _evidence, _minimum, _optional, _refuse, _granted, _denied;
 #endif
-		private bool fromByteArray;
 		private string assemblyName;
+		private bool fromByteArray;
 
 		protected
 		Assembly () 

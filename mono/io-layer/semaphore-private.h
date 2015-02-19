@@ -27,9 +27,9 @@ struct _WapiHandle_sem
 
 struct _WapiHandle_namedsem
 {
-	WapiSharedNamespace sharedns;
 	guint32 val;
 	gint32 max;
+	WapiSharedNamespace sharedns;
 };
 
 #endif /* _WAPI_SEMAPHORE_PRIVATE_H_ */

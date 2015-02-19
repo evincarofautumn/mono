@@ -158,15 +158,15 @@ struct _MonoClassField {
 
 typedef struct {
 	MonoClassField *field;
-	guint32 offset;
 	MonoMarshalSpec *mspec;
+	guint32 offset;
 } MonoMarshalField;
 
 typedef struct {
-	guint32 native_size, min_align;
-	guint32 num_fields;
 	MonoMethod *ptr_to_str;
 	MonoMethod *str_to_ptr;
+	guint32 native_size, min_align;
+	guint32 num_fields;
 	MonoMarshalField fields [MONO_ZERO_LEN_ARRAY];
 } MonoMarshalType;
 
@@ -247,14 +247,15 @@ typedef struct {
 	/* Initialized by a call to mono_class_setup_events () */
 	MonoEvent *events;
 
-	guint32    declsec_flags;	/* declarative security attributes flags */
-
 	/* Default values/RVA for fields and properties */
 	/* Accessed using mono_class_get_field_default_value () / mono_field_get_data () */
 	MonoFieldDefaultValue *field_def_values;
 	MonoFieldDefaultValue *prop_def_values;
 
 	GList      *nested_classes;
+
+	guint32    declsec_flags;	/* declarative security attributes flags */
+
 } MonoClassExt;
 
 struct _MonoClass {
@@ -270,7 +271,91 @@ struct _MonoClass {
 	/* array dimension */
 	guint8     rank;          
 
+	guint8     exception_type;	/* MONO_EXCEPTION_* */
+
 	int        instance_size; /* object instance size */
+
+	/* Additional information about the exception */
+	/* Stored as property MONO_CLASS_PROP_EXCEPTION_DATA */
+	//void       *exception_data;
+
+	MonoClass  *parent;
+	MonoClass  *nested_in;
+
+	MonoImage *image;
+	const char *name;
+	const char *name_space;
+
+	guint32    type_token;
+	int        vtable_size; /* number of slots */
+
+	guint16     interface_count;
+	guint16     interface_id;        /* unique inderface id (for interfaces) */
+	guint16     max_interface_id;
+	
+	guint16     interface_offsets_count;
+	MonoClass **interfaces_packed;
+	guint16    *interface_offsets_packed;
+/* enabled only with small config for now: we might want to do it unconditionally */
+#ifdef MONO_SMALL_CONFIG
+#define COMPRESSED_INTERFACE_BITMAP 1
+#endif
+	guint8     *interface_bitmap;
+
+	MonoClass **interfaces;
+
+	/* loaded on demand */
+	MonoMarshalType *marshal_info;
+
+	/*
+	 * Field information: Type and location from object base
+	 */
+	MonoClassField *fields;
+
+	MonoMethod **methods;
+
+	union {
+		int class_size; /* size of area for static fields */
+		int element_size; /* for array types */
+		int generic_param_token; /* for generic param types, both var and mvar */
+	} sizes;
+
+	/*
+	 * From the TypeDef table
+	 */
+	guint32    flags;
+
+	/* A GC handle pointing to the corresponding type builder/generic param builder */
+	guint32 ref_info_handle;
+
+	struct {
+#if MONO_SMALL_CONFIG
+		guint16 first, count;
+#else
+		guint32 first, count;
+#endif
+	} field, method;
+
+	/* used as the type of the this argument and when passing the arg by value */
+	MonoType this_arg;
+	MonoType byval_arg;
+
+	MonoGenericClass *generic_class;
+	MonoGenericContainer *generic_container;
+
+	void *gc_descr;
+
+	MonoClassRuntimeInfo *runtime_info;
+
+	/* next element in the class_cache hash list (in MonoImage) */
+	MonoClass *next_class_cache;
+
+	/* Generic vtable. Initialized by a call to mono_class_setup_vtable () */
+	MonoMethod **vtable;
+
+	/* Rarely used fields of classes */
+	MonoClassExt *ext;
+
 
 	guint inited          : 1;
 	/* We use init_pending to detect cyclic calls to mono_class_init */
@@ -326,87 +411,6 @@ struct _MonoClass {
 	guint fields_inited : 1; /* fields is initialized */
 	guint setup_fields_called : 1; /* to prevent infinite loops in setup_fields */
 
-	guint8     exception_type;	/* MONO_EXCEPTION_* */
-
-	/* Additional information about the exception */
-	/* Stored as property MONO_CLASS_PROP_EXCEPTION_DATA */
-	//void       *exception_data;
-
-	MonoClass  *parent;
-	MonoClass  *nested_in;
-
-	MonoImage *image;
-	const char *name;
-	const char *name_space;
-
-	guint32    type_token;
-	int        vtable_size; /* number of slots */
-
-	guint16     interface_count;
-	guint16     interface_id;        /* unique inderface id (for interfaces) */
-	guint16     max_interface_id;
-	
-	guint16     interface_offsets_count;
-	MonoClass **interfaces_packed;
-	guint16    *interface_offsets_packed;
-/* enabled only with small config for now: we might want to do it unconditionally */
-#ifdef MONO_SMALL_CONFIG
-#define COMPRESSED_INTERFACE_BITMAP 1
-#endif
-	guint8     *interface_bitmap;
-
-	MonoClass **interfaces;
-
-	union {
-		int class_size; /* size of area for static fields */
-		int element_size; /* for array types */
-		int generic_param_token; /* for generic param types, both var and mvar */
-	} sizes;
-
-	/*
-	 * From the TypeDef table
-	 */
-	guint32    flags;
-	struct {
-#if MONO_SMALL_CONFIG
-		guint16 first, count;
-#else
-		guint32 first, count;
-#endif
-	} field, method;
-
-	/* A GC handle pointing to the corresponding type builder/generic param builder */
-	guint32 ref_info_handle;
-
-	/* loaded on demand */
-	MonoMarshalType *marshal_info;
-
-	/*
-	 * Field information: Type and location from object base
-	 */
-	MonoClassField *fields;
-
-	MonoMethod **methods;
-
-	/* used as the type of the this argument and when passing the arg by value */
-	MonoType this_arg;
-	MonoType byval_arg;
-
-	MonoGenericClass *generic_class;
-	MonoGenericContainer *generic_container;
-
-	void *gc_descr;
-
-	MonoClassRuntimeInfo *runtime_info;
-
-	/* next element in the class_cache hash list (in MonoImage) */
-	MonoClass *next_class_cache;
-
-	/* Generic vtable. Initialized by a call to mono_class_setup_vtable () */
-	MonoMethod **vtable;
-
-	/* Rarely used fields of classes */
-	MonoClassExt *ext;
 };
 
 #ifdef COMPRESSED_INTERFACE_BITMAP
@@ -530,16 +534,15 @@ struct _MonoMethodInflated {
 struct _MonoGenericClass {
 	MonoClass *container_class;	/* the generic type definition */
 	MonoGenericContext context;	/* a context that contains the type instantiation doesn't contain any method instantiation */
-	guint is_dynamic  : 1;		/* We're a MonoDynamicGenericClass */
-	guint is_tb_open  : 1;		/* This is the fully open instantiation for a type_builder. Quite ugly, but it's temporary.*/
 	MonoClass *cached_class;	/* if present, the MonoClass corresponding to the instantiation.  */
-
 	/* 
 	 * The image set which owns this generic class. Memory owned by the generic class
 	 * including cached_class should be allocated from the mempool of the image set,
 	 * so it is easy to free.
 	 */
 	MonoImageSet *owner;
+	guint is_dynamic  : 1;		/* We're a MonoDynamicGenericClass */
+	guint is_tb_open  : 1;		/* This is the fully open instantiation for a type_builder. Quite ugly, but it's temporary.*/
 };
 
 /*
@@ -566,9 +569,6 @@ struct _MonoGenericParam {
 	 * If this is non-null, this is a MonoGenericParamFull structure.
 	 */
 	MonoGenericContainer *owner;
-	guint16 num;
-	/* For internal runtime use, used to make different versions of the same param */
-	guint16 serial;
 	/* 
 	 * If owner is NULL, or owner is 'owned' by this gparam,
 	 * then this is the image whose mempool this struct was allocated from.
@@ -576,15 +576,18 @@ struct _MonoGenericParam {
 	 * mono_reflection_initialize_generic_parameter ().
 	 */
 	MonoImage *image;
+	guint16 num;
+	/* For internal runtime use, used to make different versions of the same param */
+	guint16 serial;
 };
 
 /* Additional details about a MonoGenericParam */
 typedef struct {
 	MonoClass *pklass;		/* The corresponding `MonoClass'. */
 	const char *name;
-	guint16 flags;
-	guint32 token;
 	MonoClass** constraints; /* NULL means end of list */
+	guint32 token;
+	guint16 flags;
 } MonoGenericParamInfo;
 
 typedef struct {
@@ -607,11 +610,6 @@ struct _MonoGenericContainer {
 		MonoClass *klass;
 		MonoMethod *method;
 	} owner;
-	int type_argc    : 31;
-	/* If true, we're a generic method, otherwise a generic type definition. */
-	/* Invariant: parent != NULL => is_method */
-	int is_method    : 1;
-	/* Our type parameters. */
 	MonoGenericParamFull *type_params;
 
 	/* 
@@ -619,6 +617,12 @@ struct _MonoGenericContainer {
 	 * allocated from.
 	 */
 	MonoImage *image;
+
+	int type_argc    : 31;
+	/* If true, we're a generic method, otherwise a generic type definition. */
+	/* Invariant: parent != NULL => is_method */
+	int is_method    : 1;
+	/* Our type parameters. */
 };
 
 #define mono_generic_container_get_param(gc, i) ((MonoGenericParam *) ((gc)->type_params + (i)))
@@ -666,13 +670,13 @@ typedef struct {
 } MonoJitICallInfo;
 
 typedef struct {
-	guint8 exception_type;
 	char *class_name; /* If kind == TYPE */
 	char *assembly_name; /* If kind == TYPE or ASSEMBLY */
 	MonoClass *klass; /* If kind != TYPE */
 	const char *member_name; /* If kind != TYPE */
-	gboolean ref_only; /* If kind == ASSEMBLY */
 	char *msg; /* If kind == BAD_IMAGE */
+	guint8 exception_type;
+	guint8 ref_only; /* If kind == ASSEMBLY */
 } MonoLoaderError;
 
 void

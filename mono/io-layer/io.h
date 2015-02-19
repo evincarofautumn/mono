@@ -21,8 +21,8 @@ typedef struct _WapiSecurityAttributes WapiSecurityAttributes;
 
 struct _WapiSecurityAttributes 
 {
-	guint32 nLength;
 	gpointer lpSecurityDescriptor;
+	guint32 nLength;
 	gboolean bInheritHandle;
 };
 

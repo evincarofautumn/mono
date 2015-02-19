@@ -1356,17 +1356,8 @@ typedef struct {
 	MonoJumpInfo    *patch_info;
 	MonoJitInfo     *jit_info;
 	MonoJitDynamicMethodInfo *dynamic_info;
-	guint            num_bblocks, max_block_num;
-	guint            locals_start;
-	guint            num_varinfo; /* used items in varinfo */
-	guint            varinfo_count; /* total storage in varinfo */
-	gint             stack_offset;
-	gint             max_ireg;
-	gint             cil_offset_to_bb_len;
 	MonoRegState    *rs;
 	MonoSpillInfo   *spill_info [16]; /* machine register spills */
-	gint             spill_count;
-	gint             spill_info_len [16];
 	/* unsigned char   *cil_code; */
 	MonoMethod      *inlined_method; /* the method which is currently inlined */
 	MonoInst        *domainvar; /* a cache for the current domain */
@@ -1378,6 +1369,19 @@ typedef struct {
 	MonoMethod      *current_method; /* The method currently processed by method_to_ir () */
 	MonoMethod      *method_to_register; /* The method to register in JIT info tables */
 	MonoGenericContext *generic_context;
+
+	guint            num_bblocks, max_block_num;
+	guint            locals_start;
+	guint            num_varinfo; /* used items in varinfo */
+	guint            varinfo_count; /* total storage in varinfo */
+	gint             stack_offset;
+	gint             max_ireg;
+	gint             cil_offset_to_bb_len;
+	gint             spill_count;
+	gint             spill_info_len [16];
+
+	/* The current virtual register number */
+	guint32 next_vreg;
 
 	/* 
 	 * This variable represents the hidden argument holding the vtype
@@ -1405,11 +1409,7 @@ typedef struct {
 	
 	MonoDomain      *domain;
 
-	guint            real_offset;
 	GHashTable      *cbb_hash;
-
-	/* The current virtual register number */
-	guint32 next_vreg;
 
 	MonoGenericSharingContext *generic_sharing_context;
 
@@ -1540,6 +1540,8 @@ typedef struct {
 	/* Fields used by the local reg allocator */
 	void*            reginfo;
 	int              reginfo_len;
+
+	guint            real_offset;
 
 	/* Maps vregs to their associated MonoInst's */
 	/* vregs with an associated MonoInst are 'global' while others are 'local' */

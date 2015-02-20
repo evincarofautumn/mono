@@ -320,6 +320,9 @@ static int stat_wbarrier_generic_store_atomic = 0;
 static int stat_wbarrier_set_root = 0;
 static int stat_wbarrier_value_copy = 0;
 static int stat_wbarrier_object_copy = 0;
+
+static volatile guint64 stat_gc_handles_allocated = 0;
+static volatile guint64 stat_gc_handles_max_allocated = 0;
 #endif
 
 static guint64 stat_pinned_objects = 0;
@@ -1924,6 +1927,8 @@ init_stats (void)
 	mono_counters_register ("# nursery copy_object() failed forwarded", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_nursery_copy_object_failed_forwarded);
 	mono_counters_register ("# nursery copy_object() failed pinned", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_nursery_copy_object_failed_pinned);
 	mono_counters_register ("# nursery copy_object() failed to space", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_nursery_copy_object_failed_to_space);
+
+	mono_counters_register ("max gc handles allocated", MONO_COUNTER_GC | MONO_COUNTER_ULONG, (unsigned long long *)&stat_gc_handles_max_allocated);
 
 	sgen_nursery_allocator_init_heavy_stats ();
 	sgen_alloc_init_heavy_stats ();
@@ -5500,6 +5505,11 @@ retry:
 	bucketize (index, &bucket, &offset);
 	if (!try_occupy_slot (handles, bucket, offset, obj, track))
 		goto retry;
+#ifdef HEAVY_STATISTICS
+	InterlockedIncrement64 ((volatile gint64 *)&stat_gc_handles_allocated);
+	if (stat_gc_handles_allocated > stat_gc_handles_max_allocated)
+		stat_gc_handles_max_allocated = stat_gc_handles_allocated;
+#endif
 	if (obj && MONO_GC_HANDLE_TYPE_IS_WEAK (handles->type))
 		mono_gc_weak_link_register (&handles->entries [bucket] [offset], obj, track);
 	/* Ensure that a GC handle cannot be given to another thread without the slot having been set. */
@@ -5544,6 +5554,10 @@ mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer ca
 			result = callback (revealed, handle_type, user);
 			if (result)
 				g_assert (MONO_GC_HANDLE_OCCUPIED (result));
+#ifdef HEAVY_STATISTICS
+			if (!result)
+				InterlockedDecrement64 ((volatile gint64 *)&stat_gc_handles_allocated);
+#endif
 			entries [offset] = result;
 		}
 	}
@@ -5755,6 +5769,9 @@ mono_gchandle_free (guint32 gchandle)
 		if (MONO_GC_HANDLE_TYPE_IS_WEAK (handles->type))
 			mono_gc_weak_link_unregister (&handles->entries [bucket] [offset], handles->type == HANDLE_WEAK_TRACK);
 		handles->entries [bucket] [offset] = NULL;
+#ifdef HEAVY_STATISTICS
+		InterlockedDecrement64 ((volatile gint64 *)&stat_gc_handles_allocated);
+#endif
 	} else {
 		/* print a warning? */
 	}
@@ -5805,6 +5822,9 @@ mono_gchandle_free_domain (MonoDomain *unloading)
 				if (MONO_GC_HANDLE_TYPE_IS_WEAK (type) && MONO_GC_REVEAL_POINTER (slot, is_weak))
 					mono_gc_weak_link_unregister (&handles->entries [bucket] [offset], handles->type == HANDLE_WEAK_TRACK);
 				*slot_addr = NULL;
+#ifdef HEAVY_STATISTICS
+				InterlockedDecrement64 ((volatile gint64 *)&stat_gc_handles_allocated);
+#endif
 			}
 			/* See note [dummy use]. */
 			mono_gc_dummy_use (obj);

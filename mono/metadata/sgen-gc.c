@@ -1929,6 +1929,9 @@ init_stats (void)
 	mono_counters_register ("# nursery copy_object() failed to space", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_nursery_copy_object_failed_to_space);
 
 	mono_counters_register ("max gc handles allocated", MONO_COUNTER_GC | MONO_COUNTER_ULONG, (unsigned long long *)&stat_gc_handles_max_allocated);
+	mono_counters_register ("max monitors locked", MONO_COUNTER_GC | MONO_COUNTER_ULONG, (unsigned long long *)&stat_monitors_max_locked);
+	mono_counters_register ("monitors locked", MONO_COUNTER_GC | MONO_COUNTER_ULONG, (unsigned long long *)&stat_monitors_locked);
+	mono_counters_register ("monitors unlocked", MONO_COUNTER_GC | MONO_COUNTER_ULONG, (unsigned long long *)&stat_monitors_unlocked);
 
 	sgen_nursery_allocator_init_heavy_stats ();
 	sgen_alloc_init_heavy_stats ();

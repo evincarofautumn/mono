@@ -25,10 +25,17 @@
 #include <mono/metadata/debug-helpers.h>
 #include <mono/metadata/tabledefs.h>
 #include <mono/metadata/marshal.h>
+#include <mono/metadata/sgen-conf.h>
 #include <mono/utils/mono-threads.h>
 #include <mono/metadata/profiler-private.h>
 #include <mono/utils/mono-time.h>
 #include <mono/utils/atomic.h>
+
+#ifdef HEAVY_STATISTICS
+volatile guint64 stat_monitors_locked = 0;
+volatile guint64 stat_monitors_unlocked = 0;
+volatile guint64 stat_monitors_max_locked = 0;
+#endif
 
 /*
  * Pull the list of opcodes
@@ -276,6 +283,10 @@ mon_new (gsize id)
 						}
 					}
 					mono_gchandle_free ((guint32)new->data);
+#ifdef HEAVY_STATISTICS
+					InterlockedDecrement64 ((volatile gint64 *)&stat_monitors_locked);
+					InterlockedIncrement64 ((volatile gint64 *)&stat_monitors_unlocked);
+#endif
 					new->data = monitor_freelist;
 					monitor_freelist = new;
 				}
@@ -464,6 +475,11 @@ retry:
 		mon = mon_new (id);
 		if (InterlockedCompareExchangePointer ((gpointer*)&obj->synchronisation, mon, NULL) == NULL) {
 			mon->data = (void *)(guint64)mono_gchandle_new_weakref (obj, TRUE);
+#ifdef HEAVY_STATISTICS
+			InterlockedIncrement64 ((volatile gint64 *)&stat_monitors_locked);
+			if (stat_monitors_locked > stat_monitors_max_locked)
+				stat_monitors_max_locked = stat_monitors_locked;
+#endif
 			mono_monitor_allocator_unlock ();
 			/* Successfully locked */
 			return 1;
@@ -479,6 +495,11 @@ retry:
 				lw.lock_word |= LOCK_WORD_FAT_HASH;
 				if (InterlockedCompareExchangePointer ((gpointer*)&obj->synchronisation, lw.sync, oldlw) == oldlw) {
 					mon->data = (void *)(guint64)mono_gchandle_new_weakref (obj, TRUE);
+#ifdef HEAVY_STATISTICS
+					InterlockedIncrement64 ((volatile gint64 *)&stat_monitors_locked);
+					if (stat_monitors_locked > stat_monitors_max_locked)
+						stat_monitors_max_locked = stat_monitors_locked;
+#endif
 					mono_monitor_allocator_unlock ();
 					/* Successfully locked */
 					return 1;
@@ -518,6 +539,11 @@ retry:
 			lw.lock_word |= LOCK_WORD_FAT_HASH;
 			if (InterlockedCompareExchangePointer ((gpointer*)&obj->synchronisation, lw.sync, oldlw) == oldlw) {
 				mon->data = (void *)(guint64)mono_gchandle_new_weakref (obj, TRUE);
+#ifdef HEAVY_STATISTICS
+				InterlockedIncrement64 ((volatile gint64 *)&stat_monitors_locked);
+				if (stat_monitors_locked > stat_monitors_max_locked)
+					stat_monitors_max_locked = stat_monitors_locked;
+#endif
 				mono_monitor_allocator_unlock ();
 				/* Successfully locked */
 				return 1;

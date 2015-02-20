@@ -64,6 +64,12 @@ extern void ves_icall_System_Threading_Monitor_Monitor_pulse_all(MonoObject *obj
 extern gboolean ves_icall_System_Threading_Monitor_Monitor_wait(MonoObject *obj, guint32 ms);
 extern void ves_icall_System_Threading_Monitor_Monitor_try_enter_with_atomic_var (MonoObject *obj, guint32 ms, char *lockTaken);
 
+#ifdef HEAVY_STATISTICS
+extern volatile guint64 stat_monitors_max_locked;
+extern volatile guint64 stat_monitors_locked;
+extern volatile guint64 stat_monitors_unlocked;
+#endif
+
 G_END_DECLS
 
 #endif /* _MONO_METADATA_MONITOR_H_ */

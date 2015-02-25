@@ -108,20 +108,6 @@ typedef struct {
 	MonoLinkedListSetNode node;
 	guint32 small_id; /*Used by hazard pointers */
 	MonoNativeThreadHandle native_handle; /* Valid on mach and android */
-	int thread_state;
-
-	/*Tells if this thread was created by the runtime or not.*/
-	gboolean runtime_thread;
-
-	/* Tells if this thread should be ignored or not by runtime services such as GC and profiling */
-	gboolean tools_thread;
-
-	/* suspend machinery, fields protected by suspend_semaphore */
-	MonoSemType suspend_semaphore;
-	int suspend_count;
-
-	MonoSemType finish_resume_semaphore;
-	MonoSemType resume_semaphore; 
 
 	/*In theory, only the posix backend needs this, but having it on mach/win32 simplifies things a lot.*/
 	MonoThreadUnwindState suspend_state;
@@ -129,31 +115,6 @@ typedef struct {
 	/*async call machinery, thread MUST be suspended before accessing those fields*/
 	void (*async_target)(void*);
 	void *user_data;
-
-	/* only needed by the posix backend */ 
-#if (defined(_POSIX_VERSION) || defined(__native_client__)) && !defined (__MACH__)
-	MonoSemType begin_suspend_semaphore;
-	gboolean syscall_break_signal;
-	gboolean suspend_can_continue;
-#endif
-
-	/*
-	If true, this thread is running a critical region of code and cannot be suspended.
-	A critical session is implicitly started when you call mono_thread_info_safe_suspend_sync
-	and is ended when you call either mono_thread_info_resume or mono_thread_info_finish_suspend.
-	*/
-	gboolean inside_critical_region;
-
-	/*
-	 * If TRUE, the thread is in async context. Code can use this information to avoid async-unsafe
-	 * operations like locking without having to pass an 'async' parameter around.
-	 */
-	gboolean is_async_context;
-
-	gboolean create_suspended;
-
-	/* Semaphore used to implement CREATE_SUSPENDED */
-	MonoSemType create_suspended_sem;
 
 	/*
 	 * Values of TLS variables for this thread.
@@ -171,6 +132,51 @@ typedef struct {
 	 * In the future the signaling should be part of the API, but for now, it's only for massaging the bits.
 	 */
 	volatile gint32 service_requests;
+
+
+	/* Semaphore used to implement CREATE_SUSPENDED */
+	MonoSemType create_suspended_sem;
+
+
+	/* suspend machinery, fields protected by suspend_semaphore */
+	MonoSemType suspend_semaphore;
+	int suspend_count;
+
+	MonoSemType finish_resume_semaphore;
+	MonoSemType resume_semaphore; 
+
+	int thread_state;
+
+	/*
+	If true, this thread is running a critical region of code and cannot be suspended.
+	A critical session is implicitly started when you call mono_thread_info_safe_suspend_sync
+	and is ended when you call either mono_thread_info_resume or mono_thread_info_finish_suspend.
+
+	Can't be a bitfield because we need to take its address in thread_info_finish_suspend().
+	*/
+	gboolean inside_critical_region;
+
+	/* only needed by the posix backend */ 
+#if (defined(_POSIX_VERSION) || defined(__native_client__)) && !defined (__MACH__)
+	MonoSemType begin_suspend_semaphore;
+	gboolean syscall_break_signal:1;
+	gboolean suspend_can_continue:1;
+#endif
+
+	/*Tells if this thread was created by the runtime or not.*/
+	gboolean runtime_thread:1;
+
+	/* Tells if this thread should be ignored or not by runtime services such as GC and profiling */
+	gboolean tools_thread:1;
+
+	/*
+	 * If TRUE, the thread is in async context. Code can use this information to avoid async-unsafe
+	 * operations like locking without having to pass an 'async' parameter around.
+	 */
+	gboolean is_async_context:1;
+
+	gboolean create_suspended:1;
+
 } MonoThreadInfo;
 
 typedef struct {

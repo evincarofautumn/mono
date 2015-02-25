@@ -22,8 +22,8 @@ typedef struct {
 } key_value_pair;
 
 typedef struct {
-	int table_size;
 	key_value_pair *kvs;
+	int table_size;
 } conc_table;
 
 struct _MonoConcurrentHashTable {

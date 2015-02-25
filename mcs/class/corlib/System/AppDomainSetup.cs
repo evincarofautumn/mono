@@ -65,11 +65,6 @@ namespace System
 		string shadow_copy_files;
 		bool publisher_policy;
 		private bool path_changed;
-#if MOBILE
-		private int loader_optimization;
-#else
-		private LoaderOptimization loader_optimization;
-#endif
 		bool disallow_binding_redirects;
 		bool disallow_code_downloads;
 
@@ -85,10 +80,17 @@ namespace System
 #endif
 		string [] domain_initializer_args;
 
-		bool disallow_appbase_probe;
 		byte [] configuration_bytes;
 
 		byte [] serialized_non_primitives;
+
+#if MOBILE
+		private int loader_optimization;
+#else
+		private LoaderOptimization loader_optimization;
+#endif
+
+		bool disallow_appbase_probe;
 
 		public AppDomainSetup ()
 		{

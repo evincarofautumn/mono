@@ -328,14 +328,6 @@ struct _MonoClass {
 	/* A GC handle pointing to the corresponding type builder/generic param builder */
 	guint32 ref_info_handle;
 
-	struct {
-#if MONO_SMALL_CONFIG
-		guint16 first, count;
-#else
-		guint32 first, count;
-#endif
-	} field, method;
-
 	/* used as the type of the this argument and when passing the arg by value */
 	MonoType this_arg;
 	MonoType byval_arg;
@@ -356,6 +348,13 @@ struct _MonoClass {
 	/* Rarely used fields of classes */
 	MonoClassExt *ext;
 
+	struct {
+#if MONO_SMALL_CONFIG
+		guint16 first, count;
+#else
+		guint32 first, count;
+#endif
+	} field, method;
 
 	guint inited          : 1;
 	/* We use init_pending to detect cyclic calls to mono_class_init */

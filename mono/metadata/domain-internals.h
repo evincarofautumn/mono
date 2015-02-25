@@ -43,16 +43,16 @@ typedef struct {
 	MonoString *shadow_copy_files;
 	MonoBoolean publisher_policy;
 	MonoBoolean path_changed;
-	int loader_optimization;
 	MonoBoolean disallow_binding_redirects;
 	MonoBoolean disallow_code_downloads;
 	MonoObject *activation_arguments; /* it is System.Object in 1.x, ActivationArguments in 2.0 */
 	MonoObject *domain_initializer;
 	MonoObject *application_trust; /* it is System.Object in 1.x, ApplicationTrust in 2.0 */
 	MonoArray *domain_initializer_args;
-	MonoBoolean disallow_appbase_probe;
 	MonoArray *configuration_bytes;
 	MonoArray *serialized_non_primitives;
+	int loader_optimization;
+	MonoBoolean disallow_appbase_probe;
 } MonoAppDomainSetup;
 
 typedef struct _MonoJitInfoTable MonoJitInfoTable;
@@ -328,10 +328,6 @@ struct _MonoDomain {
 	/* maps delegate trampoline addr -> delegate object */
 	MonoGHashTable     *delegate_hash_table;
 #define MONO_DOMAIN_LAST_GC_TRACKED delegate_hash_table
-	guint32            state;
-	/* Needed by Thread:GetDomainID() */
-	gint32             domain_id;
-	gint32             shadow_serial;
 	GSList             *domain_assemblies;
 	MonoAssembly       *entry_assembly;
 	char               *friendly_name;
@@ -381,7 +377,6 @@ struct _MonoDomain {
 	/* Information maintained by the JIT engine */
 	gpointer runtime_info;
 
-	int		    num_jit_info_tables;
 	mono_mutex_t    jit_code_hash_lock;
 
 	/* Contains the compiled runtime invoke wrapper used by finalizers */
@@ -417,7 +412,14 @@ struct _MonoDomain {
 	HANDLE				cleanup_semaphore;
 	volatile int			threadpool_jobs;
 
+	int		    num_jit_info_tables;
+
 	guint32 execution_context_field_offset;
+
+	guint32            state;
+	/* Needed by Thread:GetDomainID() */
+	gint32             domain_id;
+	gint32             shadow_serial;
 
 	unsigned char      inet_family_hint; // used in socket-io.c as a cache
 	gboolean assembly_bindings_parsed;

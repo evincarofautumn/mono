@@ -67,11 +67,11 @@ namespace System.Runtime.Remoting.Proxies
 		Type class_to_proxy;
 		internal Context _targetContext;
 		MarshalByRefObject _server;
-		int _targetDomainId = -1;
 		internal string _targetUri;
 		internal Identity _objectIdentity;
 		Object _objTP;
 		object _stubData;
+		int _targetDomainId = -1;
         #endregion
 #pragma warning restore 169, 414
 

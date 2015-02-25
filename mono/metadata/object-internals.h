@@ -331,11 +331,11 @@ typedef struct {
 	MonoReflectionType *class_to_proxy;	
 	MonoObject *context;
 	MonoObject *unwrapped_server;
-	gint32      target_domain_id;
 	MonoString *target_uri;
 	MonoObject *object_identity;
 	MonoObject *obj_TP;
 	MonoObject *stub_data;
+	gint32      target_domain_id;
 } MonoRealProxy;
 
 typedef struct {

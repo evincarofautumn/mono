@@ -357,27 +357,6 @@ struct _MonoClass {
 
 	MonoClass **interfaces;
 
-	union {
-		int class_size; /* size of area for static fields */
-		int element_size; /* for array types */
-		int generic_param_token; /* for generic param types, both var and mvar */
-	} sizes;
-
-	/*
-	 * From the TypeDef table
-	 */
-	guint32    flags;
-	struct {
-#if MONO_SMALL_CONFIG
-		guint16 first, count;
-#else
-		guint32 first, count;
-#endif
-	} field, method;
-
-	/* A GC handle pointing to the corresponding type builder/generic param builder */
-	guint32 ref_info_handle;
-
 	/* loaded on demand */
 	MonoMarshalType *marshal_info;
 
@@ -407,6 +386,83 @@ struct _MonoClass {
 
 	/* Rarely used fields of classes */
 	MonoClassExt *ext;
+
+	struct {
+#if MONO_SMALL_CONFIG
+		guint16 first, count;
+#else
+		guint32 first, count;
+#endif
+	} field, method;
+
+	union {
+		int class_size; /* size of area for static fields */
+		int element_size; /* for array types */
+		int generic_param_token; /* for generic param types, both var and mvar */
+	} sizes;
+
+	/*
+	 * From the TypeDef table
+	 */
+	guint32    flags;
+
+	/* A GC handle pointing to the corresponding type builder/generic param builder */
+	guint32 ref_info_handle;
+
+	guint inited          : 1;
+	/* We use init_pending to detect cyclic calls to mono_class_init */
+	guint init_pending    : 1;
+
+	/* A class contains static and non static data. Static data can be
+	 * of the same type as the class itselfs, but it does not influence
+	 * the instance size of the class. To avoid cyclic calls to 
+	 * mono_class_init (from mono_class_instance_size ()) we first 
+	 * initialise all non static fields. After that we set size_inited 
+	 * to 1, because we know the instance size now. After that we 
+	 * initialise all static fields.
+	 */
+	/* size_inited is accessed without locks, so it needs a memory barrier */
+	guint size_inited     : 1;
+	guint valuetype       : 1; /* derives from System.ValueType */
+	guint enumtype        : 1; /* derives from System.Enum */
+	guint blittable       : 1; /* class is blittable */
+	guint unicode         : 1; /* class uses unicode char when marshalled */
+	guint wastypebuilder  : 1; /* class was created at runtime from a TypeBuilder */
+	/* next byte */
+	guint8 min_align;
+
+	/* next byte */
+	guint packing_size    : 4;
+	guint ghcimpl         : 1; /* class has its own GetHashCode impl */ 
+	guint has_finalize    : 1; /* class has its own Finalize impl */ 
+#ifndef DISABLE_REMOTING
+	guint marshalbyref    : 1; /* class is a MarshalByRefObject */
+	guint contextbound    : 1; /* class is a ContextBoundObject */
+#endif
+	/* next byte */
+	guint delegate        : 1; /* class is a Delegate */
+	guint gc_descr_inited : 1; /* gc_descr is initialized */
+	guint has_cctor       : 1; /* class has a cctor */
+	guint has_references  : 1; /* it has GC-tracked references in the instance */
+	guint has_static_refs : 1; /* it has static fields that are GC-tracked */
+	guint no_special_static_fields : 1; /* has no thread/context static fields */
+	/* directly or indirectly derives from ComImport attributed class.
+	 * this means we need to create a proxy for instances of this class
+	 * for COM Interop. set this flag on loading so all we need is a quick check
+	 * during object creation rather than having to traverse supertypes
+	 */
+	guint is_com_object : 1; 
+	guint nested_classes_inited : 1; /* Whenever nested_class is initialized */
+
+	/* next byte*/
+	guint interfaces_inited : 1; /* interfaces is initialized */
+	guint simd_type : 1; /* class is a simd intrinsic type */
+	guint is_generic : 1; /* class is a generic type definition */
+	guint is_inflated : 1; /* class is a generic instance */
+	guint has_finalize_inited    : 1; /* has_finalize is initialized */
+	guint fields_inited : 1; /* fields is initialized */
+	guint setup_fields_called : 1; /* to prevent infinite loops in setup_fields */
+
 };
 
 #ifdef COMPRESSED_INTERFACE_BITMAP

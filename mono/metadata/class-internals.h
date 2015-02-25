@@ -314,20 +314,6 @@ struct _MonoClass {
 
 	MonoMethod **methods;
 
-	union {
-		int class_size; /* size of area for static fields */
-		int element_size; /* for array types */
-		int generic_param_token; /* for generic param types, both var and mvar */
-	} sizes;
-
-	/*
-	 * From the TypeDef table
-	 */
-	guint32    flags;
-
-	/* A GC handle pointing to the corresponding type builder/generic param builder */
-	guint32 ref_info_handle;
-
 	/* used as the type of the this argument and when passing the arg by value */
 	MonoType this_arg;
 	MonoType byval_arg;
@@ -355,6 +341,20 @@ struct _MonoClass {
 		guint32 first, count;
 #endif
 	} field, method;
+
+	union {
+		int class_size; /* size of area for static fields */
+		int element_size; /* for array types */
+		int generic_param_token; /* for generic param types, both var and mvar */
+	} sizes;
+
+	/*
+	 * From the TypeDef table
+	 */
+	guint32    flags;
+
+	/* A GC handle pointing to the corresponding type builder/generic param builder */
+	guint32 ref_info_handle;
 
 	guint inited          : 1;
 	/* We use init_pending to detect cyclic calls to mono_class_init */

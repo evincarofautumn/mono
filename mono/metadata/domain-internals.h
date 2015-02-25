@@ -422,7 +422,7 @@ struct _MonoDomain {
 	gint32             shadow_serial;
 
 	unsigned char      inet_family_hint; // used in socket-io.c as a cache
-	gboolean assembly_bindings_parsed;
+	gboolean assembly_bindings_parsed:1;
 
 };
 

@@ -46,8 +46,8 @@ typedef struct _SavedString
 	MonoString *string;
 	MonoDomain *domain;
 	void *stack [BACKTRACE_SIZE];
-	gint stack_entries;
 	struct _SavedString *next;
+	gint stack_entries;
 } SavedString;
 
 typedef struct _SavedStringFindInfo

@@ -41,10 +41,6 @@ typedef struct {
 	MonoString *private_bin_path_probe;
 	MonoString *shadow_copy_directories;
 	MonoString *shadow_copy_files;
-	MonoBoolean publisher_policy;
-	MonoBoolean path_changed;
-	MonoBoolean disallow_binding_redirects;
-	MonoBoolean disallow_code_downloads;
 	MonoObject *activation_arguments; /* it is System.Object in 1.x, ActivationArguments in 2.0 */
 	MonoObject *domain_initializer;
 	MonoObject *application_trust; /* it is System.Object in 1.x, ApplicationTrust in 2.0 */
@@ -53,6 +49,10 @@ typedef struct {
 	MonoArray *serialized_non_primitives;
 	int loader_optimization;
 	MonoBoolean disallow_appbase_probe;
+	MonoBoolean publisher_policy;
+	MonoBoolean path_changed;
+	MonoBoolean disallow_binding_redirects;
+	MonoBoolean disallow_code_downloads;
 } MonoAppDomainSetup;
 
 typedef struct _MonoJitInfoTable MonoJitInfoTable;

@@ -63,10 +63,6 @@ namespace System
 		string private_bin_path_probe;
 		string shadow_copy_directories;
 		string shadow_copy_files;
-		bool publisher_policy;
-		private bool path_changed;
-		bool disallow_binding_redirects;
-		bool disallow_code_downloads;
 
 #if MOBILE
 		object _activationArguments;
@@ -91,6 +87,11 @@ namespace System
 #endif
 
 		bool disallow_appbase_probe;
+
+		bool publisher_policy;
+		private bool path_changed;
+		bool disallow_binding_redirects;
+		bool disallow_code_downloads;
 
 		public AppDomainSetup ()
 		{

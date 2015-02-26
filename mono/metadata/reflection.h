@@ -9,8 +9,8 @@ typedef struct MonoTypeNameParse MonoTypeNameParse;
 
 typedef struct {
 	MonoMethod *ctor;
-	uint32_t     data_size;
 	const mono_byte* data;
+	uint32_t     data_size;
 } MonoCustomAttrEntry;
 
 typedef struct {

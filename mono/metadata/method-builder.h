@@ -23,18 +23,18 @@ G_BEGIN_DECLS
 typedef struct _MonoMethodBuilder {
 	MonoMethod *method;
 	char *name;
-	gboolean no_dup_name;
 #ifndef DISABLE_JIT
 	GList *locals_list;
+	const char **param_names;
+	MonoExceptionClause *clauses;
+	unsigned char *code;
 	int locals;
+	int num_clauses;
+	guint32 code_size, pos;
 	gboolean dynamic;
 	gboolean skip_visibility;
-	guint32 code_size, pos;
-	unsigned char *code;
-	int num_clauses;
-	MonoExceptionClause *clauses;
-	const char **param_names;
 #endif
+	gboolean no_dup_name;
 } MonoMethodBuilder;
 
 MonoMethodBuilder *

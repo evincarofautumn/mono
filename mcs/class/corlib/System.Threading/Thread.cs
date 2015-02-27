@@ -46,6 +46,7 @@ namespace System.Threading {
 	sealed class InternalThread : CriticalFinalizerObject {
 #pragma warning disable 169, 414, 649
 		#region Sync with metadata/object-internals.h
+		int lock_thread_id;
 		// stores a thread handle
 		internal IntPtr system_thread_handle;
 
@@ -53,7 +54,10 @@ namespace System.Threading {
 		private object cached_culture_info;
 		/* accessed only from unmanaged code */
 		private IntPtr name;
+		private int name_len; 
+		private ThreadState state;
 		private object abort_exc;
+		private int abort_state_handle;
 		/* thread_id is only accessed from unmanaged code */
 		internal Int64 thread_id;
 		
@@ -71,17 +75,29 @@ namespace System.Threading {
 		private object pending_exception;
 		private object root_domain_thread;
 		internal byte[] _serialized_principal;
+		internal int _serialized_principal_version;
 		private IntPtr appdomain_refs;
+		private int interruption_requested;
 		private IntPtr suspend_event;
 		private IntPtr suspended_event;
 		private IntPtr resume_event;
 		private IntPtr synch_cs;
+		internal bool threadpool_thread;
+		private bool thread_dump_requested;
+		private bool thread_interrupt_requested;
 		private IntPtr end_stack;
+		/* These are used from managed code */
+		internal int stack_size;
+		internal byte apartment_state;
+		internal volatile int critical_region_level;
+		internal int managed_id;
+		private int small_id;
 		private IntPtr manage_callback;
 		private IntPtr interrupt_on_stop;
 		private IntPtr flags;
 		private IntPtr android_tid;
 		private IntPtr thread_pinning_ref;
+		private int ignore_next_signal;
 		/* 
 		 * These fields are used to avoid having to increment corlib versions
 		 * when a new field is added to the unmanaged MonoThread structure.
@@ -89,22 +105,6 @@ namespace System.Threading {
 		private IntPtr unused0;
 		private IntPtr unused1;
 		private IntPtr unused2;
-
-		volatile int lock_thread_id;
-		private int name_len;
-		private ThreadState state;
-		private int abort_state_handle;
-		internal int _serialized_principal_version;
-		private int interruption_requested;
-		internal int stack_size;
-		internal volatile int critical_region_level;
-		internal int managed_id;
-		private int small_id;
-		private int ignore_next_signal;
-		internal byte apartment_state;
-		internal bool threadpool_thread;
-		private bool thread_dump_requested;
-		private bool thread_interrupt_requested;
 		#endregion
 #pragma warning restore 169, 414, 649
 

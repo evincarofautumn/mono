@@ -390,14 +390,10 @@ typedef enum {
 
 struct _MonoInternalThread {
 	MonoObject  obj;
-	volatile int lock_thread_id; /* to be used as the pre-shifted thread id in thin locks. Used for appdomain_ref push/pop */
 	HANDLE	    handle;
 	MonoArray  *cached_culture_info;
 	gunichar2  *name;
-	guint32	    name_len;
-	guint32	    state;
 	MonoException *abort_exc;
-	int abort_state_handle;
 	guint64 tid;	/* This is accessed as a gsize in the code (so it can hold a 64bit pointer on systems that need it), but needs to reserve 64 bits of space on all machines as it corresponds to a field in managed code */
 	HANDLE	    start_notify;
 	gpointer stack_ptr;
@@ -408,29 +404,17 @@ struct _MonoInternalThread {
 	MonoException *pending_exception;
 	MonoThread *root_domain_thread;
 	MonoObject *_serialized_principal;
-	int _serialized_principal_version;
 	gpointer appdomain_refs;
-	/* This is modified using atomic ops, so keep it a gint32 */
-	gint32 interruption_requested;
 	gpointer suspend_event;
 	gpointer suspended_event;
 	gpointer resume_event;
 	mono_mutex_t *synch_cs;
-	MonoBoolean threadpool_thread;
-	MonoBoolean thread_dump_requested;
-	MonoBoolean thread_interrupt_requested;
 	gpointer end_stack; /* This is only used when running in the debugger. */
-	int stack_size;
-	guint8	apartment_state;
-	gint32 critical_region_level;
-	gint32 managed_id;
-	guint32 small_id;
 	MonoThreadManageCallback manage_callback;
 	gpointer interrupt_on_stop;
 	gsize    flags;
 	gpointer android_tid;
 	gpointer thread_pinning_ref;
-	gint32 ignore_next_signal;
 	MonoMethod *async_invoke_method;
 	/* 
 	 * These fields are used to avoid having to increment corlib versions
@@ -440,6 +424,22 @@ struct _MonoInternalThread {
 	 */
 	gpointer unused1;
 	gpointer unused2;
+	volatile int lock_thread_id; /* to be used as the pre-shifted thread id in thin locks. Used for appdomain_ref push/pop */
+	guint32	    name_len;
+	guint32	    state;
+	int abort_state_handle;
+	int _serialized_principal_version;
+	/* This is modified using atomic ops, so keep it a gint32 */
+	gint32 interruption_requested;
+	int stack_size;
+	gint32 critical_region_level;
+	gint32 managed_id;
+	guint32 small_id;
+	gint32 ignore_next_signal;
+	guint8	apartment_state;
+	MonoBoolean threadpool_thread;
+	MonoBoolean thread_dump_requested;
+	MonoBoolean thread_interrupt_requested;
 };
 
 struct _MonoThread {

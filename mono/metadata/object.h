@@ -103,11 +103,19 @@ mono_array_addr_with_size   (MonoArray *array, int size, uintptr_t idx);
 MONO_API uintptr_t
 mono_array_length           (MonoArray *array);
 
+typedef enum MonoInternalEncoding {
+	MONO_ENCODING_ASCII,
+	MONO_ENCODING_UTF16
+} MonoInternalEncoding;
+
+MONO_API MonoString *
+mono_string_new_ascii (MonoDomain *domain, const char *text, int32_t len);
+
 MONO_API MonoString*
 mono_string_new_utf16	    (MonoDomain *domain, const mono_unichar2 *text, int32_t len);
 
 MONO_API MonoString*
-mono_string_new_size	    (MonoDomain *domain, int32_t len);
+mono_string_new_size	    (MonoDomain *domain, int32_t len, MonoInternalEncoding encoding);
 
 MONO_API MonoString*
 mono_ldstr		    (MonoDomain *domain, MonoImage *image, uint32_t str_index);

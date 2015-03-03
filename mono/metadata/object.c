@@ -4976,6 +4976,15 @@ mono_array_new_specific (MonoVTable *vtable, uintptr_t n)
 	return ao;
 }
 
+MonoString *
+mono_string_new_ascii (MonoDomain *domain, const char *text, gint32 len)
+{
+	MonoString *s = mono_string_new_size (domain, len, MONO_ENCODING_ASCII);
+	g_assert (s != NULL);
+	memcpy (mono_string_chars (s), text, len);
+	return s;
+}
+
 /**
  * mono_string_new_utf16:
  * @text: a pointer to an utf16 string
@@ -4988,7 +4997,7 @@ mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 {
 	MonoString *s;
 	
-	s = mono_string_new_size (domain, len);
+	s = mono_string_new_size (domain, len, MONO_ENCODING_UTF16);
 	g_assert (s != NULL);
 
 	memcpy (mono_string_chars (s), text, len * 2);
@@ -5019,7 +5028,7 @@ mono_string_new_utf32 (MonoDomain *domain, const mono_unichar4 *text, gint32 len
 
 	while (utf16_output [utf16_len]) utf16_len++;
 	
-	s = mono_string_new_size (domain, utf16_len);
+	s = mono_string_new_size (domain, utf16_len, MONO_ENCODING_UTF16);
 	g_assert (s != NULL);
 
 	memcpy (mono_string_chars (s), utf16_output, utf16_len * 2);
@@ -5031,13 +5040,14 @@ mono_string_new_utf32 (MonoDomain *domain, const mono_unichar4 *text, gint32 len
 
 /**
  * mono_string_new_size:
- * @text: a pointer to an utf16 string
+ * @text: a pointer to a string
  * @len: the length of the string
+ * @encoding: the encoding of the string
  *
  * Returns: A newly created string object of @len
  */
 MonoString *
-mono_string_new_size (MonoDomain *domain, gint32 len)
+mono_string_new_size (MonoDomain *domain, gint32 len, MonoInternalEncoding encoding)
 {
 	MonoString *s;
 	MonoVTable *vtable;
@@ -5047,7 +5057,7 @@ mono_string_new_size (MonoDomain *domain, gint32 len)
 	if (len < 0 || len > ((SIZE_MAX - G_STRUCT_OFFSET (MonoString, chars) - 2) / 2))
 		mono_gc_out_of_memory (-1);
 
-	size = (G_STRUCT_OFFSET (MonoString, chars) + (((size_t)len + 1) * 2));
+	size = G_STRUCT_OFFSET (MonoString, chars) + (encoding == MONO_ENCODING_ASCII ? (size_t)len + 1 : ((size_t)len + 1) * 2);
 	g_assert (size > 0);
 
 	vtable = mono_class_vtable (domain, mono_defaults.string_class);
@@ -5056,7 +5066,7 @@ mono_string_new_size (MonoDomain *domain, gint32 len)
 #ifndef HAVE_SGEN_GC
 	s = mono_object_allocate_ptrfree (size, vtable);
 
-	s->length = len;
+	s->length = encoding == MONO_ENCODING_ASCII ? len : -len;
 #else
 	s = mono_gc_alloc_string (vtable, size, len);
 #endif
@@ -5110,17 +5120,30 @@ mono_string_new (MonoDomain *domain, const char *text)
     guint16 *ut;
     glong items_written;
     int l;
+	int i;
+	gboolean is_ascii = TRUE;
 
     l = strlen (text);
    
-    ut = g_utf8_to_utf16 (text, l, NULL, &items_written, &error);
+	/* FIXME: This could be unrolled. */
+	for (i = 0; i < l; ++i) {
+		if ((unsigned char)text [i] & 0x80) {
+			is_ascii = FALSE;
+			break;
+		}
+	}
 
-    if (!error)
-        o = mono_string_new_utf16 (domain, ut, items_written);
-    else
-        g_error_free (error);
+	if (is_ascii) {
+		o = mono_string_new_ascii (domain, text, l);
+	} else {
+		ut = g_utf8_to_utf16 (text, l, NULL, &items_written, &error);
+		if (!error)
+			o = mono_string_new_utf16 (domain, ut, items_written);
+		else
+			g_error_free (error);
+		g_free (ut);
+	}
 
-    g_free (ut);
 /*FIXME g_utf8_get_char, g_utf8_next_char and g_utf8_validate are not part of eglib.*/
 #if 0
 	gunichar2 *str;

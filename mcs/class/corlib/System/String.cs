@@ -60,8 +60,11 @@ namespace System
 	[StructLayout (LayoutKind.Sequential)]
 	public sealed class String : IConvertible, ICloneable, IEnumerable, IComparable, IComparable<String>, IEquatable <String>, IEnumerable<char>
 	{
-		[NonSerialized] private int length;
-		[NonSerialized] private char start_char;
+		// Since length is signed, we can use the sign bit to denote its
+		// encoding: negative lengths denote the normal (UTF-16) encoding, while
+		// positive lengths denote the compact (ASCII) encoding.
+		[NonSerialized] private int tagged_length;
+		[NonSerialized] private byte start_byte;
 
 		public static readonly String Empty = "";
 
@@ -73,6 +76,12 @@ namespace System
 			}
 		}
 
+		private bool IsCompact {
+			get {
+				return tagged_length > 0;
+			}
+		}
+
 		public static unsafe bool Equals (string a, string b)
 		{
 			if ((a as object) == (b as object))
@@ -81,47 +90,98 @@ namespace System
 			if (a == null || b == null)
 				return false;
 
-			int len = a.length;
+			int length = a.Length;
 
-			if (len != b.length)
+			if (length != b.Length)
 				return false;
 
-			fixed (char* s1 = &a.start_char, s2 = &b.start_char) {
-				char* s1_ptr = s1;
-				char* s2_ptr = s2;
-
-				while (len >= 8) {
-					if (((int*)s1_ptr)[0] != ((int*)s2_ptr)[0] ||
-						((int*)s1_ptr)[1] != ((int*)s2_ptr)[1] ||
-						((int*)s1_ptr)[2] != ((int*)s2_ptr)[2] ||
-						((int*)s1_ptr)[3] != ((int*)s2_ptr)[3])
-						return false;
-
-					s1_ptr += 8;
-					s2_ptr += 8;
-					len -= 8;
+			if (a.IsCompact && b.IsCompact) {
+				fixed (byte* s1 = &a.start_byte, s2 = &b.start_byte) {
+					byte* p1 = s1;
+					byte* p2 = s2;
+					while (length >= 16) {
+						int* i1 = (int*)p1;
+						int* i2 = (int*)p2;
+						if (i1[0] != i2[0] || i1[1] != i2[1] || i1[2] != i2[2] || i1[3] != i2[3])
+							return false;
+						p1 += 16;
+						p2 += 16;
+						length -= 16;
+					}
+					if (length >= 8) {
+						int* i1 = (int*)p1;
+						int* i2 = (int*)p2;
+						if (i1[0] != i2[0] || i1[1] != i2[1])
+							return false;
+						p1 += 8;
+						p2 += 8;
+						length -= 8;
+					}
+					if (length >= 4) {
+						int* i1 = (int*)p1;
+						int* i2 = (int*)p2;
+						if (i1[0] != i2[0])
+							return false;
+						p1 += 4;
+						p2 += 4;
+						length -= 4;
+					}
+					if (length >= 2) {
+						short* i1 = (short*)p1;
+						short* i2 = (short*)p2;
+						if (i1[0] != i2[0])
+							return false;
+						p1 += 2;
+						p2 += 2;
+						length -= 2;
+					}
+					return length == 0 || *p1 == *p2;
 				}
-
-				if (len >= 4) {
-					if (((int*)s1_ptr)[0] != ((int*)s2_ptr)[0] ||
-						((int*)s1_ptr)[1] != ((int*)s2_ptr)[1])
-						return false;
-
-					s1_ptr += 4;
-					s2_ptr += 4;
-					len -= 4;
+			} else if (a.IsCompact) {
+				fixed (byte* s1 = &a.start_byte, s2_ = &b.start_byte) {
+					char* s2 = (char*)s2_;
+					throw new NotImplementedException ();
 				}
-
-				if (len > 1) {
-					if (((int*)s1_ptr)[0] != ((int*)s2_ptr)[0])
-						return false;
-
-					s1_ptr += 2;
-					s2_ptr += 2;
-					len -= 2;
+			} else if (b.IsCompact) {
+				fixed (byte* s1_ = &a.start_byte, s2 = &b.start_byte) {
+					char* s1 = (char*)s1_;
+					throw new NotImplementedException ();
 				}
-
-				return len == 0 || *s1_ptr == *s2_ptr;
+			} else {
+				fixed (byte* s1_ = &a.start_byte, s2_ = &b.start_byte) {
+					char* s1 = (char*)s1_;
+					char* s2 = (char*)s2_;
+					char* p1 = s1;
+					char* p2 = s2;
+					while (length >= 8) {
+						int* i1 = (int*)p1;
+						int* i2 = (int*)p2;
+						if (i1[0] != i2[0] || i1[1] != i2[1] || i1[2] != i2[2] || i1[3] != i2[3])
+							return false;
+						p1 += 8;
+						p2 += 8;
+						length -= 8;
+					}
+					if (length >= 4) {
+						int* i1 = (int*)p1;
+						int* i2 = (int*)p2;
+						if (i1[0] != i2[0] || i1[1] != i2[1])
+							return false;
+						p1 += 4;
+						p2 += 4;
+						length -= 4;
+					}
+					if (length >= 2) {
+						int* i1 = (int*)p1;
+						int* i2 = (int*)p2;
+						if (i1[0] != i2[0])
+							return false;
+						p1 += 2;
+						p2 += 2;
+						length -= 2;
+					}
+					return length == 0 || *p1 == *p2;
+				}
 			}
 		}
 
@@ -150,10 +210,15 @@ namespace System
 		[IndexerName ("Chars")]
 		public unsafe char this [int index] {
 			get {
-				if (index < 0 || index >= length)
+				if (index < 0 || index >= Length)
 					throw new IndexOutOfRangeException ();
-				fixed (char* c = &start_char)
-					return c[index];
+				if (IsCompact) {
+					fixed (byte* c = &start_byte)
+						return (char)c[index];
+				} else {
+					fixed (byte* c = &start_byte)
+						return ((char*)c)[index];
+				}
 			}
 		}
 
@@ -169,6 +234,8 @@ namespace System
 
 		public unsafe void CopyTo (int sourceIndex, char[] destination, int destinationIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			if (destination == null)
 				throw new ArgumentNullException ("destination");
 			if (sourceIndex < 0)
@@ -188,18 +255,19 @@ namespace System
 
 		public char[] ToCharArray ()
 		{
-			return ToCharArray (0, length);
+			return ToCharArray (0, Length);
 		}
 
 		public unsafe char[] ToCharArray (int startIndex, int length)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			if (startIndex < 0)
 				throw new ArgumentOutOfRangeException ("startIndex", "< 0"); 
 			if (length < 0)
 				throw new ArgumentOutOfRangeException ("length", "< 0"); 
-			if (startIndex > this.length - length)
+			if (startIndex > this.Length - length)
 				throw new ArgumentOutOfRangeException ("startIndex", "Must be greater than the length of the string.");
-
 			char[] tmp = new char [length];
 			fixed (char* dest = tmp, src = this)
 				CharCopy (dest, src + startIndex, length);
@@ -284,7 +352,7 @@ namespace System
 					if (sep == null || sep.Length == 0)
 						continue;
 
-					int match = IndexOfOrdinalUnchecked (sep, pos, length - pos);
+					int match = IndexOfOrdinalUnchecked (sep, pos, Length - pos);
 					if (match >= 0 && match < matchPos) {
 						matchIndex = i;
 						matchPos = match;
@@ -322,6 +390,8 @@ namespace System
 
 		unsafe string[] SplitByCharacters (char[] sep, int count, bool removeEmpty)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 
 			int[] split_points = null;
 			int total_points = 0;
@@ -423,10 +493,10 @@ namespace System
 		{
 			if (startIndex == 0)
 				return this;
-			if (startIndex < 0 || startIndex > this.length)
+			if (startIndex < 0 || startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex");
 
-			return SubstringUnchecked (startIndex, this.length - startIndex);
+			return SubstringUnchecked (startIndex, this.Length - startIndex);
 		}
 
 		public String Substring (int startIndex, int length)
@@ -435,11 +505,11 @@ namespace System
 				throw new ArgumentOutOfRangeException ("length", "Cannot be negative.");
 			if (startIndex < 0)
 				throw new ArgumentOutOfRangeException ("startIndex", "Cannot be negative.");
-			if (startIndex > this.length)
+			if (startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex", "Cannot exceed length of string.");
-			if (startIndex > this.length - length)
+			if (startIndex > this.Length - length)
 				throw new ArgumentOutOfRangeException ("length", "startIndex + length cannot exceed length of string.");
-			if (startIndex == 0 && length == this.length)
+			if (startIndex == 0 && length == this.Length)
 				return this;
 
 			return SubstringUnchecked (startIndex, length);
@@ -449,6 +519,9 @@ namespace System
 		// always create a new string object (or return String.Empty). 
 		internal unsafe String SubstringUnchecked (int startIndex, int length)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
+
 			if (length == 0)
 				return Empty;
 
@@ -461,17 +534,17 @@ namespace System
 
 		public String Trim ()
 		{
-			if (length == 0) 
+			if (Length == 0) 
 				return Empty;
-			int start = FindNotWhiteSpace (0, length, 1);
+			int start = FindNotWhiteSpace (0, Length, 1);
 
-			if (start == length)
+			if (start == Length)
 				return Empty;
 
-			int end = FindNotWhiteSpace (length - 1, start, -1);
+			int end = FindNotWhiteSpace (Length - 1, start, -1);
 
 			int newLength = end - start + 1;
-			if (newLength == length)
+			if (newLength == Length)
 				return this;
 
 			return SubstringUnchecked (start, newLength);
@@ -482,17 +555,17 @@ namespace System
 			if (trimChars == null || trimChars.Length == 0)
 				return Trim ();
 
-			if (length == 0) 
+			if (Length == 0) 
 				return Empty;
-			int start = FindNotInTable (0, length, 1, trimChars);
+			int start = FindNotInTable (0, Length, 1, trimChars);
 
-			if (start == length)
+			if (start == Length)
 				return Empty;
 
-			int end = FindNotInTable (length - 1, start, -1, trimChars);
+			int end = FindNotInTable (Length - 1, start, -1, trimChars);
 
 			int newLength = end - start + 1;
-			if (newLength == length)
+			if (newLength == Length)
 				return this;
 
 			return SubstringUnchecked (start, newLength);
@@ -500,32 +573,32 @@ namespace System
 
 		public String TrimStart (params char[] trimChars)
 		{
-			if (length == 0) 
+			if (Length == 0) 
 				return Empty;
 			int start;
 			if (trimChars == null || trimChars.Length == 0)
-				start = FindNotWhiteSpace (0, length, 1);
+				start = FindNotWhiteSpace (0, Length, 1);
 			else
-				start = FindNotInTable (0, length, 1, trimChars);
+				start = FindNotInTable (0, Length, 1, trimChars);
 
 			if (start == 0)
 				return this;
 
-			return SubstringUnchecked (start, length - start);
+			return SubstringUnchecked (start, Length - start);
 		}
 
 		public String TrimEnd (params char[] trimChars)
 		{
-			if (length == 0) 
+			if (Length == 0) 
 				return Empty;
 			int end;
 			if (trimChars == null || trimChars.Length == 0)
-				end = FindNotWhiteSpace (length - 1, -1, -1);
+				end = FindNotWhiteSpace (Length - 1, -1, -1);
 			else
-				end = FindNotInTable (length - 1, -1, -1, trimChars);
+				end = FindNotInTable (Length - 1, -1, -1, trimChars);
 
 			end++;
-			if (end == length)
+			if (end == Length)
 				return this;
 
 			return SubstringUnchecked (0, end);
@@ -533,6 +606,8 @@ namespace System
 
 		unsafe int FindNotWhiteSpace (int pos, int target, int change)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			fixed (char* src = this) {
 				while (pos != target) {
 					if (!char.IsWhiteSpace (src[pos]))
@@ -546,6 +621,8 @@ namespace System
 
 		private unsafe int FindNotInTable (int pos, int target, int change, char[] table)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			fixed (char* tablePtr = table, thisPtr = this) {
 				while (pos != target) {
 					char c = thisPtr[pos];
@@ -773,6 +850,8 @@ namespace System
 
 		internal static unsafe int CompareOrdinalUnchecked (String strA, int indexA, int lenA, String strB, int indexB, int lenB)
 		{
+			if (strA.IsCompact || strB.IsCompact)
+				throw new NotImplementedException ();
 			if (strA == null) {
 				return strB == null ? 0 : -1;
 			}
@@ -809,6 +888,8 @@ namespace System
 
 		internal static unsafe int CompareOrdinalCaseInsensitiveUnchecked (String strA, int indexA, int lenA, String strB, int indexB, int lenB)
 		{
+			if (strA.IsCompact || strB.IsCompact)
+				throw new NotImplementedException ();
 			// Same as above, but checks versus uppercase characters
 			if (strA == null) {
 				return strB == null ? 0 : -1;
@@ -864,29 +945,29 @@ namespace System
 		{
 			if (anyOf == null)
 				throw new ArgumentNullException ();
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
 
-			return IndexOfAnyUnchecked (anyOf, 0, this.length);
+			return IndexOfAnyUnchecked (anyOf, 0, this.Length);
 		}
 
 		public int IndexOfAny (char [] anyOf, int startIndex)
 		{
 			if (anyOf == null)
 				throw new ArgumentNullException ();
-			if (startIndex < 0 || startIndex > this.length)
+			if (startIndex < 0 || startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ();
 
-			return IndexOfAnyUnchecked (anyOf, startIndex, this.length - startIndex);
+			return IndexOfAnyUnchecked (anyOf, startIndex, this.Length - startIndex);
 		}
 
 		public int IndexOfAny (char [] anyOf, int startIndex, int count)
 		{
 			if (anyOf == null)
 				throw new ArgumentNullException ();
-			if (startIndex < 0 || startIndex > this.length)
+			if (startIndex < 0 || startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ();
-			if (count < 0 || startIndex > this.length - count)
+			if (count < 0 || startIndex > this.Length - count)
 				throw new ArgumentOutOfRangeException ("count", "Count cannot be negative, and startIndex + count must be less than length of the string.");
 
 			return IndexOfAnyUnchecked (anyOf, startIndex, count);
@@ -894,6 +975,9 @@ namespace System
 
 		private unsafe int IndexOfAnyUnchecked (char[] anyOf, int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
+
 			if (anyOf.Length == 0)
 				return -1;
 
@@ -916,7 +1000,8 @@ namespace System
 						lowest = *any_ptr;
 				}
 
-				fixed (char* start = &start_char) {
+				fixed (byte* start_ = &start_byte) {
+					char* start = (char*)start_;
 					char* ptr = start + startIndex;
 					char* end_ptr = ptr + count;
 
@@ -980,7 +1065,7 @@ namespace System
 				throw new ArgumentNullException ("value");
 			if (startIndex < 0)
 				throw new ArgumentOutOfRangeException ("startIndex");
-			if (count < 0 || (this.length - startIndex) < count)
+			if (count < 0 || (this.Length - startIndex) < count)
 				throw new ArgumentOutOfRangeException ("count");
 
 			if (options == CompareOptions.Ordinal)
@@ -990,11 +1075,13 @@ namespace System
 
 		internal unsafe int IndexOfOrdinalUnchecked (string value)
 		{
-			return IndexOfOrdinalUnchecked (value, 0, length);
+			return IndexOfOrdinalUnchecked (value, 0, Length);
 		}
 
 		internal unsafe int IndexOfOrdinalUnchecked (string value, int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			int valueLen = value.Length;
 			if (count < valueLen)
 				return -1;
@@ -1025,6 +1112,8 @@ namespace System
 
 		internal unsafe int IndexOfOrdinalIgnoreCaseUnchecked (string value, int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			int valueLen = value.Length;
 			if (count < valueLen)
 				return -1;
@@ -1090,7 +1179,7 @@ namespace System
 				return value.Length == 0 ? 0 : -1;
 			if (value.Length == 0)
 				return Math.Min (this.Length - 1, startIndex);
-			if (startIndex < 0 || startIndex > length)
+			if (startIndex < 0 || startIndex > Length)
 				throw new ArgumentOutOfRangeException ("startIndex");
 			if (count < 0 || (startIndex < count - 1))
 				throw new ArgumentOutOfRangeException ("count");
@@ -1102,6 +1191,8 @@ namespace System
 
 		internal unsafe int LastIndexOfOrdinalUnchecked (string value, int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			int valueLen = value.Length;
 			if (count < valueLen)
 				return -1;
@@ -1132,6 +1223,8 @@ namespace System
 
 		internal unsafe int LastIndexOfOrdinalIgnoreCaseUnchecked (string value, int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			int valueLen = value.Length;
 			if (count < valueLen)
 				return -1;
@@ -1158,35 +1251,35 @@ namespace System
 		// Following methods are culture-insensitive
 		public int IndexOf (char value)
 		{
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
 
-			return IndexOfUnchecked (value, 0, this.length);
+			return IndexOfUnchecked (value, 0, this.Length);
 		}
 
 		public int IndexOf (char value, int startIndex)
 		{
 			if (startIndex < 0)
 				throw new ArgumentOutOfRangeException ("startIndex", "< 0");
-			if (startIndex > this.length)
+			if (startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex", "startIndex > this.length");
 
-			if ((startIndex == 0 && this.length == 0) || (startIndex == this.length))
+			if ((startIndex == 0 && this.Length == 0) || (startIndex == this.Length))
 				return -1;
 
-			return IndexOfUnchecked (value, startIndex, this.length - startIndex);
+			return IndexOfUnchecked (value, startIndex, this.Length - startIndex);
 		}
 
 		public int IndexOf (char value, int startIndex, int count)
 		{
-			if (startIndex < 0 || startIndex > this.length)
+			if (startIndex < 0 || startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex", "Cannot be negative and must be< 0");
 			if (count < 0)
 				throw new ArgumentOutOfRangeException ("count", "< 0");
-			if (startIndex > this.length - count)
+			if (startIndex > this.Length - count)
 				throw new ArgumentOutOfRangeException ("count", "startIndex + count > this.length");
 
-			if ((startIndex == 0 && this.length == 0) || (startIndex == this.length) || (count == 0))
+			if ((startIndex == 0 && this.Length == 0) || (startIndex == this.Length) || (count == 0))
 				return -1;
 
 			return IndexOfUnchecked (value, startIndex, count);
@@ -1194,10 +1287,16 @@ namespace System
 
 		internal unsafe int IndexOfUnchecked (char value, int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			// It helps JIT compiler to optimize comparison
 			int value_32 = (int)value;
 
-			fixed (char* start = &start_char) {
+			if (IsCompact)
+				throw new NotImplementedException ();
+
+			fixed (byte* start_ = &start_byte) {
+				char* start = (char*)start_;
 				char* ptr = start + startIndex;
 				char* end_ptr = ptr + (count >> 3 << 3);
 
@@ -1235,11 +1334,14 @@ namespace System
 
 		internal unsafe int IndexOfOrdinalIgnoreCase (char value, int startIndex, int count)
 		{
-			if (length == 0)
+			if (IsCompact)
+				throw new NotImplementedException ();
+			if (Length == 0)
 				return -1;
 			int end = startIndex + count;
 			char c = Char.ToUpperInvariant (value);
-			fixed (char* s = &start_char) {
+			fixed (byte* s_ = &start_byte) {
+				char* s = (char*)s_;
 				for (int i = startIndex; i < end; i++)
 					if (Char.ToUpperInvariant (s [i]) == c)
 						return i;
@@ -1254,29 +1356,29 @@ namespace System
 				throw new ArgumentNullException ("value");
 			if (value.Length == 0)
 				return 0;
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
-			return CultureInfo.CurrentCulture.CompareInfo.IndexOf (this, value, 0, length, CompareOptions.None);
+			return CultureInfo.CurrentCulture.CompareInfo.IndexOf (this, value, 0, this.Length, CompareOptions.None);
 		}
 
 		public int IndexOf (String value, int startIndex)
 		{
-			return IndexOf (value, startIndex, this.length - startIndex);
+			return IndexOf (value, startIndex, this.Length - startIndex);
 		}
 
 		public int IndexOf (String value, int startIndex, int count)
 		{
 			if (value == null)
 				throw new ArgumentNullException ("value");
-			if (startIndex < 0 || startIndex > this.length)
+			if (startIndex < 0 || startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex", "Cannot be negative, and should not exceed length of string.");
-			if (count < 0 || startIndex > this.length - count)
+			if (count < 0 || startIndex > this.Length - count)
 				throw new ArgumentOutOfRangeException ("count", "Cannot be negative, and should point to location in string.");
 
-			if (value.length == 0)
+			if (value.Length == 0)
 				return startIndex;
 
-			if (startIndex == 0 && this.length == 0)
+			if (startIndex == 0 && this.Length == 0)
 				return -1;
 
 			if (count == 0)
@@ -1290,23 +1392,23 @@ namespace System
 		{
 			if (anyOf == null)
 				throw new ArgumentNullException ();
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
 
-			return LastIndexOfAnyUnchecked (anyOf, this.length - 1, this.length);
+			return LastIndexOfAnyUnchecked (anyOf, this.Length - 1, this.Length);
 		}
 
 		public int LastIndexOfAny (char [] anyOf, int startIndex)
 		{
 			if (anyOf == null)
 				throw new ArgumentNullException ();
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
 
-			if (startIndex < 0 || startIndex >= this.length)
+			if (startIndex < 0 || startIndex >= this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex", "Cannot be negative, and should be less than length of string.");
 
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
 
 			return LastIndexOfAnyUnchecked (anyOf, startIndex, startIndex + 1);
@@ -1316,7 +1418,7 @@ namespace System
 		{
 			if (anyOf == null) 
 				throw new ArgumentNullException ();
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
 
 			if ((startIndex < 0) || (startIndex >= this.Length))
@@ -1326,7 +1428,7 @@ namespace System
 			if (startIndex - count + 1 < 0)
 				throw new ArgumentOutOfRangeException ("startIndex - count + 1 < 0");
 
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
 
 			return LastIndexOfAnyUnchecked (anyOf, startIndex, count);
@@ -1334,6 +1436,8 @@ namespace System
 
 		private unsafe int LastIndexOfAnyUnchecked (char [] anyOf, int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			if (anyOf.Length == 1)
 				return LastIndexOfUnchecked (anyOf[0], startIndex, count);
 
@@ -1359,10 +1463,10 @@ namespace System
 		// Following methods are culture-insensitive
 		public int LastIndexOf (char value)
 		{
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
 			
-			return LastIndexOfUnchecked (value, this.length - 1, this.length);
+			return LastIndexOfUnchecked (value, this.Length - 1, this.Length);
 		}
 
 		public int LastIndexOf (char value, int startIndex)
@@ -1372,7 +1476,7 @@ namespace System
 
 		public int LastIndexOf (char value, int startIndex, int count)
 		{
-			if (this.length == 0)
+			if (this.Length == 0)
 				return -1;
  
 			// >= for char (> for string)
@@ -1388,10 +1492,14 @@ namespace System
 
 		internal unsafe int LastIndexOfUnchecked (char value, int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
+
 			// It helps JIT compiler to optimize comparison
 			int value_32 = (int)value;
 
-			fixed (char* start = &start_char) {
+			fixed (byte* start_ = &start_byte) {
+				char* start = (char*)start_;
 				char* ptr = start + startIndex;
 				char* end_ptr = ptr - (count >> 3 << 3);
 
@@ -1429,11 +1537,14 @@ namespace System
 
 		internal unsafe int LastIndexOfOrdinalIgnoreCase (char value, int startIndex, int count)
 		{
-			if (length == 0)
+			if (IsCompact)
+				throw new NotImplementedException ();
+			if (this.Length == 0)
 				return -1;
 			int end = startIndex - count;
 			char c = Char.ToUpperInvariant (value);
-			fixed (char* s = &start_char) {
+			fixed (byte* s_ = &start_byte) {
+				char* s = (char*)s_;
 				for (int i = startIndex; i > end; i--)
 					if (Char.ToUpperInvariant (s [i]) == c)
 						return i;
@@ -1444,7 +1555,7 @@ namespace System
 		// Following methods are culture-sensitive
 		public int LastIndexOf (String value)
 		{
-			return LastIndexOf (value, this.length - 1, this.length);
+			return LastIndexOf (value, this.Length - 1, this.Length);
 		}
 
 		public int LastIndexOf (String value, int startIndex)
@@ -1460,7 +1571,7 @@ namespace System
 			if (value == null)
 				throw new ArgumentNullException ("value");
 
-			if (this.length == 0)
+			if (this.Length == 0)
 				return value.Length == 0 ? 0 : -1;
 			// -1 > startIndex > for string (0 > startIndex >= for char)
 			if ((startIndex < -1) || (startIndex > this.Length))
@@ -1473,11 +1584,11 @@ namespace System
 			if (value.Length == 0)
 				return Math.Min (this.Length - 1, startIndex);
 
-			if (startIndex == 0 && this.length == 0)
+			if (startIndex == 0 && this.Length == 0)
 				return -1;
 
 			// This check is needed to match undocumented MS behaviour
-			if (this.length == 0 && value.length > 0)
+			if (this.Length == 0 && value.Length > 0)
 				return -1;
 
 			if (count == 0)
@@ -1543,10 +1654,10 @@ namespace System
 		{
 			if (startIndex < 0)
 				throw new ArgumentOutOfRangeException ("startIndex", "StartIndex can not be less than zero");
-			if (startIndex >= this.length)
+			if (startIndex >= this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex", "StartIndex must be less than the length of the string");
 
-			return Remove (startIndex, this.length - startIndex);
+			return Remove (startIndex, this.Length - startIndex);
 		}
 
 		public String PadLeft (int totalWidth)
@@ -1556,12 +1667,14 @@ namespace System
 
 		public unsafe String PadLeft (int totalWidth, char paddingChar)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			//LAMESPEC: MSDN Doc says this is reversed for RtL languages, but this seems to be untrue
 
 			if (totalWidth < 0)
 				throw new ArgumentOutOfRangeException ("totalWidth", "< 0");
 
-			if (totalWidth < this.length)
+			if (totalWidth < this.Length)
 				return this;
 			if (totalWidth == 0)
 				return Empty;
@@ -1572,7 +1685,7 @@ namespace System
 				char* padPos = dest;
 				char* padTo;
 				try {
-					padTo = checked (dest + (totalWidth - length));
+					padTo = checked (dest + (totalWidth - this.Length));
 				} catch (OverflowException) {
 					throw new OutOfMemoryException ();
 				}
@@ -1580,7 +1693,7 @@ namespace System
 				while (padPos != padTo)
 					*padPos++ = paddingChar;
 
-				CharCopy (padTo, src, length);
+				CharCopy (padTo, src, this.Length);
 			}
 			return tmp;
 		}
@@ -1592,12 +1705,14 @@ namespace System
 
 		public unsafe String PadRight (int totalWidth, char paddingChar)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			//LAMESPEC: MSDN Doc says this is reversed for RtL languages, but this seems to be untrue
 
 			if (totalWidth < 0)
 				throw new ArgumentOutOfRangeException ("totalWidth", "< 0");
 
-			if (totalWidth < this.length)
+			if (totalWidth < this.Length)
 				return this;
 			if (totalWidth == 0)
 				return Empty;
@@ -1605,10 +1720,10 @@ namespace System
 			String tmp = InternalAllocateStr (totalWidth);
 
 			fixed (char* dest = tmp, src = this) {
-				CharCopy (dest, src, length);
+				CharCopy (dest, src, this.Length);
 
 				try {
-					char* padPos = checked (dest + length);
+					char* padPos = checked (dest + this.Length);
 					char* padTo = checked (dest + totalWidth);
 					while (padPos != padTo)
 						*padPos++ = paddingChar;
@@ -1654,12 +1769,12 @@ namespace System
 
 		internal bool StartsWithOrdinalUnchecked (string value)
 		{
-			return length >= value.length && CompareOrdinalUnchecked (this, 0, value.length, value, 0, value.length) == 0;
+			return this.Length >= value.Length && CompareOrdinalUnchecked (this, 0, value.Length, value, 0, value.Length) == 0;
 		}
 
 		internal bool StartsWithOrdinalCaseInsensitiveUnchecked (string value)
 		{
-			return length >= value.Length && CompareOrdinalCaseInsensitiveUnchecked (this, 0, value.length, value, 0, value.length) == 0;
+			return this.Length >= value.Length && CompareOrdinalCaseInsensitiveUnchecked (this, 0, value.Length, value, 0, value.Length) == 0;
 		}
 
 		[ComVisible (false)]
@@ -1698,22 +1813,28 @@ namespace System
 		// Following method is culture-insensitive
 		public unsafe String Replace (char oldChar, char newChar)
 		{
-			if (this.length == 0 || oldChar == newChar)
+			if (IsCompact)
+				throw new NotImplementedException ();
+
+			if (this.Length == 0 || oldChar == newChar)
 				return this;
 
-			int start_pos = IndexOfUnchecked (oldChar, 0, this.length);
+			int start_pos = IndexOfUnchecked (oldChar, 0, this.Length);
 			if (start_pos == -1)
 				return this;
 
 			if (start_pos < 4)
 				start_pos = 0;
 
-			string tmp = InternalAllocateStr (length);
-			fixed (char* dest = tmp, src = &start_char) {
+			string tmp = InternalAllocateStr (this.Length);
+			fixed (char* dest = tmp)
+			fixed (byte* src_ = &start_byte) {
+				char* src = (char*)src_;
+
 				if (start_pos != 0)
 					CharCopy (dest, src, start_pos);
 
-				char* end_ptr = dest + length;
+				char* end_ptr = dest + this.Length;
 				char* dest_ptr = dest + start_pos;
 				char* src_ptr = src + start_pos;
 
@@ -1753,9 +1874,12 @@ namespace System
 
 		private unsafe String ReplaceUnchecked (String oldValue, String newValue)
 		{
-			if (oldValue.length > length)
+			if (IsCompact)
+				throw new NotImplementedException ();
+
+			if (oldValue.Length > this.Length)
 				return this;
-			if (oldValue.length == 1 && newValue.length == 1) {
+			if (oldValue.Length == 1 && newValue.Length == 1) {
 				return Replace (oldValue[0], newValue[0]);
 				// ENHANCE: It would be possible to special case oldValue.length == newValue.length
 				// because the length of the result would be this.length and length calculation unneccesary
@@ -1765,8 +1889,8 @@ namespace System
 			int* dat = stackalloc int[maxValue];
 			fixed (char* source = this, replace = newValue) {
 				int i = 0, count = 0;
-				while (i < length) {
-					int found = IndexOfOrdinalUnchecked (oldValue, i, length - i);
+				while (i < this.Length) {
+					int found = IndexOfOrdinalUnchecked (oldValue, i, this.Length - i);
 					if (found < 0)
 						break;
 					else {
@@ -1775,14 +1899,14 @@ namespace System
 						else
 							return ReplaceFallback (oldValue, newValue, maxValue);
 					}
-					i = found + oldValue.length;
+					i = found + oldValue.Length;
 				}
 				if (count == 0)
 					return this;
 				int nlen = 0;
 				checked {
 					try {
-						nlen = this.length + ((newValue.length - oldValue.length) * count);
+						nlen = this.Length + ((newValue.Length - oldValue.Length) * count);
 					} catch (OverflowException) {
 						throw new OutOfMemoryException ();
 					}
@@ -1795,11 +1919,11 @@ namespace System
 						int precopy = dat[j] - lastReadPos;
 						CharCopy (dest + curPos, source + lastReadPos, precopy);
 						curPos += precopy;
-						lastReadPos = dat[j] + oldValue.length;
-						CharCopy (dest + curPos, replace, newValue.length);
-						curPos += newValue.length;
+						lastReadPos = dat[j] + oldValue.Length;
+						CharCopy (dest + curPos, replace, newValue.Length);
+						curPos += newValue.Length;
 					}
-					CharCopy (dest + curPos, source + lastReadPos, length - lastReadPos);
+					CharCopy (dest + curPos, source + lastReadPos, this.Length - lastReadPos);
 				}
 				return tmp;
 			}
@@ -1807,12 +1931,15 @@ namespace System
 
 		private String ReplaceFallback (String oldValue, String newValue, int testedCount)
 		{
-			int lengthEstimate = this.length + ((newValue.length - oldValue.length) * testedCount);
+			if (IsCompact)
+				throw new NotImplementedException ();
+
+			int lengthEstimate = this.Length + ((newValue.Length - oldValue.Length) * testedCount);
 			StringBuilder sb = new StringBuilder (lengthEstimate);
-			for (int i = 0; i < length;) {
-				int found = IndexOfOrdinalUnchecked (oldValue, i, length - i);
+			for (int i = 0; i < this.Length;) {
+				int found = IndexOfOrdinalUnchecked (oldValue, i, this.Length - i);
 				if (found < 0) {
-					sb.Append (SubstringUnchecked (i, length - i));
+					sb.Append (SubstringUnchecked (i, this.Length - i));
 					break;
 				}
 				sb.Append (SubstringUnchecked (i, found - i));
@@ -1825,21 +1952,23 @@ namespace System
 
 		public unsafe String Remove (int startIndex, int count)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
 			if (startIndex < 0)
 				throw new ArgumentOutOfRangeException ("startIndex", "Cannot be negative.");
 			if (count < 0)
 				throw new ArgumentOutOfRangeException ("count", "Cannot be negative.");
-			if (startIndex > this.length - count)
+			if (startIndex > this.Length - count)
 				throw new ArgumentOutOfRangeException ("count", "startIndex + count > this.length");
 
-			String tmp = InternalAllocateStr (this.length - count);
+			String tmp = InternalAllocateStr (this.Length - count);
 
 			fixed (char *dest = tmp, src = this) {
 				char *dst = dest;
 				CharCopy (dst, src, startIndex);
 				int skip = startIndex + count;
 				dst += startIndex;
-				CharCopy (dst, src + skip, length - skip);
+				CharCopy (dst, src + skip, this.Length - skip);
 			}
 			return tmp;
 		}
@@ -1862,16 +1991,20 @@ namespace System
 
 		public unsafe String ToLowerInvariant ()
 		{
-			if (length == 0)
+			if (IsCompact)
+				throw new NotImplementedException ();
+
+			if (this.Length == 0)
 				return Empty;
 
-			string tmp = InternalAllocateStr (length);
-			fixed (char* source = &start_char, dest = tmp) {
-
+			string tmp = InternalAllocateStr (this.Length);
+			fixed (char* dest = tmp)
+			fixed (byte* source_ = &start_byte) {
+				char* source = (char*)source_;
 				char* destPtr = (char*)dest;
 				char* sourcePtr = (char*)source;
 
-				for (int n = 0; n < length; n++) {
+				for (int n = 0; n < this.Length; n++) {
 					*destPtr = Char.ToLowerInvariant (*sourcePtr);
 					sourcePtr++;
 					destPtr++;
@@ -1898,16 +2031,20 @@ namespace System
 
 		public unsafe String ToUpperInvariant ()
 		{
-			if (length == 0)
+			if (IsCompact)
+				throw new NotImplementedException ();
+
+			if (this.Length == 0)
 				return Empty;
 
-			string tmp = InternalAllocateStr (length);
-			fixed (char* source = &start_char, dest = tmp) {
-
+			string tmp = InternalAllocateStr (this.Length);
+			fixed (char* dest = tmp)
+			fixed (byte* source_ = &start_byte) {
+				char* source = (char*)source_;
 				char* destPtr = (char*)dest;
 				char* sourcePtr = (char*)source;
 
-				for (int n = 0; n < length; n++) {
+				for (int n = 0; n < this.Length; n++) {
 					*destPtr = Char.ToUpperInvariant (*sourcePtr);
 					sourcePtr++;
 					destPtr++;
@@ -1967,12 +2104,12 @@ namespace System
 				for (i = 0; i < args.Length; ++i) {
 					string s = args [i] as string;
 					if (s != null)
-						len += s.length;
+						len += s.Length;
 					else
 						break;
 				}
 				if (i == args.Length)
-					result = new StringBuilder (len + format.length);
+					result = new StringBuilder (len + format.Length);
 				else
 					result = new StringBuilder ();
 			}
@@ -1981,7 +2118,7 @@ namespace System
 			int start = ptr;
 			var formatter = provider != null ? provider.GetFormat (typeof (ICustomFormatter)) as ICustomFormatter : null;
 
-			while (ptr < format.length) {
+			while (ptr < format.Length) {
 				char c = format[ptr ++];
 
 				if (c == '{') {
@@ -2024,9 +2161,9 @@ namespace System
 					}
 
 					// pad formatted string and append to result
-					if (width > str.length) {
+					if (width > str.Length) {
 						const char padchar = ' ';
-						int padlen = width - str.length;
+						int padlen = width - str.Length;
 
 						if (left_align) {
 							result.Append (str);
@@ -2042,7 +2179,7 @@ namespace System
 
 					start = ptr;
 				}
-				else if (c == '}' && ptr < format.length && format[ptr] == '}') {
+				else if (c == '}' && ptr < format.Length && format[ptr] == '}') {
 					result.Append (format, start, ptr - start - 1);
 					start = ptr ++;
 				}
@@ -2051,7 +2188,7 @@ namespace System
 				}
 			}
 
-			if (start < format.length)
+			if (start < format.Length)
 				result.Append (format, start, format.Length - start);
 
 			return result;
@@ -2062,7 +2199,10 @@ namespace System
 			if (str == null)
 				throw new ArgumentNullException ("str");
 
-			int length = str.length;
+			if (str.IsCompact)
+				throw new NotImplementedException ();
+
+			int length = str.Length;
 
 			String tmp = InternalAllocateStr (length);
 			if (length != 0) {
@@ -2156,15 +2296,18 @@ namespace System
 			if (str1 == null || str1.Length == 0)
 				return str0; 
 
-			int nlen = str0.length + str1.length;
+			int nlen = str0.Length + str1.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
 			String tmp = InternalAllocateStr (nlen);
 
+			if (str0.IsCompact || str1.IsCompact)
+				throw new NotImplementedException ();
+
 			fixed (char *dest = tmp, src = str0)
-				CharCopy (dest, src, str0.length);
+				CharCopy (dest, src, str0.Length);
 			fixed (char *dest = tmp, src = str1)
-				CharCopy (dest + str0.Length, src, str1.length);
+				CharCopy (dest + str0.Length, src, str1.Length);
 
 			return tmp;
 		}
@@ -2193,27 +2336,30 @@ namespace System
 				}
 			}
 
-			int nlen = str0.length + str1.length;
+			int nlen = str0.Length + str1.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
-			nlen += str2.length;
+			nlen += str2.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
 			String tmp = InternalAllocateStr (nlen);
 
+			if (str0.IsCompact || str1.IsCompact || str2.IsCompact)
+				throw new NotImplementedException ();
+
 			if (str0.Length != 0) {
 				fixed (char *dest = tmp, src = str0) {
-					CharCopy (dest, src, str0.length);
+					CharCopy (dest, src, str0.Length);
 				}
 			}
 			if (str1.Length != 0) {
 				fixed (char *dest = tmp, src = str1) {
-					CharCopy (dest + str0.Length, src, str1.length);
+					CharCopy (dest + str0.Length, src, str1.Length);
 				}
 			}
 			if (str2.Length != 0) {
 				fixed (char *dest = tmp, src = str2) {
-					CharCopy (dest + str0.Length + str1.Length, src, str2.length);
+					CharCopy (dest + str0.Length + str1.Length, src, str2.Length);
 				}
 			}
 
@@ -2234,35 +2380,38 @@ namespace System
 			if (str3 == null)
 				str3 = Empty;
 
-			int nlen = str0.length + str1.length;
+			if (str0.IsCompact || str1.IsCompact || str2.IsCompact || str3.IsCompact)
+				throw new NotImplementedException ();
+
+			int nlen = str0.Length + str1.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
-			nlen += str2.length;
+			nlen += str2.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
-			nlen += str3.length;
+			nlen += str3.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
-			String tmp = InternalAllocateStr (str0.length + str1.length + str2.length + str3.length);
+			String tmp = InternalAllocateStr (str0.Length + str1.Length + str2.Length + str3.Length);
 
 			if (str0.Length != 0) {
 				fixed (char *dest = tmp, src = str0) {
-					CharCopy (dest, src, str0.length);
+					CharCopy (dest, src, str0.Length);
 				}
 			}
 			if (str1.Length != 0) {
 				fixed (char *dest = tmp, src = str1) {
-					CharCopy (dest + str0.Length, src, str1.length);
+					CharCopy (dest + str0.Length, src, str1.Length);
 				}
 			}
 			if (str2.Length != 0) {
 				fixed (char *dest = tmp, src = str2) {
-					CharCopy (dest + str0.Length + str1.Length, src, str2.length);
+					CharCopy (dest + str0.Length + str1.Length, src, str2.Length);
 				}
 			}
 			if (str3.Length != 0) {
 				fixed (char *dest = tmp, src = str3) {
-					CharCopy (dest + str0.Length + str1.Length + str2.Length, src, str3.length);
+					CharCopy (dest + str0.Length + str1.Length + str2.Length, src, str3.Length);
 				}
 			}
 
@@ -2283,7 +2432,7 @@ namespace System
 			for (int i = 0; i < argLen; i++) {
 				if (args[i] != null) {
 					strings[i] = args[i].ToString ();
-					len += strings[i].length;
+					len += strings[i].Length;
 					if (len < 0)
 						throw new OutOfMemoryException ();
 				}
@@ -2301,7 +2450,7 @@ namespace System
 			for (int i = 0; i < values.Length; i++) {
 				String s = values[i];
 				if (s != null)
-					len += s.length;
+					len += s.Length;
 					if (len < 0)
 						throw new OutOfMemoryException ();
 			}
@@ -2323,8 +2472,10 @@ namespace System
 				for (int i = 0; i < values.Length; i++) {
 					String source = values[i];
 					if (source != null) {
+						if (source.IsCompact)
+							throw new NotImplementedException ();
 						fixed (char* src = source) {
-							CharCopy (dest + pos, src, source.length);
+							CharCopy (dest + pos, src, source.Length);
 						}
 						pos += source.Length;
 					}
@@ -2335,10 +2486,13 @@ namespace System
 
 		public unsafe String Insert (int startIndex, String value)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
+
 			if (value == null)
 				throw new ArgumentNullException ("value");
 
-			if (startIndex < 0 || startIndex > this.length)
+			if (startIndex < 0 || startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex", "Cannot be negative and must be less than or equal to length of string.");
 
 			if (value.Length == 0)
@@ -2346,7 +2500,7 @@ namespace System
 			if (this.Length == 0)
 				return value;
 
-			int nlen = this.length + value.length;
+			int nlen = this.Length + value.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
 
@@ -2356,9 +2510,9 @@ namespace System
 				char *dst = dest;
 				CharCopy (dst, src, startIndex);
 				dst += startIndex;
-				CharCopy (dst, val, value.length);
-				dst += value.length;
-				CharCopy (dst, src + startIndex, length - startIndex);
+				CharCopy (dst, val, value.Length);
+				dst += value.Length;
+				CharCopy (dst, src + startIndex, this.Length - startIndex);
 			}
 			return tmp;
 		}
@@ -2398,7 +2552,7 @@ namespace System
 			if (count < 0)
 				throw new ArgumentOutOfRangeException ("count", "< 0");
 			if (startIndex > value.Length - count)
-				throw new ArgumentOutOfRangeException ("startIndex", "startIndex + count > value.length");
+				throw new ArgumentOutOfRangeException ("startIndex", "startIndex + count > value.Length");
 
 			if (startIndex == value.Length)
 				return Empty;
@@ -2411,7 +2565,7 @@ namespace System
 		private static unsafe string JoinUnchecked (string separator, string[] value, int startIndex, int count)
 		{
 			// Unchecked parameters
-			// startIndex, count must be >= 0; startIndex + count must be <= value.length
+			// startIndex, count must be >= 0; startIndex + count must be <= value.Length
 			// separator and value must not be null
 
 			int length = 0;
@@ -2420,9 +2574,9 @@ namespace System
 			for (int i = startIndex; i < maxIndex; i++) {
 				String s = value[i];
 				if (s != null)
-					length += s.length;
+					length += s.Length;
 			}
-			length += separator.length * (count - 1);
+			length += separator.Length * (count - 1);
 			if (length <= 0)
 				return Empty;
 
@@ -2535,7 +2689,7 @@ namespace System
 
 		public int Length {
 			get {
-				return length;
+				return Math.Abs (tagged_length);
 			}
 		}
 
@@ -2647,11 +2801,14 @@ namespace System
 
 		internal unsafe void InternalSetChar (int idx, char val)
 		{
+			if (IsCompact)
+				throw new NotImplementedException ();
+
 			if ((uint) idx >= (uint) Length)
 				throw new ArgumentOutOfRangeException ("idx");
 
-			fixed (char * pStr = &start_char) 
-			{
+			fixed (byte* pStr_ = &start_byte) {
+				char* pStr = (char*)pStr_;
 				pStr [idx] = val;
 			}
 		}
@@ -2663,9 +2820,11 @@ namespace System
 		// When modifying it, GetCaseInsensitiveHashCode() should be modified as well.
 		public unsafe override int GetHashCode ()
 		{
-			fixed (char * c = this) {
+			if (IsCompact)
+				throw new NotImplementedException ();
+			fixed (char* c = this) {
 				char * cc = c;
-				char * end = cc + length - 1;
+				char * end = cc + this.Length - 1;
 				int h = 0;
 				for (;cc < end; cc += 2) {
 					h = (h << 5) - h + *cc;
@@ -2778,7 +2937,7 @@ namespace System
 		{
 			fixed (char * c = this) {
 				char * cc = c;
-				char * end = cc + length - 1;
+				char * end = cc + this.Length - 1;
 				int h = 0;
 				for (;cc < end; cc += 2) {
 					h = (h << 5) - h + Char.ToUpperInvariant (*cc);
@@ -2807,7 +2966,7 @@ namespace System
 					length++;
 			} catch (NullReferenceException) {
 				throw new ArgumentOutOfRangeException ("ptr", "Value does not refer to a valid string.");
-		}
+			}
 
 			return CreateString (value, 0, length, null);
 		}
@@ -3245,8 +3404,9 @@ namespace System
                 return String.Empty;
             
             String s = FastAllocateString(stringLength);
-            fixed(char* pTempChars = &s.start_char)
+            fixed(byte* pTempBytes = &s.start_byte)
             {
+				char* pTempChars = (char*)pTempBytes;
                 int doubleCheck = encoding.GetChars(bytes, byteLength, pTempChars, stringLength, null);
                 Contract.Assert(stringLength == doubleCheck, 
                     "Expected encoding.GetChars to return same length as encoding.GetCharCount");

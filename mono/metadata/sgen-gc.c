@@ -3741,8 +3741,8 @@ scan_thread_data (void *start_nursery, void *end_nursery, gboolean precise, Scan
 	} END_FOREACH_THREAD
 }
 
-static gboolean
-ptr_on_stack (void *ptr)
+gboolean
+sgen_ptr_on_stack (gpointer ptr)
 {
 	gpointer stack_start = &stack_start;
 	SgenThreadInfo *info = mono_thread_info_current ();
@@ -3932,6 +3932,7 @@ void
 mono_gc_wbarrier_set_field (MonoObject *obj, gpointer field_ptr, MonoObject* value)
 {
 	HEAVY_STAT (++stat_wbarrier_set_field);
+	mono_gc_stick_region_if_necessary (value, field_ptr);
 	if (ptr_in_nursery (field_ptr)) {
 		*(void**)field_ptr = value;
 		return;
@@ -3947,6 +3948,7 @@ void
 mono_gc_wbarrier_set_arrayref (MonoArray *arr, gpointer slot_ptr, MonoObject* value)
 {
 	HEAVY_STAT (++stat_wbarrier_set_arrayref);
+	mono_gc_stick_region_if_necessary (value, slot_ptr);
 	if (ptr_in_nursery (slot_ptr)) {
 		*(void**)slot_ptr = value;
 		return;
@@ -3962,6 +3964,13 @@ void
 mono_gc_wbarrier_arrayref_copy (gpointer dest_ptr, gpointer src_ptr, int count)
 {
 	HEAVY_STAT (++stat_wbarrier_arrayref_copy);
+#if 0
+	{
+		size_t i;
+		for (i = 0; i < count; ++i)
+			mono_gc_stick_region_if_necessary (((gpointer *)src_ptr) [i], ((gpointer *)dest_ptr) [i]);
+	}
+#endif
 	/*This check can be done without taking a lock since dest_ptr array is pinned*/
 	if (ptr_in_nursery (dest_ptr) || count <= 0) {
 		mono_gc_memmove_aligned (dest_ptr, src_ptr, count * sizeof (gpointer));
@@ -4010,7 +4019,7 @@ mono_gc_wbarrier_generic_nostore (gpointer ptr)
 	if (obj)
 		binary_protocol_wbarrier (ptr, obj, (gpointer)LOAD_VTABLE (obj));
 
-	if (ptr_in_nursery (ptr) || ptr_on_stack (ptr)) {
+	if (ptr_in_nursery (ptr) || sgen_ptr_on_stack (ptr)) {
 		SGEN_LOG (8, "Skipping remset at %p", ptr);
 		return;
 	}
@@ -4034,6 +4043,7 @@ mono_gc_wbarrier_generic_store (gpointer ptr, MonoObject* value)
 {
 	SGEN_LOG (8, "Wbarrier store at %p to %p (%s)", ptr, value, value ? safe_name (value) : "null");
 	SGEN_UPDATE_REFERENCE_ALLOW_NULL (ptr, value);
+	mono_gc_stick_region_if_necessary (value, ptr);
 	if (ptr_in_nursery (value))
 		mono_gc_wbarrier_generic_nostore (ptr);
 	sgen_dummy_use (value);
@@ -4051,6 +4061,7 @@ mono_gc_wbarrier_generic_store_atomic (gpointer ptr, MonoObject *value)
 
 	InterlockedWritePointer (ptr, value);
 
+	mono_gc_stick_region_if_necessary (value, ptr);
 	if (ptr_in_nursery (value))
 		mono_gc_wbarrier_generic_nostore (ptr);
 
@@ -4069,6 +4080,9 @@ void mono_gc_wbarrier_value_copy_bitmap (gpointer _dest, gpointer _src, int size
 			SGEN_UPDATE_REFERENCE_ALLOW_NULL (dest, *src);
 		++src;
 		++dest;
+#if 0
+		mono_gc_stick_region_if_necessary (src, dest);
+#endif
 		size -= SIZEOF_VOID_P;
 		bitmap >>= 1;
 	}
@@ -4099,11 +4113,15 @@ mono_gc_wbarrier_value_copy (gpointer dest, gpointer src, int count, MonoClass *
 	g_assert (klass->valuetype);
 
 	SGEN_LOG (8, "Adding value remset at %p, count %d, descr %p for class %s (%p)", dest, count, klass->gc_descr, klass->name, klass);
-
-	if (ptr_in_nursery (dest) || ptr_on_stack (dest) || !SGEN_CLASS_HAS_REFERENCES (klass)) {
+	if (ptr_in_nursery (dest) || sgen_ptr_on_stack (dest) || !SGEN_CLASS_HAS_REFERENCES (klass)) {
+		size_t i;
 		size_t element_size = mono_class_value_size (klass, NULL);
 		size_t size = count * element_size;
 		mono_gc_memmove_atomic (dest, src, size);		
+#if 0
+		for (i = 0; i < size; ++i)
+			mono_gc_stick_region_if_necessary (((gpointer *)src) [i], ((gpointer *)dest) [i]);
+#endif
 		return;
 	}
 
@@ -4122,6 +4140,22 @@ mono_gc_wbarrier_value_copy (gpointer dest, gpointer src, int count, MonoClass *
 	remset.wbarrier_value_copy (dest, src, count, klass);
 }
 
+#undef HANDLE_PTR
+#define HANDLE_PTR(ptr,obj) \
+	do { \
+		gpointer o = *(gpointer*)(ptr); \
+		if ((o)) { \
+			mono_gc_stick_region_if_necessary (o, dest); \
+		} \
+	} while (0)
+
+static void
+scan_object_for_region_sticking_copy_wbarrier (gpointer dest, char *start, mword desc)
+{
+#define SCAN_OBJECT_NOVTABLE
+#include "sgen-scan-object.h"
+}
+
 /**
  * mono_gc_wbarrier_object_copy:
  *
@@ -4134,7 +4168,9 @@ mono_gc_wbarrier_object_copy (MonoObject* obj, MonoObject *src)
 
 	HEAVY_STAT (++stat_wbarrier_object_copy);
 
-	if (ptr_in_nursery (obj) || ptr_on_stack (obj)) {
+	mono_gc_stick_region_if_necessary (src, obj);
+	scan_object_for_region_sticking_copy_wbarrier (obj, (char *)src, (mword) src->vtable->gc_descr);
+	if (ptr_in_nursery (obj) || sgen_ptr_on_stack (obj)) {
 		size = mono_object_class (obj)->instance_size;
 		mono_gc_memmove_aligned ((char*)obj + sizeof (MonoObject), (char*)src + sizeof (MonoObject),
 				size - sizeof (MonoObject));

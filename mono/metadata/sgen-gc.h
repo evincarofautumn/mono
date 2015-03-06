@@ -290,6 +290,8 @@ sgen_get_nursery_end (void)
 	return sgen_nursery_end;
 }
 
+gboolean sgen_ptr_on_stack (gpointer ptr);
+
 /* Structure that corresponds to a MonoVTable: desc is a mword so requires
  * no cast from a pointer to an integer
  */

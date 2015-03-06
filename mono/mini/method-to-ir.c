@@ -2129,7 +2129,7 @@ emit_instrumentation_call (MonoCompile *cfg, void *func)
 		return;
 
 	/* FIXME: Don't hardcode these function names. */
-	if (cfg->prof_options & MONO_PROFILE_ENTER_LEAVE || func == mono_gc_region_enter || func == mono_gc_region_exit) {
+	if (cfg->prof_options & MONO_PROFILE_ENTER_LEAVE || (cfg->orig_method->wrapper_type == NONE && (func == mono_gc_region_enter || func == mono_gc_region_exit))) {
 		EMIT_NEW_METHODCONST (cfg, iargs [0], cfg->method);
 		mono_emit_jit_icall (cfg, func, iargs);
 	}

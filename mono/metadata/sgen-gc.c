@@ -3746,10 +3746,7 @@ sgen_ptr_on_stack (gpointer ptr)
 {
 	gpointer stack_start = &stack_start;
 	SgenThreadInfo *info = mono_thread_info_current ();
-
-	if (ptr >= stack_start && ptr < (gpointer)info->stack_end)
-		return TRUE;
-	return FALSE;
+	return ptr >= stack_start && ptr < (gpointer)info->stack_end;
 }
 
 static void*
@@ -3932,7 +3929,8 @@ void
 mono_gc_wbarrier_set_field (MonoObject *obj, gpointer field_ptr, MonoObject* value)
 {
 	HEAVY_STAT (++stat_wbarrier_set_field);
-	mono_gc_stick_region_if_necessary (value, field_ptr);
+	/* FIXME: Why doesn't this work with 'field_ptr' instead of 'obj'? */
+	mono_gc_stick_region_if_necessary (value, obj);
 	if (ptr_in_nursery (field_ptr)) {
 		*(void**)field_ptr = value;
 		return;
@@ -3948,7 +3946,8 @@ void
 mono_gc_wbarrier_set_arrayref (MonoArray *arr, gpointer slot_ptr, MonoObject* value)
 {
 	HEAVY_STAT (++stat_wbarrier_set_arrayref);
-	mono_gc_stick_region_if_necessary (value, slot_ptr);
+	/* FIXME: Why doesn't this work with 'slot_ptr' instead of 'arr'? */
+	mono_gc_stick_region_if_necessary (value, arr);
 	if (ptr_in_nursery (slot_ptr)) {
 		*(void**)slot_ptr = value;
 		return;
@@ -3964,7 +3963,7 @@ void
 mono_gc_wbarrier_arrayref_copy (gpointer dest_ptr, gpointer src_ptr, int count)
 {
 	HEAVY_STAT (++stat_wbarrier_arrayref_copy);
-#if 0
+#if 1
 	{
 		size_t i;
 		for (i = 0; i < count; ++i)
@@ -4016,8 +4015,16 @@ mono_gc_wbarrier_generic_nostore (gpointer ptr)
 #endif
 
 	obj = *(gpointer*)ptr;
-	if (obj)
+	if (obj) {
 		binary_protocol_wbarrier (ptr, obj, (gpointer)LOAD_VTABLE (obj));
+		/* The object reference that incurred this write barrier by being stored
+		 * might be different from the reference we load from the pointer; this
+		 * may result in excessive region sticking, but should not interfere
+		 * with correctness.
+		 */
+		/* g_print ("%p -> %p\n", obj, ptr); */
+		mono_gc_stick_region_if_necessary (obj, ptr);
+	}
 
 	if (ptr_in_nursery (ptr) || sgen_ptr_on_stack (ptr)) {
 		SGEN_LOG (8, "Skipping remset at %p", ptr);
@@ -4080,7 +4087,7 @@ void mono_gc_wbarrier_value_copy_bitmap (gpointer _dest, gpointer _src, int size
 			SGEN_UPDATE_REFERENCE_ALLOW_NULL (dest, *src);
 		++src;
 		++dest;
-#if 0
+#if 1
 		mono_gc_stick_region_if_necessary (src, dest);
 #endif
 		size -= SIZEOF_VOID_P;
@@ -4169,7 +4176,9 @@ mono_gc_wbarrier_object_copy (MonoObject* obj, MonoObject *src)
 	HEAVY_STAT (++stat_wbarrier_object_copy);
 
 	mono_gc_stick_region_if_necessary (src, obj);
+#if 1
 	scan_object_for_region_sticking_copy_wbarrier (obj, (char *)src, (mword) src->vtable->gc_descr);
+#endif
 	if (ptr_in_nursery (obj) || sgen_ptr_on_stack (obj)) {
 		size = mono_object_class (obj)->instance_size;
 		mono_gc_memmove_aligned ((char*)obj + sizeof (MonoObject), (char*)src + sizeof (MonoObject),

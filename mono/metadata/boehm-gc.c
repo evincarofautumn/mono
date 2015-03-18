@@ -1159,12 +1159,17 @@ mono_gc_wbarrier_value_copy_bitmap (gpointer _dest, gpointer _src, int size, uns
 }
 
 void
+mono_gc_region_bail (void)
+{
+}
+
+void
 mono_gc_region_enter (void)
 {
 }
 
 void
-mono_gc_region_exit (void)
+mono_gc_region_exit (MonoObject *ret)
 {
 }
 

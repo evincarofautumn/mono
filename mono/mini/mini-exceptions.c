@@ -2511,10 +2511,10 @@ mono_resume_unwind (MonoContext *ctx)
 	MONO_CONTEXT_SET_SP (ctx, MONO_CONTEXT_GET_SP (&jit_tls->resume_state.ctx));
 	new_ctx = *ctx;
 
+	mono_gc_region_bail ();
 	mono_handle_exception_internal (&new_ctx, jit_tls->resume_state.ex_obj, TRUE, NULL);
 
 	mono_restore_context (&new_ctx);
-	mono_gc_region_bail ();
 
 }
 

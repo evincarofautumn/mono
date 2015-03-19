@@ -11437,9 +11437,17 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 				*sp++ = ins;
 			} else if (op == CEE_STSFLD) {
 				MonoInst *store;
-
 				EMIT_NEW_STORE_MEMBASE_TYPE (cfg, store, ftype, ins->dreg, 0, store_val->dreg);
+
 				store->flags |= ins_flag;
+
+				if (cfg->gen_write_barriers && mini_type_to_stind (cfg, field->type) == CEE_STIND_REF)
+					/* FIXME: This is for the region allocator, and could be an
+					 * icall to mono_gc_stick_region_if_necessary() rather than
+					 * a write barrier.
+					 */
+					emit_write_barrier (cfg, ins, store_val);
+
 			} else {
 				gboolean is_const = FALSE;
 				MonoVTable *vtable = NULL;

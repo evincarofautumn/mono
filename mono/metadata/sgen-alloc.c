@@ -254,9 +254,10 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst) {
 		char *tlab_stuck = TLAB_STUCK;
 		char *src_end = (char *)src + ALIGN_UP (sgen_safe_object_get_size (src));
 		TLAB_STUCK = MAX (tlab_stuck, src_end);
+		SGEN_ASSERT (0, sgen_ptr_in_tlab (TLAB_STUCK), "Region info was not cleared correctly");
 		SGEN_ASSERT (0, TLAB_STUCK <= TLAB_NEXT, "Why are we sticking an object that is not in the current region?");
 		HEAVY_STAT (++stat_regions_stuck);
-#if 1
+#if 0
 		g_print ("sticking at %p\n", TLAB_STUCK);
 #endif
 	}
@@ -306,7 +307,7 @@ mono_gc_region_enter (void)
 #endif
 	sgen_gc_lock ();
 	HEAVY_STAT (++stat_regions_entered);
-#if 1
+#if 0
 	{
 		char *method_name = get_method_from_ip (__builtin_return_address (0));
 		g_print ("region_enter %p (%s)\n", TLAB_NEXT, method_name);
@@ -341,7 +342,7 @@ mono_gc_region_exit (MonoObject *ret)
 		mono_gc_stick_region_if_necessary (ret, NULL);
 	sgen_gc_lock ();
 	HEAVY_STAT (++stat_regions_exited);
-#if 1
+#if 0
 	{
 		char *method_name = get_method_from_ip (__builtin_return_address (0));
 		g_print ("region_exit %p (%s)\n", TLAB_NEXT, method_name);
@@ -349,7 +350,6 @@ mono_gc_region_exit (MonoObject *ret)
 	}
 #endif
 	SGEN_ASSERT (0, TLAB_REGIONS_BEGIN, "Region exit without corresponding region enter");
-	SGEN_ASSERT (0, TLAB_REGIONS_END > TLAB_REGIONS_BEGIN, "Region stack underflow");
 	/* A GC happened, so there is no region to exit. */
 	if (TLAB_REGIONS_END == TLAB_REGIONS_BEGIN)
 		goto end;
@@ -365,7 +365,9 @@ mono_gc_region_exit (MonoObject *ret)
 		}
 		region_size = next - region;
 		if (region_size) {
+#if 0
 			g_print ("clearing %lu bytes from %p to %p, start %p, next %p, stuck %p\n", region_size, region, region + region_size, TLAB_START, TLAB_NEXT, TLAB_STUCK);
+#endif
 			memset (region, 0, region_size);
 		}
 		/* Reset TLAB pointer. */

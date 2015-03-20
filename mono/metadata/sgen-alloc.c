@@ -206,11 +206,11 @@ forget_stuck_regions (void)
 #endif
 	char **begin = TLAB_REGIONS_BEGIN;
 	char **end = TLAB_REGIONS_END;
-	char **p = end;
+	char **p = begin;
 	char *stuck = TLAB_STUCK;
 	size_t forgotten;
-	while (p != begin && p [-1] >= stuck)
-		--p;
+	while (p != end && *p <= stuck)
+		++p;
 	forgotten = p - begin;
 #if 0
 	g_print ("forgetting %d/%d regions < %p:", p - begin, end - begin, stuck);

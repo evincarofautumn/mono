@@ -5056,7 +5056,7 @@ mono_string_new_size (MonoDomain *domain, gint32 len)
 #ifndef HAVE_SGEN_GC
 	s = mono_object_allocate_ptrfree (size, vtable);
 
-	s->length = len;
+	mono_string_set_length (s, len, MONO_ENCODING_UTF16);
 #else
 	s = mono_gc_alloc_string (vtable, size, len);
 #endif
@@ -5442,7 +5442,7 @@ mono_string_get_pinned (MonoString *str)
 	news = mono_gc_alloc_pinned_obj (((MonoObject*)str)->vtable, size);
 	if (news) {
 		memcpy (mono_string_chars (news), mono_string_chars (str), mono_string_length (str) * 2);
-		news->length = mono_string_length (str);
+		mono_string_set_length (news, mono_string_length (str), MONO_ENCODING_UTF16);
 	}
 	return news;
 }
@@ -5633,19 +5633,19 @@ mono_string_to_utf8_checked (MonoString *s, MonoError *error)
 	if (s == NULL)
 		return NULL;
 
-	if (!s->length)
+	if (!mono_string_length_fast (s))
 		return g_strdup ("");
 
-	as = g_utf16_to_utf8 (mono_string_chars (s), s->length, NULL, &written, &gerror);
+	as = g_utf16_to_utf8 (mono_string_chars (s), mono_string_length_fast (s), NULL, &written, &gerror);
 	if (gerror) {
 		mono_error_set_argument (error, "string", "%s", gerror->message);
 		g_error_free (gerror);
 		return NULL;
 	}
 	/* g_utf16_to_utf8  may not be able to complete the convertion (e.g. NULL values were found, #335488) */
-	if (s->length > written) {
+	if (mono_string_length_fast (s) > written) {
 		/* allocate the total length and copy the part of the string that has been converted */
-		char *as2 = g_malloc0 (s->length);
+		char *as2 = g_malloc0 (mono_string_length_fast (s));
 		memcpy (as2, as, written);
 		g_free (as);
 		as = as2;
@@ -5672,15 +5672,15 @@ mono_string_to_utf8_ignore (MonoString *s)
 	if (s == NULL)
 		return NULL;
 
-	if (!s->length)
+	if (!mono_string_length_fast (s))
 		return g_strdup ("");
 
-	as = g_utf16_to_utf8 (mono_string_chars (s), s->length, NULL, &written, NULL);
+	as = g_utf16_to_utf8 (mono_string_chars (s), mono_string_length_fast (s), NULL, &written, NULL);
 
 	/* g_utf16_to_utf8  may not be able to complete the convertion (e.g. NULL values were found, #335488) */
-	if (s->length > written) {
+	if (mono_string_length_fast (s) > written) {
 		/* allocate the total length and copy the part of the string that has been converted */
-		char *as2 = g_malloc0 (s->length);
+		char *as2 = g_malloc0 (mono_string_length_fast (s));
 		memcpy (as2, as, written);
 		g_free (as);
 		as = as2;
@@ -5731,15 +5731,15 @@ mono_string_to_utf16 (MonoString *s)
 	if (s == NULL)
 		return NULL;
 
-	as = g_malloc ((s->length * 2) + 2);
-	as [(s->length * 2)] = '\0';
-	as [(s->length * 2) + 1] = '\0';
+	as = g_malloc ((mono_string_length_fast (s) * 2) + 2);
+	as [(mono_string_length_fast (s) * 2)] = '\0';
+	as [(mono_string_length_fast (s) * 2) + 1] = '\0';
 
-	if (!s->length) {
+	if (!mono_string_length_fast (s)) {
 		return (gunichar2 *)(as);
 	}
 	
-	memcpy (as, mono_string_chars(s), s->length * 2);
+	memcpy (as, mono_string_chars(s), mono_string_length_fast (s) * 2);
 	return (gunichar2 *)(as);
 }
 
@@ -5760,7 +5760,7 @@ mono_string_to_utf32 (MonoString *s)
 	if (s == NULL)
 		return NULL;
 		
-	utf32_output = g_utf16_to_ucs4 (s->chars, s->length, NULL, &items_written, &error);
+	utf32_output = g_utf16_to_ucs4 (s->chars, mono_string_length_fast (s), NULL, &items_written, &error);
 	
 	if (error)
 		g_error_free (error);
@@ -6729,12 +6729,12 @@ mono_string_chars (MonoString *s)
  * mono_string_length:
  * @s: MonoString
  *
- * Returns the lenght in characters of the string
+ * Returns the length in characters of the string
  */
 int
 mono_string_length (MonoString *s)
 {
-	return s->length;
+	return mono_string_length_fast (s);
 }
 
 /**

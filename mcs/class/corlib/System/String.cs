@@ -63,7 +63,7 @@ namespace System
 		// Since length is signed, we use the sign bit to denote its encoding:
 		// positive lengths denote the normal (UTF-16) encoding, while negative
 		// lengths denote the compact (ASCII) encoding.
-		[NonSerialized] private int tagged_length;
+		[NonSerialized] private UInt32 tagged_length;
 		[NonSerialized] private byte start_byte;
 
 		public static readonly String Empty = "";
@@ -78,7 +78,7 @@ namespace System
 
 		private bool IsCompact {
 			get {
-				return tagged_length < 0;
+				return (tagged_length & 1) != 0;
 			}
 		}
 
@@ -2689,7 +2689,7 @@ namespace System
 
 		public int Length {
 			get {
-				return Math.Abs (tagged_length);
+				return (int)(tagged_length >> 1);
 			}
 		}
 

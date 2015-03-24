@@ -4441,13 +4441,13 @@ mono_gc_set_string_length (MonoString *str, gint32 new_length)
 	 
 	if (nursery_canaries_enabled () && sgen_ptr_in_nursery (str)) {
 		CHECK_CANARY_FOR_OBJECT (str);
-		memset (new_end, 0, (str->length - new_length + 1) * sizeof (mono_unichar2) + CANARY_SIZE);
+		memset (new_end, 0, (mono_string_length_fast (str) - new_length + 1) * sizeof (mono_unichar2) + CANARY_SIZE);
 		memcpy (new_end + 1 , CANARY_STRING, CANARY_SIZE);
 	} else {
-		memset (new_end, 0, (str->length - new_length + 1) * sizeof (mono_unichar2));
+		memset (new_end, 0, (mono_string_length_fast (str) - new_length + 1) * sizeof (mono_unichar2));
 	}
 	
-	str->length = new_length;
+	mono_string_set_length (str, new_length, MONO_ENCODING_UTF16);
 }
 
 gboolean

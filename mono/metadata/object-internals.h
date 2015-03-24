@@ -88,7 +88,7 @@
        };				}G_STMT_END
 
 /* 16 == default capacity */
-#define mono_stringbuilder_capacity(sb) ((sb)->str ? ((sb)->str->length) : 16)
+#define mono_stringbuilder_capacity(sb) ((sb)->str ? (mono_string_length_fast ((sb)->str)) : 16)
 
 /* 
  * Macros which cache the results of lookups locally.
@@ -165,15 +165,32 @@ struct _MonoArray {
 
 struct _MonoString {
 	MonoObject object;
-	int32_t length;
+	uint32_t tagged_length;
 	mono_unichar2 chars [MONO_ZERO_LEN_ARRAY];
 };
+
+typedef enum MonoInternalEncoding {
+	MONO_ENCODING_ASCII,
+	MONO_ENCODING_UTF16
+} MonoInternalEncoding;
 
 #define mono_object_class(obj) (((MonoObject*)(obj))->vtable->klass)
 #define mono_object_domain(obj) (((MonoObject*)(obj))->vtable->domain)
 
 #define mono_string_chars_fast(s) ((mono_unichar2*)(s)->chars)
-#define mono_string_length_fast(s) ((s)->length)
+#define mono_string_length_fast(s) ((s)->tagged_length >> 1)
+
+static inline void
+mono_string_set_length (MonoString *s, int32_t len, MonoInternalEncoding encoding)
+{
+	switch (encoding) {
+	case MONO_ENCODING_UTF16:
+		s->tagged_length = len << 1;
+		break;
+	default:
+		g_assert_not_reached ();
+	}
+}
 
 #define mono_array_length_fast(array) ((array)->max_length)
 #define mono_array_addr_with_size_fast(array,size,index) ( ((char*)(array)->vector) + (size) * (index) )

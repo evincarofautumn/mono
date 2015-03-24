@@ -370,10 +370,10 @@ string_to_utf8 (MonoString *s)
 
 	g_assert (s);
 
-	if (!s->length)
+	if (!mono_string_length_fast (s))
 		return g_strdup ("");
 
-	as = g_utf16_to_utf8 (mono_string_chars (s), s->length, NULL, NULL, &error);
+	as = g_utf16_to_utf8 (mono_string_chars (s), mono_string_length_fast (s), NULL, NULL, &error);
 	if (error) {
 		/* Happens with StringBuilders */
 		g_error_free (error);

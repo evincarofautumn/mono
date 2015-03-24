@@ -606,7 +606,7 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len)
 	str = mono_gc_try_alloc_obj_nolock (vtable, size);
 	if (str) {
 		/*This doesn't require fencing since EXIT_CRITICAL_REGION already does it for us*/
-		str->length = len;
+		mono_string_set_length (str, len, MONO_ENCODING_UTF16);
 		EXIT_CRITICAL_REGION;
 		return str;
 	}
@@ -621,7 +621,7 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len)
 		return mono_gc_out_of_memory (size);
 	}
 
-	str->length = len;
+	mono_string_set_length (str, len, MONO_ENCODING_UTF16);
 
 	UNLOCK_GC;
 
@@ -1044,9 +1044,11 @@ create_allocator (int atype)
 		/* need to set length and clear the last char */
 		/* s->length = len; */
 		mono_mb_emit_ldloc (mb, p_var);
-		mono_mb_emit_icon (mb, MONO_STRUCT_OFFSET (MonoString, length));
+		mono_mb_emit_icon (mb, MONO_STRUCT_OFFSET (MonoString, tagged_length));
 		mono_mb_emit_byte (mb, MONO_CEE_ADD);
 		mono_mb_emit_ldarg (mb, 1);
+		mono_mb_emit_icon (mb, 1);
+		mono_mb_emit_byte (mb, MONO_CEE_SHL);
 		mono_mb_emit_byte (mb, MONO_CEE_STIND_I4);
 		/* s->chars [len] = 0; */
 		mono_mb_emit_ldloc (mb, p_var);

@@ -3149,7 +3149,7 @@ emit_write_barrier (MonoCompile *cfg, MonoInst *ptr, MonoInst *value)
 		int card_reg  = alloc_preg (cfg);
 		MonoInst *ins;
 
-		MONO_EMIT_NEW_BIALU_IMM (cfg, OP_SHR_UN_IMM, offset_reg, ptr->dreg, card_table_shift_bits);
+		MONO_EMIT_NEW_BIALU_IMM (cfg, OP_ISHR_UN_IMM, offset_reg, ptr->dreg, card_table_shift_bits);
 		if (card_table_mask)
 			MONO_EMIT_NEW_BIALU_IMM (cfg, OP_PAND_IMM, offset_reg, offset_reg, card_table_mask);
 
@@ -5229,7 +5229,7 @@ mini_emit_ldelema_1_ins (MonoCompile *cfg, MonoClass *klass, MonoInst *arr, Mono
 #endif
 
 	if (bcheck)
-		MONO_EMIT_BOUNDS_CHECK (cfg, array_reg, MonoArray, max_length, index2_reg);
+		MONO_EMIT_BOUNDS_CHECK (cfg, array_reg, MonoArray, max_length, index2_reg, FALSE);
 
 #if defined(TARGET_X86) || defined(TARGET_AMD64)
 	if (size == 1 || size == 2 || size == 4 || size == 8) {
@@ -5488,7 +5488,7 @@ emit_array_store (MonoCompile *cfg, MonoClass *klass, MonoInst **sp, gboolean sa
 			int offset = (mono_class_array_element_size (klass) * sp [1]->inst_c0) + MONO_STRUCT_OFFSET (MonoArray, vector);
 
 			if (safety_checks)
-				MONO_EMIT_BOUNDS_CHECK (cfg, array_reg, MonoArray, max_length, index_reg);
+				MONO_EMIT_BOUNDS_CHECK (cfg, array_reg, MonoArray, max_length, index_reg, FALSE);
 			EMIT_NEW_STORE_MEMBASE_TYPE (cfg, ins, &klass->byval_arg, array_reg, offset, sp [2]->dreg);
 		} else {
 			MonoInst *addr = mini_emit_ldelema_1_ins (cfg, klass, sp [0], sp [1], safety_checks);
@@ -5690,7 +5690,7 @@ mini_emit_inst_for_method (MonoCompile *cfg, MonoMethod *cmethod, MonoMethodSign
 #else
 			index_reg = args [1]->dreg;
 #endif	
-			MONO_EMIT_BOUNDS_CHECK (cfg, args [0]->dreg, MonoString, length, index_reg);
+			MONO_EMIT_BOUNDS_CHECK (cfg, args [0]->dreg, MonoString, tagged_length, index_reg, TRUE);
 
 #if defined(TARGET_X86) || defined(TARGET_AMD64)
 			EMIT_NEW_X86_LEA (cfg, ins, args [0]->dreg, index_reg, 1, MONO_STRUCT_OFFSET (MonoString, chars));
@@ -11610,7 +11610,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 				int index_reg = sp [1]->dreg;
 				int offset = (mono_class_array_element_size (klass) * sp [1]->inst_c0) + MONO_STRUCT_OFFSET (MonoArray, vector);
 
-				MONO_EMIT_BOUNDS_CHECK (cfg, array_reg, MonoArray, max_length, index_reg);
+				MONO_EMIT_BOUNDS_CHECK (cfg, array_reg, MonoArray, max_length, index_reg, FALSE);
 				EMIT_NEW_LOAD_MEMBASE_TYPE (cfg, ins, &klass->byval_arg, array_reg, offset);
 			} else {
 				addr = mini_emit_ldelema_1_ins (cfg, klass, sp [0], sp [1], TRUE);

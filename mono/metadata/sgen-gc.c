@@ -3930,7 +3930,7 @@ mono_gc_wbarrier_set_field (MonoObject *obj, gpointer field_ptr, MonoObject* val
 {
 	HEAVY_STAT (++stat_wbarrier_set_field);
 	/* FIXME: Why doesn't this work with 'field_ptr' instead of 'obj'? */
-	mono_gc_stick_region_if_necessary (value, obj);
+	mono_gc_stick_region_if_necessary (value, field_ptr);
 	if (ptr_in_nursery (field_ptr)) {
 		*(void**)field_ptr = value;
 		return;
@@ -3947,7 +3947,7 @@ mono_gc_wbarrier_set_arrayref (MonoArray *arr, gpointer slot_ptr, MonoObject* va
 {
 	HEAVY_STAT (++stat_wbarrier_set_arrayref);
 	/* FIXME: Why doesn't this work with 'slot_ptr' instead of 'arr'? */
-	mono_gc_stick_region_if_necessary (value, arr);
+	mono_gc_stick_region_if_necessary (value, slot_ptr);
 	if (ptr_in_nursery (slot_ptr)) {
 		*(void**)slot_ptr = value;
 		return;

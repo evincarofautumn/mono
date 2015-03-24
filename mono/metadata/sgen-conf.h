@@ -58,7 +58,7 @@ typedef guint64 mword;
  * option enables very fine-grained binary protocol events, which will make the GC a tiny
  * bit less efficient even if no binary protocol file is generated.
  */
-//#define SGEN_HEAVY_BINARY_PROTOCOL
+#define SGEN_HEAVY_BINARY_PROTOCOL
 
 /*
  * This enables checks whenever objects are enqueued in gray queues.

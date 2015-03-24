@@ -2181,6 +2181,7 @@ emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
 	size_t i;
 	gboolean allowed_type = FALSE;
 	for (i = 0; i < num_allowed_types; ++i) {
+		/* FIXME: Should this use orig_method? */
 		if (cfg->method->wrapper_type == allowed_types [i]) {
 			allowed_type = TRUE;
 			break;
@@ -11441,7 +11442,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 				store->flags |= ins_flag;
 
-				if (cfg->gen_write_barriers && mini_type_to_stind (cfg, field->type) == CEE_STIND_REF)
+				if (cfg->gen_write_barriers && store_val->type == STACK_OBJ)
 					/* FIXME: This is for the region allocator, and could be an
 					 * icall to mono_gc_stick_region_if_necessary() rather than
 					 * a write barrier.

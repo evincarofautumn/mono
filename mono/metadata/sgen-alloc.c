@@ -324,7 +324,7 @@ mono_gc_region_enter (void)
 		SGEN_ASSERT (0, !TLAB_STUCK, "The TLAB info has been reset incorrectly");
 		goto end;
 	}
-#if 1
+#if 0
 	{
 		char *method_name = get_method_from_ip (__builtin_return_address (0));
 		g_print ("region_enter %p (%s)\n", next, method_name);
@@ -371,7 +371,7 @@ mono_gc_region_exit (MonoObject *ret)
 		/* SGEN_ASSERT (0, !forgotten, "There should have been no regions to forget"); */
 	}
 #endif
-#if 1
+#if 0
 	{
 		char *method_name = get_method_from_ip (__builtin_return_address (0));
 		g_print ("region_exit %p (%s)\n", TLAB_NEXT, method_name);

@@ -884,6 +884,7 @@ ves_icall_System_Runtime_CompilerServices_RuntimeHelpers_InitializeArray (MonoAr
 ICALL_EXPORT gint
 ves_icall_System_Runtime_CompilerServices_RuntimeHelpers_GetOffsetToStringData (void)
 {
+	g_print ("GetOffsetToStringData()\n");
 	return offsetof (MonoString, chars);
 }
 

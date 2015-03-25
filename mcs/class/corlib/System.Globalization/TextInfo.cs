@@ -474,10 +474,9 @@ namespace System.Globalization {
 				return String.Empty;
 
 			string tmp = String.InternalAllocateStr (str.Length);
-			fixed (char* source = str, dest = tmp) {
-
-				char* destPtr = (char*)dest;
-				char* sourcePtr = (char*)source;
+			fixed (byte* source_ = &str.start_byte, dest_ = &tmp.start_byte) {
+				char* destPtr = (char*)dest_;
+				char* sourcePtr = (char*)source_;
 
 				for (int n = 0; n < str.Length; n++) {
 					*destPtr = ToLower (*sourcePtr);
@@ -502,10 +501,9 @@ namespace System.Globalization {
 				return String.Empty;
 
 			string tmp = String.InternalAllocateStr (str.Length);
-			fixed (char* source = str, dest = tmp) {
-
-				char* destPtr = (char*)dest;
-				char* sourcePtr = (char*)source;
+			fixed (byte* source_ = &str.start_byte, dest_ = &tmp.start_byte) {
+				char* destPtr = (char*)dest_;
+				char* sourcePtr = (char*)source_;
 
 				for (int n = 0; n < str.Length; n++) {
 					*destPtr = ToUpper (*sourcePtr);

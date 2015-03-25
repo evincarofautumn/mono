@@ -64,7 +64,7 @@ namespace System
 		// positive lengths denote the normal (UTF-16) encoding, while negative
 		// lengths denote the compact (ASCII) encoding.
 		[NonSerialized] private UInt32 tagged_length;
-		[NonSerialized] private byte start_byte;
+		[NonSerialized] internal byte start_byte;
 
 		public static readonly String Empty = "";
 
@@ -249,8 +249,11 @@ namespace System
 			if (destinationIndex > destination.Length - count)
 				throw new ArgumentOutOfRangeException ("destinationIndex", "destinationIndex + count > destination.Length");
 
-			fixed (char* dest = destination, src = this)
+			fixed (char* dest = destination)
+			fixed (byte* src_ = &this.start_byte) {
+				char* src = (char*)src_;
 				CharCopy (dest + destinationIndex, src + sourceIndex, count);
+			}
 		}
 
 		public char[] ToCharArray ()
@@ -269,8 +272,11 @@ namespace System
 			if (startIndex > this.Length - length)
 				throw new ArgumentOutOfRangeException ("startIndex", "Must be greater than the length of the string.");
 			char[] tmp = new char [length];
-			fixed (char* dest = tmp, src = this)
+			fixed (char* dest = tmp)
+			fixed (byte* src_ = &this.start_byte) {
+				char* src = (char*)src_;
 				CharCopy (dest, src + startIndex, length);
+			}
 			return tmp;
 		}
 
@@ -398,7 +404,8 @@ namespace System
 			--count;
 
 			if (sep == null || sep.Length == 0) {
-				fixed (char* src = this) {
+				fixed (byte* src_ = &this.start_byte) {
+					char* src = (char*)src_;
 					char* src_ptr = src;
 					int len = Length;
 
@@ -418,7 +425,8 @@ namespace System
 					}
 				}
 			} else {
-				fixed (char* src = this) {
+				fixed (byte* src_ = &this.start_byte) {
+					char* src = (char*)src_;
 					fixed (char* sep_src = sep) {
 						char* src_ptr = src;
 						char* sep_ptr_end = sep_src + sep.Length;
@@ -526,7 +534,10 @@ namespace System
 				return Empty;
 
 			string tmp = InternalAllocateStr (length);
-			fixed (char* dest = tmp, src = this) {
+			fixed (byte* dest_ = &tmp.start_byte)
+			fixed (byte* src_ = &this.start_byte) {
+				char* dest = (char*)dest_;
+				char* src = (char*)src_;
 				CharCopy (dest, src + startIndex, length);
 			}
 			return tmp;
@@ -608,7 +619,8 @@ namespace System
 		{
 			if (IsCompact)
 				throw new NotImplementedException ();
-			fixed (char* src = this) {
+			fixed (byte* src_ = &this.start_byte) {
+				char* src = (char*)src_;
 				while (pos != target) {
 					if (!char.IsWhiteSpace (src[pos]))
 						return pos;
@@ -623,7 +635,9 @@ namespace System
 		{
 			if (IsCompact)
 				throw new NotImplementedException ();
-			fixed (char* tablePtr = table, thisPtr = this) {
+			fixed (char* tablePtr = table)
+			fixed (byte* thisPtr_ = &this.start_byte) {
+				char* thisPtr = (char*)thisPtr_;
 				while (pos != target) {
 					char c = thisPtr[pos];
 					int x = 0;
@@ -864,7 +878,9 @@ namespace System
 			if (lengthA == lengthB && indexA == indexB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			fixed (char* aptr = strA, bptr = strB) {
+			fixed (byte* aptr_ = &strA.start_byte, bptr_ = &strB.start_byte) {
+				char* aptr = (char*)aptr_;
+				char* bptr = (char*)bptr_;
 				char* ap = aptr + indexA;
 				char* end = ap + Math.Min (lengthA, lengthB);
 				char* bp = bptr + indexB;
@@ -903,7 +919,9 @@ namespace System
 			if (lengthA == lengthB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			fixed (char* aptr = strA, bptr = strB) {
+			fixed (byte* aptr_ = &strA.start_byte, bptr_ = &strB.start_byte) {
+				char* aptr = (char*)aptr_;
+				char* bptr = (char*)bptr_;
 				char* ap = aptr + indexA;
 				char* end = ap + Math.Min (lengthA, lengthB);
 				char* bp = bptr + indexB;
@@ -1092,7 +1110,9 @@ namespace System
 				return startIndex;
 			}
 
-			fixed (char* thisptr = this, valueptr = value) {
+			fixed (byte* thisptr_ = &this.start_byte, valueptr_ = &value.start_byte) {
+				char* thisptr = (char*)thisptr_;
+				char* valueptr = (char*)valueptr_;
 				char* ap = thisptr + startIndex;
 				char* thisEnd = ap + count - valueLen + 1;
 				while (ap != thisEnd) {
@@ -1121,7 +1141,9 @@ namespace System
 			if (valueLen == 0)
 				return startIndex;
 
-			fixed (char* thisptr = this, valueptr = value) {
+			fixed (byte* thisptr_ = &this.start_byte, valueptr_ = &value.start_byte) {
+				char* thisptr = (char*)thisptr_;
+				char* valueptr = (char*)valueptr_;
 				char* ap = thisptr + startIndex;
 				char* thisEnd = ap + count - valueLen + 1;
 				while (ap != thisEnd) {
@@ -1203,7 +1225,9 @@ namespace System
 				return startIndex;
 			}
 
-			fixed (char* thisptr = this, valueptr = value) {
+			fixed (byte* thisptr_ = &this.start_byte, valueptr_ = &value.start_byte) {
+				char* thisptr = (char*)thisptr_;
+				char* valueptr = (char*)valueptr_;
 				char* ap = thisptr + startIndex - valueLen + 1;
 				char* thisEnd = ap - count + valueLen - 1;
 				while (ap != thisEnd) {
@@ -1232,7 +1256,9 @@ namespace System
 			if (valueLen == 0)
 				return startIndex;
 
-			fixed (char* thisptr = this, valueptr = value) {
+			fixed (byte* thisptr_ = &this.start_byte, valueptr_ = &value.start_byte) {
+				char* thisptr = (char*)thisptr_;
+				char* valueptr = (char*)valueptr_;
 				char* ap = thisptr + startIndex - valueLen + 1;
 				char* thisEnd = ap - count + valueLen - 1;
 				while (ap != thisEnd) {
@@ -1441,7 +1467,10 @@ namespace System
 			if (anyOf.Length == 1)
 				return LastIndexOfUnchecked (anyOf[0], startIndex, count);
 
-			fixed (char* start = this, testStart = anyOf) {
+			fixed (byte* start_ = &this.start_byte)
+			fixed (char* testStart_ = anyOf) {
+				char* start = (char*)start_;
+				char* testStart = (char*)testStart_;
 				char* ptr = start + startIndex;
 				char* ptrEnd = ptr - count;
 				char* test;
@@ -1681,7 +1710,9 @@ namespace System
 
 			String tmp = InternalAllocateStr (totalWidth);
 
-			fixed (char* dest = tmp, src = this) {
+			fixed (byte* dest_ = &tmp.start_byte, src_ = &this.start_byte) {
+				char* dest = (char*)dest_;
+				char* src = (char*)src_;
 				char* padPos = dest;
 				char* padTo;
 				try {
@@ -1719,7 +1750,9 @@ namespace System
 
 			String tmp = InternalAllocateStr (totalWidth);
 
-			fixed (char* dest = tmp, src = this) {
+			fixed (byte* dest_ = &tmp.start_byte, src_ = &this.start_byte) {
+				char* dest = (char*)dest_;
+				char* src = (char*)src_;
 				CharCopy (dest, src, this.Length);
 
 				try {
@@ -1827,8 +1860,8 @@ namespace System
 				start_pos = 0;
 
 			string tmp = InternalAllocateStr (this.Length);
-			fixed (char* dest = tmp)
-			fixed (byte* src_ = &start_byte) {
+			fixed (byte* dest_ = &tmp.start_byte, src_ = &start_byte) {
+				char* dest = (char*)dest_;
 				char* src = (char*)src_;
 
 				if (start_pos != 0)
@@ -1887,7 +1920,9 @@ namespace System
 
 			const int maxValue = 200; // Allocate 800 byte maximum
 			int* dat = stackalloc int[maxValue];
-			fixed (char* source = this, replace = newValue) {
+			fixed (byte* source_ = &this.start_byte, replace_ = &newValue.start_byte) {
+				char* source = (char*)source_;
+				char* replace = (char*)replace_;
 				int i = 0, count = 0;
 				while (i < this.Length) {
 					int found = IndexOfOrdinalUnchecked (oldValue, i, this.Length - i);
@@ -1914,7 +1949,8 @@ namespace System
 				String tmp = InternalAllocateStr (nlen);
 
 				int curPos = 0, lastReadPos = 0;
-				fixed (char* dest = tmp) {
+				fixed (byte* dest_ = &tmp.start_byte) {
+					char* dest = (char*)dest_;
 					for (int j = 0; j < count; j++) {
 						int precopy = dat[j] - lastReadPos;
 						CharCopy (dest + curPos, source + lastReadPos, precopy);
@@ -1963,8 +1999,9 @@ namespace System
 
 			String tmp = InternalAllocateStr (this.Length - count);
 
-			fixed (char *dest = tmp, src = this) {
-				char *dst = dest;
+			fixed (byte* dst_ = &tmp.start_byte, src_ = &this.start_byte) {
+				char* dst = (char*)dst_;
+				char* src = (char*)src_;
 				CharCopy (dst, src, startIndex);
 				int skip = startIndex + count;
 				dst += startIndex;
@@ -1998,8 +2035,9 @@ namespace System
 				return Empty;
 
 			string tmp = InternalAllocateStr (this.Length);
-			fixed (char* dest = tmp)
+			fixed (byte* dest_ = &tmp.start_byte)
 			fixed (byte* source_ = &start_byte) {
+				char* dest = (char*)dest_;
 				char* source = (char*)source_;
 				char* destPtr = (char*)dest;
 				char* sourcePtr = (char*)source;
@@ -2038,11 +2076,10 @@ namespace System
 				return Empty;
 
 			string tmp = InternalAllocateStr (this.Length);
-			fixed (char* dest = tmp)
+			fixed (byte* dest_ = &tmp.start_byte)
 			fixed (byte* source_ = &start_byte) {
-				char* source = (char*)source_;
-				char* destPtr = (char*)dest;
-				char* sourcePtr = (char*)source;
+				char* destPtr = (char*)dest_;
+				char* sourcePtr = (char*)source_;
 
 				for (int n = 0; n < this.Length; n++) {
 					*destPtr = Char.ToUpperInvariant (*sourcePtr);
@@ -2206,7 +2243,9 @@ namespace System
 
 			String tmp = InternalAllocateStr (length);
 			if (length != 0) {
-				fixed (char *dest = tmp, src = str) {
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
 					CharCopy (dest, src, length);
 				}
 			}
@@ -2304,10 +2343,16 @@ namespace System
 			if (str0.IsCompact || str1.IsCompact)
 				throw new NotImplementedException ();
 
-			fixed (char *dest = tmp, src = str0)
+			fixed (byte* dest_ = &tmp.start_byte, src_ = &str0.start_byte) {
+				char* dest = (char*)dest_;
+				char* src = (char*)src_;
 				CharCopy (dest, src, str0.Length);
-			fixed (char *dest = tmp, src = str1)
+			}
+			fixed (byte* dest_ = &tmp.start_byte, src_ = &str1.start_byte) {
+				char* dest = (char*)dest_;
+				char* src = (char*)src_;
 				CharCopy (dest + str0.Length, src, str1.Length);
+			}
 
 			return tmp;
 		}
@@ -2348,17 +2393,23 @@ namespace System
 				throw new NotImplementedException ();
 
 			if (str0.Length != 0) {
-				fixed (char *dest = tmp, src = str0) {
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str0.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
 					CharCopy (dest, src, str0.Length);
 				}
 			}
 			if (str1.Length != 0) {
-				fixed (char *dest = tmp, src = str1) {
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str1.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
 					CharCopy (dest + str0.Length, src, str1.Length);
 				}
 			}
 			if (str2.Length != 0) {
-				fixed (char *dest = tmp, src = str2) {
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str2.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
 					CharCopy (dest + str0.Length + str1.Length, src, str2.Length);
 				}
 			}
@@ -2395,22 +2446,30 @@ namespace System
 			String tmp = InternalAllocateStr (str0.Length + str1.Length + str2.Length + str3.Length);
 
 			if (str0.Length != 0) {
-				fixed (char *dest = tmp, src = str0) {
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str0.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
 					CharCopy (dest, src, str0.Length);
 				}
 			}
 			if (str1.Length != 0) {
-				fixed (char *dest = tmp, src = str1) {
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str1.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
 					CharCopy (dest + str0.Length, src, str1.Length);
 				}
 			}
 			if (str2.Length != 0) {
-				fixed (char *dest = tmp, src = str2) {
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str2.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
 					CharCopy (dest + str0.Length + str1.Length, src, str2.Length);
 				}
 			}
 			if (str3.Length != 0) {
-				fixed (char *dest = tmp, src = str3) {
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str3.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
 					CharCopy (dest + str0.Length + str1.Length + str2.Length, src, str3.Length);
 				}
 			}
@@ -2467,14 +2526,16 @@ namespace System
 
 			String tmp = InternalAllocateStr (length);
 
-			fixed (char* dest = tmp) {
+			fixed (byte* dest_ = &tmp.start_byte) {
+				char* dest = (char*)dest_;
 				int pos = 0;
 				for (int i = 0; i < values.Length; i++) {
 					String source = values[i];
 					if (source != null) {
 						if (source.IsCompact)
 							throw new NotImplementedException ();
-						fixed (char* src = source) {
+						fixed (byte* src_ = &source.start_byte) {
+							char* src = (char*)src_;
 							CharCopy (dest + pos, src, source.Length);
 						}
 						pos += source.Length;
@@ -2506,8 +2567,10 @@ namespace System
 
 			String tmp = InternalAllocateStr (nlen);
 
-			fixed (char *dest = tmp, src = this, val = value) {
-				char *dst = dest;
+			fixed (byte* dst_ = &tmp.start_byte, src_ = &this.start_byte, val_ = &value.start_byte) {
+				char* dst = (char*)dst_;
+				char* src = (char*)src_;
+				char* val = (char*)val_;
 				CharCopy (dst, src, startIndex);
 				dst += startIndex;
 				CharCopy (dst, val, value.Length);
@@ -2583,15 +2646,19 @@ namespace System
 			String tmp = InternalAllocateStr (length);
 
 			maxIndex--;
-			fixed (char* dest = tmp, sepsrc = separator) {
+			fixed (byte* dest_ = &tmp.start_byte, sepsrc_ = &separator.start_byte) {
+				char* dest = (char*)dest_;
+				char* sepsrc = (char*)sepsrc_;
 				// Copy each string from value except the last one and add a separator for each
 				int pos = 0;
 				for (int i = startIndex; i < maxIndex; i++) {
 					String source = value[i];
 					if (source != null) {
 						if (source.Length > 0) {
-							fixed (char* src = source)
+							fixed (byte* src_ = &source.start_byte) {
+								char* src = (char*)src_;
 								CharCopy (dest + pos, src, source.Length);
+							}
 							pos += source.Length;
 						}
 					}
@@ -2604,8 +2671,11 @@ namespace System
 				String sourceLast = value[maxIndex];
 				if (sourceLast != null) {
 					if (sourceLast.Length > 0) {
-						fixed (char* src = sourceLast)
+						fixed (byte* src_ = &sourceLast.start_byte) {
+							char* src = (char*)src_;
 							CharCopy (dest + pos, src, sourceLast.Length);
+						}
+
 					}
 				}
 			}
@@ -2822,7 +2892,8 @@ namespace System
 		{
 			if (IsCompact)
 				throw new NotImplementedException ();
-			fixed (char* c = this) {
+			fixed (byte* c_ = &this.start_byte) {
+				char* c = (char*)c_;
 				char * cc = c;
 				char * end = cc + this.Length - 1;
 				int h = 0;
@@ -2935,9 +3006,10 @@ namespace System
 
 		internal unsafe int GetCaseInsensitiveHashCode ()
 		{
-			fixed (char * c = this) {
-				char * cc = c;
-				char * end = cc + this.Length - 1;
+			fixed (byte* c_ = &this.start_byte) {
+				char* c = (char*)c_;
+				char* cc = c;
+				char* end = cc + this.Length - 1;
 				int h = 0;
 				for (;cc < end; cc += 2) {
 					h = (h << 5) - h + Char.ToUpperInvariant (*cc);
@@ -3023,7 +3095,8 @@ namespace System
 			string result = InternalAllocateStr (i);
 
 			if (i != 0) {
-				fixed (char *dest = result) {
+				fixed (byte *dest_ = &result.start_byte) {
+					char* dest = (char*)dest_;
 					CharCopy (dest, value, i);
 				}
 			}
@@ -3043,7 +3116,8 @@ namespace System
 
 			string result = InternalAllocateStr (length);
 
-			fixed (char *dest = result) {
+			fixed (byte* dest_ = &result.start_byte) {
+				char* dest = (char*)dest_;
 				CharCopy (dest, value + startIndex, length);
 			}
 			return result;
@@ -3064,7 +3138,9 @@ namespace System
 
 			string result = InternalAllocateStr (length);
 
-			fixed (char *dest = result, src = val) {
+			fixed (byte* dest_ = &result.start_byte)
+			fixed (char* src = val) {
+				char* dest = (char*)dest_;
 				CharCopy (dest, src + startIndex, length);
 			}
 			return result;
@@ -3076,7 +3152,9 @@ namespace System
 				return Empty;
 			string result = InternalAllocateStr (val.Length);
 
-			fixed (char *dest = result, src = val) {
+			fixed (byte* dest_ = &result.start_byte)
+			fixed (char* src = val) {
+				char* dest = (char*)dest_;
 				CharCopy (dest, src, val.Length);
 			}
 			return result;
@@ -3089,9 +3167,10 @@ namespace System
 			if (count == 0)
 				return Empty;
 			string result = InternalAllocateStr (count);
-			fixed (char *dest = result) {
-				char *p = dest;
-				char *end = p + count;
+			fixed (byte* dest_ = &result.start_byte) {
+				char* dest = (char*)dest_;
+				char* p = dest;
+				char* end = p + count;
 				while (p < end) {
 					*p = c;
 					p++;
@@ -3325,21 +3404,30 @@ namespace System
 
 		internal static unsafe void CharCopy (String target, int targetIndex, String source, int sourceIndex, int count)
 		{
-			fixed (char* dest = target, src = source)
+			fixed (byte* dest_ = &target.start_byte, src_ = &source.start_byte) {
+				char* dest = (char*)dest_;
+				char* src = (char*)src_;
 				CharCopy (dest + targetIndex, src + sourceIndex, count);
+			}
 		}
 
 		internal static unsafe void CharCopy (String target, int targetIndex, Char[] source, int sourceIndex, int count)
 		{
-			fixed (char* dest = target, src = source)
+			fixed (byte* dest_ = &target.start_byte)
+			fixed (char* src = source) {
+				char* dest = (char*)dest_;
 				CharCopy (dest + targetIndex, src + sourceIndex, count);
+			}
 		}
 
 		// Use this method if you cannot block copy from left to right (e.g. because you are coping within the same string)
 		internal static unsafe void CharCopyReverse (String target, int targetIndex, String source, int sourceIndex, int count)
 		{
-			fixed (char* dest = target, src = source)
+			fixed (byte* dest_ = &target.start_byte, src_ = &source.start_byte) {
+				char* dest = (char*)dest_;
+				char* src = (char*)src_;
 				CharCopyReverse (dest + targetIndex, src + sourceIndex, count);
+			}
 		}
 
 		internal static String FastAllocateString (int length)

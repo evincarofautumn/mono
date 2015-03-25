@@ -510,7 +510,8 @@ namespace System.Text {
 			int needed_cap = _length + valueCount;
 			InternalEnsureCapacity (needed_cap);
 
-			fixed (char* src = _str) {
+			fixed (byte* src_ = &_str.start_byte) {
+				char* src = (char*)src_;
 				String.CharCopy (src + _length, value, valueCount);
 			}
 			_length = needed_cap;

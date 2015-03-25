@@ -122,7 +122,8 @@ internal class Latin1Encoding : Encoding
 			throw new ArgumentNullException ("s");
 
 		unsafe {
-			fixed (char *chars = s) {
+			fixed (byte *chars_ = &s.start_byte) {
+				char* chars = (char*)chars_;
 				return InternalGetBytes (chars, s.Length, charIndex, charCount, bytes, byteIndex, ref buffer, ref fallback_chars);
 			}
 		}
@@ -254,7 +255,8 @@ internal class Latin1Encoding : Encoding
 			fixed (byte* bytePtr = bytes) {
 				string s = string.InternalAllocateStr (count);
 
-				fixed (char* charPtr = s) {
+				fixed (byte* charPtr_ = &s.start_byte) {
+					char* charPtr = (char*)charPtr_;
 					byte* currByte = bytePtr + index;
 					byte* lastByte = currByte + count;
 					char* currChar = charPtr;

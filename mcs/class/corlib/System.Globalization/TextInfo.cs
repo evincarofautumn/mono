@@ -473,7 +473,7 @@ namespace System.Globalization {
 			if (str.Length == 0)
 				return String.Empty;
 
-			string tmp = String.InternalAllocateStr (str.Length);
+			string tmp = String.InternalAllocateStr (str.Length, String.ENCODING_UTF16);
 			fixed (byte* source_ = &str.start_byte, dest_ = &tmp.start_byte) {
 				char* destPtr = (char*)dest_;
 				char* sourcePtr = (char*)source_;
@@ -500,7 +500,7 @@ namespace System.Globalization {
 			if (str.Length == 0)
 				return String.Empty;
 
-			string tmp = String.InternalAllocateStr (str.Length);
+			string tmp = String.InternalAllocateStr (str.Length, String.ENCODING_UTF16);
 			fixed (byte* source_ = &str.start_byte, dest_ = &tmp.start_byte) {
 				char* destPtr = (char*)dest_;
 				char* sourcePtr = (char*)source_;

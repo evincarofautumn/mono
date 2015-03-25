@@ -714,7 +714,7 @@ mono_string_utf8_to_builder (MonoStringBuilder *sb, char *text)
 	
 	if (!error) {
 		if (! sb->str || sb->str == sb->cached_str)
-			MONO_OBJECT_SETREF (sb, str, mono_string_new_size (mono_domain_get (), items_written));
+			MONO_OBJECT_SETREF (sb, str, mono_string_new_size (mono_domain_get (), items_written, MONO_ENCODING_UTF16));
 		
 		memcpy (mono_string_chars (sb->str), ut, items_written * 2);
 		sb->length = items_written;
@@ -845,7 +845,7 @@ mono_string_builder_to_utf8 (MonoStringBuilder *sb)
 		 * The sb could have been allocated with the default capacity and be empty.
 		 * we need to alloc a buffer of the default capacity in this case.
 		 */
-		MONO_OBJECT_SETREF (sb, str, mono_string_new_size (mono_domain_get (), 16));
+		MONO_OBJECT_SETREF (sb, str, mono_string_new_size (mono_domain_get (), 16, MONO_ENCODING_UTF16));
 		sb->cached_str = NULL;
 	}
 
@@ -891,7 +891,7 @@ mono_string_builder_to_utf16 (MonoStringBuilder *sb)
 		 * we need to alloc a buffer of the default capacity in this case.
 		 */
 		if (mono_string_length_fast (sb->str) == 0)
-			MONO_OBJECT_SETREF (sb, str, mono_string_new_size (mono_domain_get (), 16));
+			MONO_OBJECT_SETREF (sb, str, mono_string_new_size (mono_domain_get (), 16, MONO_ENCODING_UTF16));
 		else
 			MONO_OBJECT_SETREF (sb, str, mono_string_new_utf16 (mono_domain_get (), mono_string_chars (sb->str), mono_stringbuilder_capacity (sb)));
 		sb->cached_str = NULL;

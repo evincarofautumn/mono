@@ -177,7 +177,7 @@ void* mono_gc_alloc_pinned_obj (MonoVTable *vtable, size_t size);
 void* mono_gc_alloc_obj (MonoVTable *vtable, size_t size);
 void* mono_gc_alloc_vector (MonoVTable *vtable, size_t size, uintptr_t max_length);
 void* mono_gc_alloc_array (MonoVTable *vtable, size_t size, uintptr_t max_length, uintptr_t bounds_size);
-void* mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len);
+void* mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalEncoding encoding);
 void* mono_gc_make_descr_for_string (gsize *bitmap, int numbits);
 void* mono_gc_make_descr_for_object (gsize *bitmap, int numbits, size_t obj_size);
 void* mono_gc_make_descr_for_array (int vector, gsize *elem_bitmap, int numbits, size_t elem_size);

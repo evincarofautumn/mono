@@ -931,7 +931,7 @@ mono_class_insecure_overlapping (MonoClass *klass)
 MonoString*
 mono_string_alloc (int length)
 {
-	return mono_string_new_size (mono_domain_get (), length);
+	return mono_string_new_size (mono_domain_get (), length, MONO_ENCODING_UTF16);
 }
 
 void
@@ -948,7 +948,7 @@ mono_class_compute_gc_descriptor (MonoClass *class)
 		mono_register_jit_icall (mono_object_new_ptrfree, "mono_object_new_ptrfree", mono_create_icall_signature ("object ptr"), FALSE);
 		mono_register_jit_icall (mono_object_new_ptrfree_box, "mono_object_new_ptrfree_box", mono_create_icall_signature ("object ptr"), FALSE);
 		mono_register_jit_icall (mono_object_new_fast, "mono_object_new_fast", mono_create_icall_signature ("object ptr"), FALSE);
-		mono_register_jit_icall (mono_string_alloc, "mono_string_alloc", mono_create_icall_signature ("object int"), FALSE);
+		mono_register_jit_icall (mono_string_alloc, "mono_string_alloc", mono_create_icall_signature ("object int int"), FALSE);
 
 #ifdef HAVE_GC_GCJ_MALLOC
 		/* 
@@ -4987,8 +4987,8 @@ MonoString *
 mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 {
 	MonoString *s;
-	
-	s = mono_string_new_size (domain, len);
+
+	s = mono_string_new_size (domain, len, MONO_ENCODING_UTF16);
 	g_assert (s != NULL);
 
 	memcpy (mono_string_chars (s), text, len * 2);
@@ -5019,7 +5019,7 @@ mono_string_new_utf32 (MonoDomain *domain, const mono_unichar4 *text, gint32 len
 
 	while (utf16_output [utf16_len]) utf16_len++;
 	
-	s = mono_string_new_size (domain, utf16_len);
+	s = mono_string_new_size (domain, utf16_len, MONO_ENCODING_UTF16);
 	g_assert (s != NULL);
 
 	memcpy (mono_string_chars (s), utf16_output, utf16_len * 2);
@@ -5037,17 +5037,27 @@ mono_string_new_utf32 (MonoDomain *domain, const mono_unichar4 *text, gint32 len
  * Returns: A newly created string object of @len
  */
 MonoString *
-mono_string_new_size (MonoDomain *domain, gint32 len)
+mono_string_new_size (MonoDomain *domain, gint32 len, int encoding)
 {
 	MonoString *s;
 	MonoVTable *vtable;
 	size_t size;
+	size_t max_len;
+
+	switch (encoding) {
+	case MONO_ENCODING_UTF16:
+		max_len = (SIZE_MAX - G_STRUCT_OFFSET (MonoString, chars) - 2) / 2;
+		size = G_STRUCT_OFFSET (MonoString, chars) + (((size_t)len + 1) * 2);
+		break;
+	case MONO_ENCODING_ASCII:
+		g_assert_not_reached ();
+		break;
+	}
 
 	/* check for overflow */
-	if (len < 0 || len > ((SIZE_MAX - G_STRUCT_OFFSET (MonoString, chars) - 2) / 2))
+	if (len < 0 || len > max_len)
 		mono_gc_out_of_memory (-1);
 
-	size = (G_STRUCT_OFFSET (MonoString, chars) + (((size_t)len + 1) * 2));
 	g_assert (size > 0);
 
 	vtable = mono_class_vtable (domain, mono_defaults.string_class);
@@ -5055,12 +5065,12 @@ mono_string_new_size (MonoDomain *domain, gint32 len)
 
 #ifndef HAVE_SGEN_GC
 	s = mono_object_allocate_ptrfree (size, vtable);
-
-	mono_string_set_length (s, len, MONO_ENCODING_UTF16);
+	mono_string_set_length (s, len, encoding);
 #else
-	s = mono_gc_alloc_string (vtable, size, len);
+	s = mono_gc_alloc_string (vtable, size, len, encoding);
 #endif
 #if NEED_TO_ZERO_PTRFREE
+	g_assert_not_reached ();
 	s->chars [len] = 0;
 #endif
 	if (G_UNLIKELY (profile_allocs))

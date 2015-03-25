@@ -70,6 +70,10 @@ namespace System
 
 		internal static readonly int LOS_limit = GetLOSLimit ();
 
+		/* Keep in sync with MonoInternalEncoding. */
+		internal static readonly int ENCODING_UTF16 = 0;
+		internal static readonly int ENCODING_ASCII = 1;
+
 		internal static bool LegacyMode {
 			get {
 				return false;
@@ -533,7 +537,7 @@ namespace System
 			if (length == 0)
 				return Empty;
 
-			string tmp = InternalAllocateStr (length);
+			string tmp = InternalAllocateStr (length, ENCODING_UTF16);
 			fixed (byte* dest_ = &tmp.start_byte)
 			fixed (byte* src_ = &this.start_byte) {
 				char* dest = (char*)dest_;
@@ -1708,7 +1712,7 @@ namespace System
 			if (totalWidth == 0)
 				return Empty;
 
-			String tmp = InternalAllocateStr (totalWidth);
+			String tmp = InternalAllocateStr (totalWidth, ENCODING_UTF16);
 
 			fixed (byte* dest_ = &tmp.start_byte, src_ = &this.start_byte) {
 				char* dest = (char*)dest_;
@@ -1748,7 +1752,7 @@ namespace System
 			if (totalWidth == 0)
 				return Empty;
 
-			String tmp = InternalAllocateStr (totalWidth);
+			String tmp = InternalAllocateStr (totalWidth, ENCODING_UTF16);
 
 			fixed (byte* dest_ = &tmp.start_byte, src_ = &this.start_byte) {
 				char* dest = (char*)dest_;
@@ -1859,7 +1863,7 @@ namespace System
 			if (start_pos < 4)
 				start_pos = 0;
 
-			string tmp = InternalAllocateStr (this.Length);
+			string tmp = InternalAllocateStr (this.Length, ENCODING_UTF16);
 			fixed (byte* dest_ = &tmp.start_byte, src_ = &start_byte) {
 				char* dest = (char*)dest_;
 				char* src = (char*)src_;
@@ -1946,7 +1950,7 @@ namespace System
 						throw new OutOfMemoryException ();
 					}
 				}
-				String tmp = InternalAllocateStr (nlen);
+				String tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
 
 				int curPos = 0, lastReadPos = 0;
 				fixed (byte* dest_ = &tmp.start_byte) {
@@ -1997,7 +2001,7 @@ namespace System
 			if (startIndex > this.Length - count)
 				throw new ArgumentOutOfRangeException ("count", "startIndex + count > this.length");
 
-			String tmp = InternalAllocateStr (this.Length - count);
+			String tmp = InternalAllocateStr (this.Length - count, ENCODING_UTF16);
 
 			fixed (byte* dst_ = &tmp.start_byte, src_ = &this.start_byte) {
 				char* dst = (char*)dst_;
@@ -2034,7 +2038,7 @@ namespace System
 			if (this.Length == 0)
 				return Empty;
 
-			string tmp = InternalAllocateStr (this.Length);
+			string tmp = InternalAllocateStr (this.Length, ENCODING_UTF16);
 			fixed (byte* dest_ = &tmp.start_byte)
 			fixed (byte* source_ = &start_byte) {
 				char* dest = (char*)dest_;
@@ -2075,7 +2079,7 @@ namespace System
 			if (this.Length == 0)
 				return Empty;
 
-			string tmp = InternalAllocateStr (this.Length);
+			string tmp = InternalAllocateStr (this.Length, ENCODING_UTF16);
 			fixed (byte* dest_ = &tmp.start_byte)
 			fixed (byte* source_ = &start_byte) {
 				char* destPtr = (char*)dest_;
@@ -2241,7 +2245,7 @@ namespace System
 
 			int length = str.Length;
 
-			String tmp = InternalAllocateStr (length);
+			String tmp = InternalAllocateStr (length, ENCODING_UTF16);
 			if (length != 0) {
 				fixed (byte* dest_ = &tmp.start_byte, src_ = &str.start_byte) {
 					char* dest = (char*)dest_;
@@ -2338,7 +2342,7 @@ namespace System
 			int nlen = str0.Length + str1.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
-			String tmp = InternalAllocateStr (nlen);
+			String tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
 
 			if (str0.IsCompact || str1.IsCompact)
 				throw new NotImplementedException ();
@@ -2387,7 +2391,7 @@ namespace System
 			nlen += str2.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
-			String tmp = InternalAllocateStr (nlen);
+			String tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
 
 			if (str0.IsCompact || str1.IsCompact || str2.IsCompact)
 				throw new NotImplementedException ();
@@ -2443,7 +2447,7 @@ namespace System
 			nlen += str3.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
-			String tmp = InternalAllocateStr (str0.Length + str1.Length + str2.Length + str3.Length);
+			String tmp = InternalAllocateStr (str0.Length + str1.Length + str2.Length + str3.Length, ENCODING_UTF16);
 
 			if (str0.Length != 0) {
 				fixed (byte* dest_ = &tmp.start_byte, src_ = &str0.start_byte) {
@@ -2524,7 +2528,7 @@ namespace System
 			if (length < 0)
 				throw new OutOfMemoryException ();
 
-			String tmp = InternalAllocateStr (length);
+			String tmp = InternalAllocateStr (length, ENCODING_UTF16);
 
 			fixed (byte* dest_ = &tmp.start_byte) {
 				char* dest = (char*)dest_;
@@ -2565,7 +2569,7 @@ namespace System
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
 
-			String tmp = InternalAllocateStr (nlen);
+			String tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
 
 			fixed (byte* dst_ = &tmp.start_byte, src_ = &this.start_byte, val_ = &value.start_byte) {
 				char* dst = (char*)dst_;
@@ -2643,7 +2647,7 @@ namespace System
 			if (length <= 0)
 				return Empty;
 
-			String tmp = InternalAllocateStr (length);
+			String tmp = InternalAllocateStr (length, ENCODING_UTF16);
 
 			maxIndex--;
 			fixed (byte* dest_ = &tmp.start_byte, sepsrc_ = &separator.start_byte) {
@@ -3092,7 +3096,7 @@ namespace System
 				++i;
 				++p;
 			}
-			string result = InternalAllocateStr (i);
+			string result = InternalAllocateStr (i, ENCODING_UTF16);
 
 			if (i != 0) {
 				fixed (byte *dest_ = &result.start_byte) {
@@ -3114,7 +3118,7 @@ namespace System
 			if (length < 0)
 				throw new ArgumentOutOfRangeException ("length");
 
-			string result = InternalAllocateStr (length);
+			string result = InternalAllocateStr (length, ENCODING_UTF16);
 
 			fixed (byte* dest_ = &result.start_byte) {
 				char* dest = (char*)dest_;
@@ -3136,7 +3140,7 @@ namespace System
 			if (length == 0)
 				return Empty;
 
-			string result = InternalAllocateStr (length);
+			string result = InternalAllocateStr (length, ENCODING_UTF16);
 
 			fixed (byte* dest_ = &result.start_byte)
 			fixed (char* src = val) {
@@ -3150,7 +3154,7 @@ namespace System
 		{
 			if (val == null || val.Length == 0)
 				return Empty;
-			string result = InternalAllocateStr (val.Length);
+			string result = InternalAllocateStr (val.Length, ENCODING_UTF16);
 
 			fixed (byte* dest_ = &result.start_byte)
 			fixed (char* src = val) {
@@ -3166,7 +3170,7 @@ namespace System
 				throw new ArgumentOutOfRangeException ("count");
 			if (count == 0)
 				return Empty;
-			string result = InternalAllocateStr (count);
+			string result = InternalAllocateStr (count, ENCODING_UTF16);
 			fixed (byte* dest_ = &result.start_byte) {
 				char* dest = (char*)dest_;
 				char* p = dest;
@@ -3430,9 +3434,10 @@ namespace System
 			}
 		}
 
+		/* This is called from Convert. */
 		internal static String FastAllocateString (int length)
 		{
-        		return InternalAllocateStr (length);
+			return InternalAllocateStr (length, ENCODING_UTF16);
 		}
 
 		[CLSCompliant (false), MethodImplAttribute (MethodImplOptions.InternalCall)]
@@ -3460,7 +3465,7 @@ namespace System
 		public extern String (char c, int count);
 
 		[MethodImplAttribute (MethodImplOptions.InternalCall)]
-		internal extern static String InternalAllocateStr (int length);
+		internal extern static String InternalAllocateStr (int length, int encoding);
 
 		[MethodImplAttribute (MethodImplOptions.InternalCall)]
 		private extern static string InternalIntern (string str);
@@ -3491,7 +3496,7 @@ namespace System
             if (stringLength == 0)
                 return String.Empty;
             
-            String s = FastAllocateString(stringLength);
+            String s = InternalAllocateStr (stringLength, ENCODING_UTF16);
             fixed(byte* pTempBytes = &s.start_byte)
             {
 				char* pTempChars = (char*)pTempBytes;

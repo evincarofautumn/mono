@@ -169,16 +169,23 @@ struct _MonoString {
 	mono_unichar2 chars [MONO_ZERO_LEN_ARRAY];
 };
 
+/* Keep in sync with String. */
 typedef enum MonoInternalEncoding {
-	MONO_ENCODING_ASCII,
-	MONO_ENCODING_UTF16
+	MONO_ENCODING_UTF16,
+	MONO_ENCODING_ASCII
 } MonoInternalEncoding;
 
 #define mono_object_class(obj) (((MonoObject*)(obj))->vtable->klass)
 #define mono_object_domain(obj) (((MonoObject*)(obj))->vtable->domain)
 
 #define mono_string_chars_fast(s) ((mono_unichar2*)(s)->chars)
-#define mono_string_length_fast(s) ((s)->tagged_length >> 1)
+
+static inline int32_t
+mono_string_length_fast(MonoString *s)
+{
+	g_assert (!(s->tagged_length & 1));
+	return s->tagged_length >> 1;
+}
 
 static inline void
 mono_string_set_length (MonoString *s, int32_t len, MonoInternalEncoding encoding)

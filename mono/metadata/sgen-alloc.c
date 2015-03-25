@@ -593,7 +593,7 @@ mono_gc_alloc_array (MonoVTable *vtable, size_t size, uintptr_t max_length, uint
 }
 
 void*
-mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len)
+mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalEncoding encoding)
 {
 	MonoString *str;
 	TLAB_ACCESS_INIT;
@@ -606,7 +606,7 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len)
 	str = mono_gc_try_alloc_obj_nolock (vtable, size);
 	if (str) {
 		/*This doesn't require fencing since EXIT_CRITICAL_REGION already does it for us*/
-		mono_string_set_length (str, len, MONO_ENCODING_UTF16);
+		mono_string_set_length (str, len, encoding);
 		EXIT_CRITICAL_REGION;
 		return str;
 	}
@@ -621,7 +621,7 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len)
 		return mono_gc_out_of_memory (size);
 	}
 
-	mono_string_set_length (str, len, MONO_ENCODING_UTF16);
+	mono_string_set_length (str, len, encoding);
 
 	UNLOCK_GC;
 
@@ -778,7 +778,7 @@ create_allocator (int atype)
 	if (!registered) {
 		mono_register_jit_icall (mono_gc_alloc_obj, "mono_gc_alloc_obj", mono_create_icall_signature ("object ptr int"), FALSE);
 		mono_register_jit_icall (mono_gc_alloc_vector, "mono_gc_alloc_vector", mono_create_icall_signature ("object ptr int int"), FALSE);
-		mono_register_jit_icall (mono_gc_alloc_string, "mono_gc_alloc_string", mono_create_icall_signature ("object ptr int int32"), FALSE);
+		mono_register_jit_icall (mono_gc_alloc_string, "mono_gc_alloc_string", mono_create_icall_signature ("object ptr int int32 int"), FALSE);
 		registered = TRUE;
 	}
 
@@ -1004,6 +1004,8 @@ create_allocator (int atype)
 		mono_mb_emit_icall (mb, mono_gc_alloc_vector);
 	} else if (atype == ATYPE_STRING) {
 		mono_mb_emit_ldarg (mb, 1);
+		/* FIXME: Use the actual encoding? */
+		mono_mb_emit_icon (mb, MONO_ENCODING_UTF16);
 		mono_mb_emit_icall (mb, mono_gc_alloc_string);
 	} else {
 		g_assert_not_reached ();

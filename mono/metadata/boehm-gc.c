@@ -926,6 +926,7 @@ create_allocator (int atype, int tls_key)
 	/* the slow path: we just call back into the runtime */
 	if (atype == ATYPE_STRING) {
 		mono_mb_emit_ldarg (mb, 1);
+		mono_mb_emit_icon (mb, MONO_ENCODING_UTF16);
 		mono_mb_emit_icall (mb, mono_string_alloc);
 	} else {
 		mono_mb_emit_ldarg (mb, 0);

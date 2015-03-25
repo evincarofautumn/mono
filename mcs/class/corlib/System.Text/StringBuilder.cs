@@ -97,7 +97,7 @@ namespace System.Text {
 			_maxCapacity = maxCapacity;
 
 			if (_str == null)
-				_str = String.InternalAllocateStr ((length > capacity) ? length : capacity);
+				_str = String.InternalAllocateStr ((length > capacity) ? length : capacity, String.ENCODING_UTF16);
 			if (length > 0)
 				String.CharCopy (_str, 0, value, startIndex, length);
 			
@@ -725,7 +725,7 @@ namespace System.Text {
 						throw new ArgumentOutOfRangeException ("size", "capacity was less than the current size.");
 				}
 
-				string tmp = String.InternalAllocateStr (capacity);
+				string tmp = String.InternalAllocateStr (capacity, String.ENCODING_UTF16);
 				if (_length > 0)
 					String.CharCopy (tmp, 0, _str, 0, _length);
 

@@ -253,7 +253,7 @@ internal class Latin1Encoding : Encoding
 		    return String.Empty;
 		unsafe {
 			fixed (byte* bytePtr = bytes) {
-				string s = string.InternalAllocateStr (count);
+				string s = string.InternalAllocateStr (count, String.ENCODING_UTF16);
 
 				fixed (byte* charPtr_ = &s.start_byte) {
 					char* charPtr = (char*)charPtr_;

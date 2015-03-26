@@ -274,15 +274,31 @@ mono_install_free_domain_hook (MonoFreeDomainFunc func)
 gboolean
 mono_string_equal (MonoString *s1, MonoString *s2)
 {
-	int l1 = mono_string_length (s1);
-	int l2 = mono_string_length (s2);
+	int l1 = mono_string_length_fast (s1, TRUE);
+	int l2 = mono_string_length_fast (s2, TRUE);
+	int size1 = mono_string_size_fast (s1);
+	int size2 = mono_string_size_fast (s2);
+	size_t i;
 
 	if (s1 == s2)
 		return TRUE;
 	if (l1 != l2)
 		return FALSE;
+	if (size1 == size2)
+		return memcmp (s1->chars, s2->chars, size1) == 0;
+	g_assert (mono_string_is_compact (s1) != mono_string_is_compact (s2));
 
-	return memcmp (mono_string_chars (s1), mono_string_chars (s2), l1 * 2) == 0; 
+	if (mono_string_is_compact (s1)) {
+		for (i = 0; i < l1; ++i)
+			if ((mono_unichar2)mono_string_bytes_fast (s1) [i] != mono_string_chars_fast (s2) [i])
+				return FALSE;
+		return TRUE;
+	}
+	for (i = 0; i < l2; ++i)
+		if (mono_string_chars_fast (s1) [i] != (mono_unichar2)mono_string_bytes_fast (s2) [i])
+			return FALSE;
+
+	return TRUE;
 }
 
 /**
@@ -294,16 +310,24 @@ mono_string_equal (MonoString *s1, MonoString *s2)
 guint
 mono_string_hash (MonoString *s)
 {
-	const guint16 *p = mono_string_chars (s);
-	int i, len = mono_string_length (s);
+	size_t length = mono_string_length_fast (s, TRUE);
 	guint h = 0;
-
-	for (i = 0; i < len; i++) {
-		h = (h << 5) - h + *p;
-		p++;
+	int i;
+	g_printerr ("getting hash from domain.c\n");
+	if (mono_string_is_compact (s)) {
+		const char *p = mono_string_bytes_fast (s);
+		for (i = 0; i < length; ++i) {
+			h = (h << 5) - h + (guint16)*p;
+			++p;
+		}
+	} else {
+		const guint16 *p = mono_string_chars_fast (s);
+		for (i = 0; i < length; ++i) {
+			h = (h << 5) - h + *p;
+			++p;
+		}
 	}
-
-	return h;	
+	return h;
 }
 
 static gboolean

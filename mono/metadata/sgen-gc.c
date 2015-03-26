@@ -4434,20 +4434,33 @@ mono_gc_get_los_limit (void)
 void
 mono_gc_set_string_length (MonoString *str, gint32 new_length)
 {
-	mono_unichar2 *new_end = str->chars + new_length;
-	
 	/* zero the discarded string. This null-delimits the string and allows 
-	 * the space to be reclaimed by SGen. */
-	 
-	if (nursery_canaries_enabled () && sgen_ptr_in_nursery (str)) {
-		CHECK_CANARY_FOR_OBJECT (str);
-		memset (new_end, 0, (mono_string_length_fast (str) - new_length + 1) * sizeof (mono_unichar2) + CANARY_SIZE);
-		memcpy (new_end + 1 , CANARY_STRING, CANARY_SIZE);
+	 * the space to be reclaimed by SGen.
+	 */
+	MonoInternalEncoding encoding;
+	size_t length = mono_string_length_fast (str, TRUE);
+	if (mono_string_is_compact (str)) {
+		encoding = MONO_ENCODING_ASCII;
+		char *new_end = mono_string_bytes_fast (str) + new_length;
+		if (nursery_canaries_enabled () && sgen_ptr_in_nursery (str)) {
+			CHECK_CANARY_FOR_OBJECT (str);
+			memset (new_end, 0, (length - new_length + 1) * sizeof (char) + CANARY_SIZE);
+			memcpy (new_end + 1 , CANARY_STRING, CANARY_SIZE);
+		} else {
+			memset (new_end, 0, (length - new_length + 1) * sizeof (char));
+		}
 	} else {
-		memset (new_end, 0, (mono_string_length_fast (str) - new_length + 1) * sizeof (mono_unichar2));
+		encoding = MONO_ENCODING_UTF16;
+		mono_unichar2 *new_end = mono_string_chars_fast (str) + new_length;
+		if (nursery_canaries_enabled () && sgen_ptr_in_nursery (str)) {
+			CHECK_CANARY_FOR_OBJECT (str);
+			memset (new_end, 0, (length - new_length + 1) * sizeof (mono_unichar2) + CANARY_SIZE);
+			memcpy (new_end + 1 , CANARY_STRING, CANARY_SIZE);
+		} else {
+			memset (new_end, 0, (length - new_length + 1) * sizeof (mono_unichar2));
+		}
 	}
-	
-	mono_string_set_length (str, new_length, MONO_ENCODING_UTF16);
+	mono_string_set_length (str, new_length, encoding);
 }
 
 gboolean

@@ -144,12 +144,20 @@ namespace System
 			} else if (a.IsCompact) {
 				fixed (byte* s1 = &a.start_byte, s2_ = &b.start_byte) {
 					char* s2 = (char*)s2_;
-					throw new NotImplementedException ();
+					/* TODO: Unroll. */
+					for (int i = 0; i < length; ++i)
+						if ((char)s1 [i] != s2 [i])
+							return false;
+					return true;
 				}
 			} else if (b.IsCompact) {
 				fixed (byte* s1_ = &a.start_byte, s2 = &b.start_byte) {
 					char* s1 = (char*)s1_;
-					throw new NotImplementedException ();
+					/* TODO: Unroll. */
+					for (int i = 0; i < length; ++i)
+						if (s1 [i] != (char)s2 [i])
+							return false;
+					return true;
 				}
 			} else {
 				fixed (byte* s1_ = &a.start_byte, s2_ = &b.start_byte) {
@@ -238,8 +246,6 @@ namespace System
 
 		public unsafe void CopyTo (int sourceIndex, char[] destination, int destinationIndex, int count)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
 			if (destination == null)
 				throw new ArgumentNullException ("destination");
 			if (sourceIndex < 0)
@@ -255,8 +261,13 @@ namespace System
 
 			fixed (char* dest = destination)
 			fixed (byte* src_ = &this.start_byte) {
-				char* src = (char*)src_;
-				CharCopy (dest + destinationIndex, src + sourceIndex, count);
+				if (IsCompact) {
+					for (int i = 0; i < count; ++i)
+						dest [destinationIndex + i] = (char)src_ [sourceIndex + i];
+				} else {
+					char* src = (char*)src_;
+					CharCopy (dest + destinationIndex, src + sourceIndex, count);
+				}
 			}
 		}
 
@@ -267,8 +278,6 @@ namespace System
 
 		public unsafe char[] ToCharArray (int startIndex, int length)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
 			if (startIndex < 0)
 				throw new ArgumentOutOfRangeException ("startIndex", "< 0"); 
 			if (length < 0)
@@ -278,8 +287,13 @@ namespace System
 			char[] tmp = new char [length];
 			fixed (char* dest = tmp)
 			fixed (byte* src_ = &this.start_byte) {
-				char* src = (char*)src_;
-				CharCopy (dest, src + startIndex, length);
+				if (IsCompact) {
+					for (int i = 0; i < length; ++i)
+						dest [i] = (char)src_ [startIndex + i];
+				} else {
+					char* src = (char*)src_;
+					CharCopy (dest, src + startIndex, length);
+				}
 			}
 			return tmp;
 		}
@@ -531,18 +545,19 @@ namespace System
 		// always create a new string object (or return String.Empty). 
 		internal unsafe String SubstringUnchecked (int startIndex, int length)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
-
 			if (length == 0)
 				return Empty;
 
-			string tmp = InternalAllocateStr (length, ENCODING_UTF16);
+			string tmp = InternalAllocateStr (length, IsCompact ? ENCODING_ASCII : ENCODING_UTF16);
 			fixed (byte* dest_ = &tmp.start_byte)
 			fixed (byte* src_ = &this.start_byte) {
-				char* dest = (char*)dest_;
-				char* src = (char*)src_;
-				CharCopy (dest, src + startIndex, length);
+				if (IsCompact) {
+					memcpy (dest_, src_ + startIndex, length);
+				} else {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
+					CharCopy (dest, src + startIndex, length);
+				}
 			}
 			return tmp;
 		}
@@ -621,15 +636,20 @@ namespace System
 
 		unsafe int FindNotWhiteSpace (int pos, int target, int change)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
 			fixed (byte* src_ = &this.start_byte) {
-				char* src = (char*)src_;
-				while (pos != target) {
-					if (!char.IsWhiteSpace (src[pos]))
-						return pos;
-
-					pos += change;
+				if (IsCompact) {
+					while (pos != target) {
+						if (!char.IsWhiteSpace ((char)src_ [pos]))
+							return pos;
+						pos += change;
+					}
+				} else {
+					char* src = (char*)src_;
+					while (pos != target) {
+						if (!char.IsWhiteSpace (src [pos]))
+							return pos;
+						pos += change;
+					}
 				}
 			}
 			return pos;
@@ -637,22 +657,35 @@ namespace System
 
 		private unsafe int FindNotInTable (int pos, int target, int change, char[] table)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
 			fixed (char* tablePtr = table)
 			fixed (byte* thisPtr_ = &this.start_byte) {
-				char* thisPtr = (char*)thisPtr_;
-				while (pos != target) {
-					char c = thisPtr[pos];
-					int x = 0;
-					while (x < table.Length) {
-						if (c == tablePtr[x])
-							break;
-						x++;
+				if (IsCompact) {
+					while (pos != target) {
+						char c = (char)thisPtr_ [pos];
+						int x = 0;
+						while (x < table.Length) {
+							if (c == tablePtr [x])
+								break;
+							++x;
+						}
+						if (x == table.Length)
+							return pos;
+						pos += change;
 					}
-					if (x == table.Length)
-						return pos;
-					pos += change;
+				} else {
+					char* thisPtr = (char*)thisPtr_;
+					while (pos != target) {
+						char c = thisPtr [pos];
+						int x = 0;
+						while (x < table.Length) {
+							if (c == tablePtr [x])
+								break;
+							++x;
+						}
+						if (x == table.Length)
+							return pos;
+						pos += change;
+					}
 				}
 			}
 			return pos;
@@ -874,27 +907,68 @@ namespace System
 			if (strB == null) {
 				return 1;
 			}
-			if (strA.IsCompact || strB.IsCompact)
-				throw new NotImplementedException ();
 			int lengthA = Math.Min (lenA, strA.Length - indexA);
 			int lengthB = Math.Min (lenB, strB.Length - indexB);
 
 			if (lengthA == lengthB && indexA == indexB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			fixed (byte* aptr_ = &strA.start_byte, bptr_ = &strB.start_byte) {
-				char* aptr = (char*)aptr_;
-				char* bptr = (char*)bptr_;
-				char* ap = aptr + indexA;
-				char* end = ap + Math.Min (lengthA, lengthB);
-				char* bp = bptr + indexB;
-				while (ap < end) {
-					if (*ap != *bp)
-						return *ap - *bp;
-					ap++;
-					bp++;
+			if (strA.IsCompact && strB.IsCompact) {
+				fixed (byte* aptr_ = &strA.start_byte, bptr_ = &strB.start_byte) {
+					byte* ap = aptr_ + indexA;
+					byte* end = ap + Math.Min (lengthA, lengthB);
+					byte* bp = bptr_ + indexB;
+					while (ap < end) {
+						if (*ap != *bp)
+							return *ap - *bp;
+						++ap;
+						++bp;
+					}
+					return lengthA - lengthB;
 				}
-				return lengthA - lengthB;
+			} else if (strA.IsCompact) {
+				fixed (byte* aptr_ = &strA.start_byte, bptr_ = &strB.start_byte) {
+					char* bptr = (char*)bptr_;
+					byte* ap = aptr_ + indexA;
+					byte* end = ap + Math.Min (lengthA, lengthB);
+					char* bp = bptr + indexB;
+					while (ap < end) {
+						if ((char)*ap != *bp)
+							return (char)*ap - *bp;
+						++ap;
+						++bp;
+					}
+					return lengthA - lengthB;
+				}
+			} else if (strB.IsCompact) {
+				fixed (byte* aptr_ = &strA.start_byte, bptr_ = &strB.start_byte) {
+					char* aptr = (char*)aptr_;
+					char* ap = aptr + indexA;
+					char* end = ap + Math.Min (lengthA, lengthB);
+					byte* bp = bptr_ + indexB;
+					while (ap < end) {
+						if (*ap != (char)*bp)
+							return *ap - (char)*bp;
+						++ap;
+						++bp;
+					}
+					return lengthA - lengthB;
+				}
+			} else {
+				fixed (byte* aptr_ = &strA.start_byte, bptr_ = &strB.start_byte) {
+					char* aptr = (char*)aptr_;
+					char* bptr = (char*)bptr_;
+					char* ap = aptr + indexA;
+					char* end = ap + Math.Min (lengthA, lengthB);
+					char* bp = bptr + indexB;
+					while (ap < end) {
+						if (*ap != *bp)
+							return *ap - *bp;
+						++ap;
+						++bp;
+					}
+					return lengthA - lengthB;
+				}
 			}
 		}
 
@@ -1317,64 +1391,71 @@ namespace System
 
 		internal unsafe int IndexOfUnchecked (char value, int startIndex, int count)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
 			// It helps JIT compiler to optimize comparison
 			int value_32 = (int)value;
 
-			if (IsCompact)
-				throw new NotImplementedException ();
-
 			fixed (byte* start_ = &start_byte) {
-				char* start = (char*)start_;
-				char* ptr = start + startIndex;
-				char* end_ptr = ptr + (count >> 3 << 3);
+				if (IsCompact) {
+					/* TODO: Unroll. */
+					for (int i = 0; i < count; ++i)
+						if ((char)start_ [startIndex + i] == value)
+							return startIndex + i;
+					return -1;
+				} else {
+					char* start = (char*)start_;
+					char* ptr = start + startIndex;
+					char* end_ptr = ptr + (count >> 3 << 3);
 
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-					if (ptr[1] == value_32)
-						return (int)(ptr - start + 1);
-					if (ptr[2] == value_32)
-						return (int)(ptr - start + 2);
-					if (ptr[3] == value_32)
-						return (int)(ptr - start + 3);
-					if (ptr[4] == value_32)
-						return (int)(ptr - start + 4);
-					if (ptr[5] == value_32)
-						return (int)(ptr - start + 5);
-					if (ptr[6] == value_32)
-						return (int)(ptr - start + 6);
-					if (ptr[7] == value_32)
-						return (int)(ptr - start + 7);
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+						if (ptr[1] == value_32)
+							return (int)(ptr - start + 1);
+						if (ptr[2] == value_32)
+							return (int)(ptr - start + 2);
+						if (ptr[3] == value_32)
+							return (int)(ptr - start + 3);
+						if (ptr[4] == value_32)
+							return (int)(ptr - start + 4);
+						if (ptr[5] == value_32)
+							return (int)(ptr - start + 5);
+						if (ptr[6] == value_32)
+							return (int)(ptr - start + 6);
+						if (ptr[7] == value_32)
+							return (int)(ptr - start + 7);
 
-					ptr += 8;
+						ptr += 8;
+					}
+
+					end_ptr += count & 0x07;
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+
+						ptr++;
+					}
+					return -1;
 				}
-
-				end_ptr += count & 0x07;
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-
-					ptr++;
-				}
-				return -1;
 			}
 		}
 
 		internal unsafe int IndexOfOrdinalIgnoreCase (char value, int startIndex, int count)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
 			if (Length == 0)
 				return -1;
 			int end = startIndex + count;
 			char c = Char.ToUpperInvariant (value);
 			fixed (byte* s_ = &start_byte) {
-				char* s = (char*)s_;
-				for (int i = startIndex; i < end; i++)
-					if (Char.ToUpperInvariant (s [i]) == c)
-						return i;
+				if (IsCompact) {
+					for (int i = startIndex; i < end; ++i)
+						if (Char.ToUpperInvariant ((char)s_ [i]) == c)
+							return i;
+				} else {
+					char* s = (char*)s_;
+					for (int i = startIndex; i < end; ++i)
+						if (Char.ToUpperInvariant (s [i]) == c)
+							return i;
+				}
 			}
 			return -1;
 		}
@@ -1466,30 +1547,42 @@ namespace System
 
 		private unsafe int LastIndexOfAnyUnchecked (char [] anyOf, int startIndex, int count)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
 			if (anyOf.Length == 1)
 				return LastIndexOfUnchecked (anyOf[0], startIndex, count);
 
 			fixed (byte* start_ = &this.start_byte)
 			fixed (char* testStart_ = anyOf) {
-				char* start = (char*)start_;
-				char* testStart = (char*)testStart_;
-				char* ptr = start + startIndex;
-				char* ptrEnd = ptr - count;
 				char* test;
+				char* testStart = (char*)testStart_;
 				char* testEnd = testStart + anyOf.Length;
-
-				while (ptr != ptrEnd) {
-					test = testStart;
-					while (test != testEnd) {
-						if (*test == *ptr)
-							return (int)(ptr - start);
-						test++;
+				if (IsCompact) {
+					byte* ptr = start_ + startIndex;
+					byte* ptrEnd = ptr - count;
+					while (ptr != ptrEnd) {
+						test = testStart;
+						while (test != testEnd) {
+							if (*test == (char)*ptr)
+								return (int)(ptr - start_);
+							test++;
+						}
+						--ptr;
 					}
-					ptr--;
+					return -1;
+				} else {
+					char* start = (char*)start_;
+					char* ptr = start + startIndex;
+					char* ptrEnd = ptr - count;
+					while (ptr != ptrEnd) {
+						test = testStart;
+						while (test != testEnd) {
+							if (*test == *ptr)
+								return (int)(ptr - start);
+							test++;
+						}
+						--ptr;
+					}
+					return -1;
 				}
-				return -1;
 			}
 		}
 
@@ -2032,24 +2125,30 @@ namespace System
 
 		public unsafe String ToLowerInvariant ()
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
-
 			if (this.Length == 0)
 				return Empty;
 
-			string tmp = InternalAllocateStr (this.Length, ENCODING_UTF16);
+			/* It's safe to use the compact encoding if the source string is
+			 * compact because the invariant culture will only produce ASCII
+			 * output given ASCII input.
+			 */
+			string tmp = InternalAllocateStr (this.Length, IsCompact ? ENCODING_ASCII : ENCODING_UTF16);
 			fixed (byte* dest_ = &tmp.start_byte)
 			fixed (byte* source_ = &start_byte) {
-				char* dest = (char*)dest_;
-				char* source = (char*)source_;
-				char* destPtr = (char*)dest;
-				char* sourcePtr = (char*)source;
+				if (IsCompact) {
+					for (int i = 0; i < Length; ++i)
+						dest_ [i] = (byte)Char.ToLowerInvariant ((char)source_ [i]);
+				} else {
+					char* dest = (char*)dest_;
+					char* source = (char*)source_;
+					char* destPtr = (char*)dest;
+					char* sourcePtr = (char*)source;
 
-				for (int n = 0; n < this.Length; n++) {
-					*destPtr = Char.ToLowerInvariant (*sourcePtr);
-					sourcePtr++;
-					destPtr++;
+					for (int n = 0; n < this.Length; n++) {
+						*destPtr = Char.ToLowerInvariant (*sourcePtr);
+						sourcePtr++;
+						destPtr++;
+					}
 				}
 			}
 			return tmp;
@@ -2342,22 +2441,45 @@ namespace System
 			int nlen = str0.Length + str1.Length;
 			if (nlen < 0)
 				throw new OutOfMemoryException ();
-			String tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
 
-			if (str0.IsCompact || str1.IsCompact)
+			String tmp;
+			if (str0.IsCompact && str1.IsCompact) {
+				tmp = InternalAllocateStr (nlen, ENCODING_ASCII);
+				fixed (byte* dest_ = &tmp.start_byte) {
+					fixed (byte* src_ = &str0.start_byte)
+						for (int i = 0; i < str0.Length; ++i)
+							*dest_++ = src_ [i];
+					fixed (byte* src_ = &str1.start_byte)
+						for (int i = 0; i < str1.Length; ++i)
+							*dest_++ = src_ [i];
+				}
+			} else if (str0.IsCompact) {
+				tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
+				fixed (byte* dest_ = &tmp.start_byte) {
+					char* dest = (char*)dest_;
+					fixed (byte* src_ = &str0.start_byte)
+						for (int i = 0; i < str0.Length; ++i)
+							*dest_++ = (char)src_ [i];
+					fixed (byte* src_ = &str1.start_byte) {
+						char* src = (char*)src_;
+						CharCopy (dest, src, str1.Length);
+					}
+				}
+			} else if (str1.IsCompact) {
 				throw new NotImplementedException ();
-
-			fixed (byte* dest_ = &tmp.start_byte, src_ = &str0.start_byte) {
-				char* dest = (char*)dest_;
-				char* src = (char*)src_;
-				CharCopy (dest, src, str0.Length);
+			} else {
+				tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str0.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
+					CharCopy (dest, src, str0.Length);
+				}
+				fixed (byte* dest_ = &tmp.start_byte, src_ = &str1.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
+					CharCopy (dest + str0.Length, src, str1.Length);
+				}
 			}
-			fixed (byte* dest_ = &tmp.start_byte, src_ = &str1.start_byte) {
-				char* dest = (char*)dest_;
-				char* src = (char*)src_;
-				CharCopy (dest + str0.Length, src, str1.Length);
-			}
-
 			return tmp;
 		}
 
@@ -2894,20 +3016,25 @@ namespace System
 		// When modifying it, GetCaseInsensitiveHashCode() should be modified as well.
 		public unsafe override int GetHashCode ()
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
+			Console.WriteLine ("GetHashCode\n");
 			fixed (byte* c_ = &this.start_byte) {
-				char* c = (char*)c_;
-				char * cc = c;
-				char * end = cc + this.Length - 1;
 				int h = 0;
-				for (;cc < end; cc += 2) {
-					h = (h << 5) - h + *cc;
-					h = (h << 5) - h + cc [1];
+				if (IsCompact) {
+					byte* cc = c_;
+					byte* end = cc + this.Length;
+					while (cc < end) {
+						h = (h << 5) - h + (char)*cc;
+						++cc;
+					}
+				} else {
+					char* c = (char*)c_;
+					char* cc = c;
+					char* end = cc + this.Length;
+					while (cc < end) {
+						h = (h << 5) - h + *cc;
+						++cc;
+					}
 				}
-				++end;
-				if (cc < end)
-					h = (h << 5) - h + *cc;
 				return h;
 			}
 		}
@@ -3011,18 +3138,34 @@ namespace System
 		internal unsafe int GetCaseInsensitiveHashCode ()
 		{
 			fixed (byte* c_ = &this.start_byte) {
-				char* c = (char*)c_;
-				char* cc = c;
-				char* end = cc + this.Length - 1;
-				int h = 0;
-				for (;cc < end; cc += 2) {
-					h = (h << 5) - h + Char.ToUpperInvariant (*cc);
-					h = (h << 5) - h + Char.ToUpperInvariant (cc [1]);
+				if (IsCompact) {
+					byte* cc = c_;
+					byte* end = cc + this.Length - 1;
+					int h = 0;
+					while (cc < end) {
+						h = (h << 5) - h + Char.ToUpperInvariant ((char)cc [0]);
+						h = (h << 5) - h + Char.ToUpperInvariant ((char)cc [1]);
+						cc += 2;
+					}
+					++end;
+					if (cc < end)
+						h = (h << 5) - h + Char.ToUpperInvariant ((char)cc [0]);
+					return h;
+				} else {
+					char* c = (char*)c_;
+					char* cc = c;
+					char* end = cc + this.Length - 1;
+					int h = 0;
+					while (cc < end) {
+						h = (h << 5) - h + Char.ToUpperInvariant (cc [0]);
+						h = (h << 5) - h + Char.ToUpperInvariant (cc [1]);
+						cc += 2;
+					}
+					++end;
+					if (cc < end)
+						h = (h << 5) - h + Char.ToUpperInvariant (cc [0]);
+					return h;
 				}
-				++end;
-				if (cc < end)
-					h = (h << 5) - h + Char.ToUpperInvariant (*cc);
-				return h;
 			}
 		}
 

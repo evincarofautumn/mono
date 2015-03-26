@@ -840,7 +840,7 @@ mono_string_builder_to_utf8 (MonoStringBuilder *sb)
 	if (!sb)
 		return NULL;
 
-	if ((sb->str == sb->cached_str) && (mono_string_length_fast (sb->str) == 0)) {
+	if ((sb->str == sb->cached_str) && (mono_string_length_fast (sb->str, FALSE) == 0)) {
 		/* 
 		 * The sb could have been allocated with the default capacity and be empty.
 		 * we need to alloc a buffer of the default capacity in this case.
@@ -890,7 +890,7 @@ mono_string_builder_to_utf16 (MonoStringBuilder *sb)
 		 * The sb could have been allocated with the default capacity and be empty.
 		 * we need to alloc a buffer of the default capacity in this case.
 		 */
-		if (mono_string_length_fast (sb->str) == 0)
+		if (mono_string_length_fast (sb->str, FALSE) == 0)
 			MONO_OBJECT_SETREF (sb, str, mono_string_new_size (mono_domain_get (), 16, MONO_ENCODING_UTF16));
 		else
 			MONO_OBJECT_SETREF (sb, str, mono_string_new_utf16 (mono_domain_get (), mono_string_chars (sb->str), mono_stringbuilder_capacity (sb)));

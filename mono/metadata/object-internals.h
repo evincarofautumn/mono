@@ -88,7 +88,7 @@
        };				}G_STMT_END
 
 /* 16 == default capacity */
-#define mono_stringbuilder_capacity(sb) ((sb)->str ? (mono_string_length_fast ((sb)->str)) : 16)
+#define mono_stringbuilder_capacity(sb) ((sb)->str ? (mono_string_length_fast ((sb)->str, FALSE)) : 16)
 
 /* 
  * Macros which cache the results of lookups locally.
@@ -166,7 +166,7 @@ struct _MonoArray {
 struct _MonoString {
 	MonoObject object;
 	uint32_t tagged_length;
-	mono_unichar2 chars [MONO_ZERO_LEN_ARRAY];
+	char chars [MONO_ZERO_LEN_ARRAY];
 };
 
 /* Keep in sync with String. */
@@ -178,13 +178,48 @@ typedef enum MonoInternalEncoding {
 #define mono_object_class(obj) (((MonoObject*)(obj))->vtable->klass)
 #define mono_object_domain(obj) (((MonoObject*)(obj))->vtable->domain)
 
-#define mono_string_chars_fast(s) ((mono_unichar2*)(s)->chars)
-
-static inline int32_t
-mono_string_length_fast(MonoString *s)
+static inline gboolean
+mono_string_is_compact (MonoString *s)
 {
-	g_assert (!(s->tagged_length & 1));
+	return s->tagged_length & 1;
+}
+
+#if 0
+#define mono_string_chars_fast(s) ((mono_unichar2*)(s)->chars)
+#define mono_string_bytes_fast(s) ((s)->chars)
+#else
+
+static inline char *
+mono_string_bytes_fast (MonoString *s)
+{
+	g_assert (mono_string_is_compact (s));
+	return (s)->chars;
+}
+
+static inline mono_unichar2 *
+mono_string_chars_fast (MonoString *s)
+{
+	g_assert (!mono_string_is_compact (s));
+	return (mono_unichar2 *)(s)->chars;
+}
+
+#endif
+
+/* The number of code points in the string. */
+static inline int32_t
+mono_string_length_fast (MonoString *s, gboolean allow_compact)
+{
+	if (!allow_compact)
+		g_assert (!(s->tagged_length & 1));
 	return s->tagged_length >> 1;
+}
+
+/* The size in bytes of a string's character data, including the null terminator. */
+static inline int32_t
+mono_string_size_fast (MonoString *s)
+{
+	size_t length = mono_string_length_fast (s, TRUE);
+	return (length + 1) * (mono_string_is_compact (s) ? sizeof (char) : sizeof (mono_unichar2));
 }
 
 static inline void
@@ -195,7 +230,8 @@ mono_string_set_length (MonoString *s, int32_t len, MonoInternalEncoding encodin
 		s->tagged_length = len << 1;
 		break;
 	default:
-		g_assert_not_reached ();
+		s->tagged_length = (len << 1) | 1;
+		break;
 	}
 }
 

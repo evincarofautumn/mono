@@ -1314,12 +1314,12 @@ mono_gc_get_los_limit (void)
 void
 mono_gc_set_string_length (MonoString *str, gint32 new_length)
 {
-	mono_unichar2 *new_end = str->chars + new_length;
+	mono_unichar2 *new_end = mono_string_chars_fast (str) + new_length;
 	
 	/* zero the discarded string. This null-delimits the string and allows 
 	 * the space to be reclaimed by SGen. */
 	 
-	memset (new_end, 0, (mono_string_length_fast (str) - new_length + 1) * sizeof (mono_unichar2));
+	memset (new_end, 0, (mono_string_length_fast (str, FALSE) - new_length + 1) * sizeof (mono_unichar2));
 	mono_string_set_length (str, new_length, MONO_ENCODING_UTF16);
 }
 

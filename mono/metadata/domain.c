@@ -313,7 +313,6 @@ mono_string_hash (MonoString *s)
 	size_t length = mono_string_length_fast (s, TRUE);
 	guint h = 0;
 	int i;
-	g_printerr ("getting hash from domain.c\n");
 	if (mono_string_is_compact (s)) {
 		const char *p = mono_string_bytes_fast (s);
 		for (i = 0; i < length; ++i) {

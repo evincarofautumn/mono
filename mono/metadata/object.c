@@ -4987,6 +4987,7 @@ MonoString *
 mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 {
 	MonoString *s;
+#if 0
 	size_t i;
 	MonoInternalEncoding encoding = MONO_ENCODING_ASCII;
 
@@ -4996,6 +4997,9 @@ mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 			break;
 		}
 	}
+#else
+	MonoInternalEncoding encoding = MONO_ENCODING_UTF16;
+#endif
 
 	s = mono_string_new_size (domain, len, encoding);
 	g_assert (s != NULL);
@@ -5779,7 +5783,7 @@ mono_string_to_utf16 (MonoString *s)
 	if (!length)
 		return as;
 	
-	if (mono_string_is_compact) {
+	if (mono_string_is_compact (s)) {
 		size_t i;
 		for (i = 0; i < length; ++i)
 			as [i] = (mono_unichar2)mono_string_bytes_fast (s) [i];

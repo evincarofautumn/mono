@@ -817,7 +817,7 @@ sgen_par_object_get_size (MonoVTable *vtable, MonoObject* o)
 		SGEN_ASSERT (9, size >= sizeof (MonoObject), "Run length object size to small");
 		return size;
 	} else if (descr == SGEN_DESC_STRING) {
-		return G_STRUCT_OFFSET (MonoString, chars) + 2 * mono_string_length_fast ((MonoString*) o, FALSE) + 2;
+		return G_STRUCT_OFFSET (MonoString, chars) + mono_string_size_fast ((MonoString *)o);
 	} else if (type == DESC_TYPE_VECTOR) {
 		int element_size = ((descr) >> VECTOR_ELSIZE_SHIFT) & MAX_ELEMENT_SIZE;
 		MonoArray *array = (MonoArray*)o;

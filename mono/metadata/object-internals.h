@@ -205,12 +205,12 @@ mono_string_chars_fast (MonoString *s)
 
 #endif
 
-/* The number of code points in the string. */
+/* The number of code points in the string, excluding the null terminator. */
 static inline int32_t
 mono_string_length_fast (MonoString *s, gboolean allow_compact)
 {
 	if (!allow_compact)
-		g_assert (!(s->tagged_length & 1));
+		g_assert (!mono_string_is_compact (s));
 	return s->tagged_length >> 1;
 }
 

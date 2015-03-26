@@ -100,6 +100,13 @@ namespace System
 				return false;
 
 			if (a.IsCompact && b.IsCompact) {
+				fixed (byte* s1_ = &a.start_byte, s2_ = &b.start_byte) {
+					for (int i = 0; i < length; ++i)
+						if (s1_ [i] != s2_ [i])
+							return false;
+					return true;
+				}
+				/*
 				fixed (byte* s1 = &a.start_byte, s2 = &b.start_byte) {
 					byte* p1 = s1;
 					byte* p2 = s2;
@@ -141,6 +148,7 @@ namespace System
 					}
 					return length == 0 || *p1 == *p2;
 				}
+				*/
 			} else if (a.IsCompact) {
 				fixed (byte* s1 = &a.start_byte, s2_ = &b.start_byte) {
 					char* s2 = (char*)s2_;
@@ -226,10 +234,10 @@ namespace System
 					throw new IndexOutOfRangeException ();
 				if (IsCompact) {
 					fixed (byte* c = &start_byte)
-						return (char)c[index];
+						return (char)c [index];
 				} else {
 					fixed (byte* c = &start_byte)
-						return ((char*)c)[index];
+						return ((char*)c) [index];
 				}
 			}
 		}
@@ -2448,10 +2456,10 @@ namespace System
 				fixed (byte* dest_ = &tmp.start_byte) {
 					fixed (byte* src_ = &str0.start_byte)
 						for (int i = 0; i < str0.Length; ++i)
-							*dest_++ = src_ [i];
+							dest_ [i] = src_ [i];
 					fixed (byte* src_ = &str1.start_byte)
 						for (int i = 0; i < str1.Length; ++i)
-							*dest_++ = src_ [i];
+							dest_ [str0.Length + i] = src_ [i];
 				}
 			} else if (str0.IsCompact) {
 				tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
@@ -2459,10 +2467,10 @@ namespace System
 					char* dest = (char*)dest_;
 					fixed (byte* src_ = &str0.start_byte)
 						for (int i = 0; i < str0.Length; ++i)
-							*dest_++ = (char)src_ [i];
+							dest [i] = (char)src_ [i];
 					fixed (byte* src_ = &str1.start_byte) {
 						char* src = (char*)src_;
-						CharCopy (dest, src, str1.Length);
+						CharCopy (dest + str0.Length, src, str1.Length);
 					}
 				}
 			} else if (str1.IsCompact) {
@@ -3016,12 +3024,12 @@ namespace System
 		// When modifying it, GetCaseInsensitiveHashCode() should be modified as well.
 		public unsafe override int GetHashCode ()
 		{
-			Console.WriteLine ("GetHashCode\n");
+			uint h = 0;
+			int length = this.Length;
 			fixed (byte* c_ = &this.start_byte) {
-				int h = 0;
 				if (IsCompact) {
 					byte* cc = c_;
-					byte* end = cc + this.Length;
+					byte* end = cc + length;
 					while (cc < end) {
 						h = (h << 5) - h + (char)*cc;
 						++cc;
@@ -3029,14 +3037,14 @@ namespace System
 				} else {
 					char* c = (char*)c_;
 					char* cc = c;
-					char* end = cc + this.Length;
+					char* end = cc + length;
 					while (cc < end) {
 						h = (h << 5) - h + *cc;
 						++cc;
 					}
 				}
-				return h;
 			}
+			return (int)h;
 		}
 
 		[ComVisible(false)]
@@ -3137,11 +3145,13 @@ namespace System
 
 		internal unsafe int GetCaseInsensitiveHashCode ()
 		{
+			uint h = 0;
 			fixed (byte* c_ = &this.start_byte) {
 				if (IsCompact) {
+					Console.WriteLine ('X');
+					throw new NotImplementedException ();
 					byte* cc = c_;
 					byte* end = cc + this.Length - 1;
-					int h = 0;
 					while (cc < end) {
 						h = (h << 5) - h + Char.ToUpperInvariant ((char)cc [0]);
 						h = (h << 5) - h + Char.ToUpperInvariant ((char)cc [1]);
@@ -3150,12 +3160,10 @@ namespace System
 					++end;
 					if (cc < end)
 						h = (h << 5) - h + Char.ToUpperInvariant ((char)cc [0]);
-					return h;
 				} else {
 					char* c = (char*)c_;
 					char* cc = c;
 					char* end = cc + this.Length - 1;
-					int h = 0;
 					while (cc < end) {
 						h = (h << 5) - h + Char.ToUpperInvariant (cc [0]);
 						h = (h << 5) - h + Char.ToUpperInvariant (cc [1]);
@@ -3164,9 +3172,9 @@ namespace System
 					++end;
 					if (cc < end)
 						h = (h << 5) - h + Char.ToUpperInvariant (cc [0]);
-					return h;
 				}
 			}
+			return (int)h;
 		}
 
 		// Certain constructors are redirected to CreateString methods with

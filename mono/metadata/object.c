@@ -4987,7 +4987,7 @@ MonoString *
 mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 {
 	MonoString *s;
-#if 0
+#if 1
 	size_t i;
 	MonoInternalEncoding encoding = MONO_ENCODING_ASCII;
 
@@ -5050,7 +5050,7 @@ mono_string_new_utf32 (MonoDomain *domain, const mono_unichar4 *text, gint32 len
  * Returns: A newly created string object of @len
  */
 MonoString *
-mono_string_new_size (MonoDomain *domain, gint32 len, int encoding)
+mono_string_new_size (MonoDomain *domain, gint32 len, gint32 encoding)
 {
 	MonoString *s;
 	MonoVTable *vtable;
@@ -5071,6 +5071,8 @@ mono_string_new_size (MonoDomain *domain, gint32 len, int encoding)
 		size = G_STRUCT_OFFSET (MonoString, chars) + (((size_t)len + 1) * 2);
 #endif
 		break;
+	default:
+		g_assert_not_reached ();
 	}
 
 	/* check for overflow */
@@ -5161,7 +5163,7 @@ mono_string_new (MonoDomain *domain, const char *text)
 		return NULL;
 
 	len = g_utf8_strlen (text, -1);
-	o = mono_string_new_size (domain, len);
+	o = mono_string_new_size (domain, len, encoding);
 	str = mono_string_chars (o);
 
 	while (text < end) {
@@ -5316,7 +5318,7 @@ mono_object_get_size (MonoObject* o)
 {
 	MonoClass* klass = mono_object_class (o);
 	if (klass == mono_defaults.string_class) {
-		return sizeof (MonoString) + 2 * mono_string_length ((MonoString*) o) + 2;
+		return sizeof (MonoString) + mono_string_size_fast ((MonoString *)o);
 	} else if (o->vtable->rank) {
 		MonoArray *array = (MonoArray*)o;
 		size_t size = sizeof (MonoArray) + mono_array_element_size (klass) * mono_array_length (array);

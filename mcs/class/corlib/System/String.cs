@@ -233,6 +233,9 @@ namespace System
 				if (index < 0 || index >= Length)
 					throw new IndexOutOfRangeException ();
 				if (IsCompact) {
+					Console.Write('[');
+					Console.Write(']');
+					Console.Write('\n');
 					fixed (byte* c = &start_byte)
 						return (char)c [index];
 				} else {
@@ -2761,6 +2764,8 @@ namespace System
 
 		private static unsafe string JoinUnchecked (string separator, string[] value, int startIndex, int count)
 		{
+			if (separator.IsCompact)
+				throw new NotImplementedException ();
 			// Unchecked parameters
 			// startIndex, count must be >= 0; startIndex + count must be <= value.Length
 			// separator and value must not be null
@@ -3559,6 +3564,8 @@ namespace System
 
 		internal static unsafe void CharCopy (String target, int targetIndex, String source, int sourceIndex, int count)
 		{
+			if (source.IsCompact || target.IsCompact)
+				throw new NotImplementedException ();
 			fixed (byte* dest_ = &target.start_byte, src_ = &source.start_byte) {
 				char* dest = (char*)dest_;
 				char* src = (char*)src_;
@@ -3568,6 +3575,8 @@ namespace System
 
 		internal static unsafe void CharCopy (String target, int targetIndex, Char[] source, int sourceIndex, int count)
 		{
+			if (target.IsCompact)
+				throw new NotImplementedException ();
 			fixed (byte* dest_ = &target.start_byte)
 			fixed (char* src = source) {
 				char* dest = (char*)dest_;
@@ -3578,6 +3587,8 @@ namespace System
 		// Use this method if you cannot block copy from left to right (e.g. because you are coping within the same string)
 		internal static unsafe void CharCopyReverse (String target, int targetIndex, String source, int sourceIndex, int count)
 		{
+			if (source.IsCompact || target.IsCompact)
+				throw new NotImplementedException ();
 			fixed (byte* dest_ = &target.start_byte, src_ = &source.start_byte) {
 				char* dest = (char*)dest_;
 				char* src = (char*)src_;

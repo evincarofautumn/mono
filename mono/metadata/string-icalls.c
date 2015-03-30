@@ -34,9 +34,9 @@ ves_icall_System_String_ctor_RedirectToCreateString (void)
 }
 
 MonoString *
-ves_icall_System_String_InternalAllocateStr (gint32 length, int encoding)
+ves_icall_System_String_InternalAllocateStr (gint32 length, gint32 encoding)
 {
-	return mono_string_new_size(mono_domain_get (), length, encoding);
+	return mono_string_new_size (mono_domain_get (), length, encoding);
 }
 
 MonoString  *

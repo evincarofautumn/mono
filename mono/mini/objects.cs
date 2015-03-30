@@ -136,16 +136,20 @@ class Tests {
 
 	public static int test_0_string_access () {
 		string s = "Hello";
-		if (s [1] != 'e')
+		if (s [1] != 'e') {
+			Console.Error.Write (s [1]);
 			return 1;
+		}
 		return 0;
 	}
 
 	public static int test_0_string_virtual_call () {
 		string s = "Hello";
 		string s2 = s.ToString ();
-		if (s2 [1] != 'e')
+		if (s2 [1] != 'e') {
+			Console.Error.Write (s2 [1]);
 			return 1;
+		}
 		return 0;
 	}
 

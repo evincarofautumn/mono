@@ -72,6 +72,9 @@ int
 mono_mb_get_pos (MonoMethodBuilder *mb);
 
 void
+mono_mb_emit_il (MonoMethodBuilder *mb, ...);
+
+void
 mono_mb_emit_ptr (MonoMethodBuilder *mb, gpointer ptr);
 
 void

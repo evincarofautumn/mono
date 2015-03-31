@@ -294,6 +294,45 @@ mono_mb_patch_addr_s (MonoMethodBuilder *mb, int pos, gint8 value)
 	*((gint8 *)(&mb->code [pos])) = value;
 }
 
+/* Takes a NOP-terminated list of instructions. */
+void
+mono_mb_emit_il (MonoMethodBuilder *mb, ...)
+{
+	va_list args;
+	va_start (args, mb);
+	while (1) {
+		int ins = va_arg (args, int);
+		switch (ins) {
+		case CEE_LDARG: {
+			int imm = va_arg (args, int);
+			mono_mb_emit_ldarg (mb, imm);
+			break;
+		}
+		case CEE_LDC_I4: {
+			gint32 imm = va_arg (args, gint32);
+			mono_mb_emit_icon (mb, imm);
+			break;
+		}
+		case CEE_LDC_I8: {
+			gint64 imm = va_arg (args, gint64);
+			mono_mb_emit_icon8 (mb, imm);
+			break;
+		}
+		case CEE_STLOC: {
+			int imm = va_arg (args, int);
+			mono_mb_emit_stloc (mb, imm);
+			break;
+		}
+		case CEE_NOP: goto end;
+		default:
+			mono_mb_emit_byte (mb, ins);
+			break;
+		}
+	}
+end:
+	va_end (args);
+}
+
 void
 mono_mb_emit_byte (MonoMethodBuilder *mb, guint8 op)
 {

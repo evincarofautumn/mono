@@ -775,15 +775,17 @@ create_allocator (int atype, int tls_key)
 	if (atype == ATYPE_STRING) {
 		/* a string alloator method takes the args: (vtable, len) */
 		/* bytes = (offsetof (MonoString, chars) + ((len + 1) * 2)); */
-		mono_mb_emit_ldarg (mb, 1);
-		mono_mb_emit_icon (mb, 1);
-		mono_mb_emit_byte (mb, MONO_CEE_ADD);
-		mono_mb_emit_icon (mb, 1);
-		mono_mb_emit_byte (mb, MONO_CEE_SHL);
-		// sizeof (MonoString) might include padding
-		mono_mb_emit_icon (mb, G_STRUCT_OFFSET (MonoString, chars));
-		mono_mb_emit_byte (mb, MONO_CEE_ADD);
-		mono_mb_emit_stloc (mb, bytes_var);
+		mono_mb_emit_il (
+			mb,
+			CEE_LDARG_1,
+			CEE_LDC_I4_1,
+			CEE_ADD,
+			CEE_LDC_I4_1,
+			CEE_SHL,
+			CEE_LDC_I4, G_STRUCT_OFFSET (MonoString, chars),
+			CEE_ADD,
+			CEE_STLOC, bytes_var
+			CEE_NOP);
 	} else {
 		mono_mb_emit_ldarg (mb, 1);
 		mono_mb_emit_stloc (mb, bytes_var);

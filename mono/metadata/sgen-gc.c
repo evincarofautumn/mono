@@ -5072,25 +5072,30 @@ emit_nursery_check (MonoMethodBuilder *mb, int *nursery_check_return_labels, gbo
 	 * Masking out the bits might be faster, but we would have to use 64 bit
 	 * immediates, which might be slower.
 	 */
-	mono_mb_emit_byte (mb, MONO_CUSTOM_PREFIX);
-	mono_mb_emit_byte (mb, CEE_MONO_LDPTR_NURSERY_START);
-	mono_mb_emit_icon (mb, DEFAULT_NURSERY_BITS);
-	mono_mb_emit_byte (mb, CEE_SHR_UN);
-	mono_mb_emit_stloc (mb, shifted_nursery_start);
+	mono_mb_emit_il (
+		mb,
+		MONO_CUSTOM_PREFIX, CEE_MONO_LDPTR_NURSERY_START,
+		CEE_LDC_I4, DEFAULT_NURSERY_BITS,
+		CEE_SHR_UN,
+		CEE_STLOC, shifted_nursery_start,
+		CEE_LDARG_0,
+		CEE_LDC_I4, DEFAULT_NURSERY_BITS,
+		CEE_SHR_UN,
+		CEE_LDLOC, shifted_nursery_start,
+		CEE_NOP);
 
-	mono_mb_emit_ldarg (mb, 0);
-	mono_mb_emit_icon (mb, DEFAULT_NURSERY_BITS);
-	mono_mb_emit_byte (mb, CEE_SHR_UN);
-	mono_mb_emit_ldloc (mb, shifted_nursery_start);
 	nursery_check_return_labels [0] = mono_mb_emit_branch (mb, CEE_BEQ);
 
 	if (!is_concurrent) {
 		// if (!ptr_in_nursery (*ptr)) return;
-		mono_mb_emit_ldarg (mb, 0);
-		mono_mb_emit_byte (mb, CEE_LDIND_I);
-		mono_mb_emit_icon (mb, DEFAULT_NURSERY_BITS);
-		mono_mb_emit_byte (mb, CEE_SHR_UN);
-		mono_mb_emit_ldloc (mb, shifted_nursery_start);
+		mono_mb_emit_il (
+			mb,
+			CEE_LDARG_0,
+			CEE_LDIND_I,
+			CEE_LDC_I4, DEFAULT_NURSERY_BITS,
+			CEE_SHR_UN,
+			CEE_LDLOC, shifted_nursery_start,
+			CEE_NOP);
 		nursery_check_return_labels [1] = mono_mb_emit_branch (mb, CEE_BNE_UN);
 	}
 }
@@ -5156,24 +5161,28 @@ mono_gc_get_specific_write_barrier (gboolean is_concurrent)
 	ldc_i4_1
 	stind_i1
 	*/
-	mono_mb_emit_byte (mb, MONO_CUSTOM_PREFIX);
-	mono_mb_emit_byte (mb, CEE_MONO_LDPTR_CARD_TABLE);
-	mono_mb_emit_ldarg (mb, 0);
-	mono_mb_emit_icon (mb, CARD_BITS);
-	mono_mb_emit_byte (mb, CEE_SHR_UN);
-	mono_mb_emit_byte (mb, CEE_CONV_I);
+	mono_mb_emit_il (
+		mb,
+		MONO_CUSTOM_PREFIX, CEE_MONO_LDPTR_CARD_TABLE,
+		CEE_LDARG_0,
+		CEE_LDC_I4, CARD_BITS,
+		CEE_SHR_UN,
+		CEE_CONV_I,
 #ifdef SGEN_HAVE_OVERLAPPING_CARDS
 #if SIZEOF_VOID_P == 8
-	mono_mb_emit_icon8 (mb, CARD_MASK);
+		CEE_LDC_I8,
+		(guint64)CARD_MASK,
 #else
-	mono_mb_emit_icon (mb, CARD_MASK);
+		CEE_LDC_I4,
+		(guint32)CARD_MASK,
 #endif
-	mono_mb_emit_byte (mb, CEE_CONV_I);
-	mono_mb_emit_byte (mb, CEE_AND);
+		CEE_CONV_I,
+		CEE_AND,
 #endif
-	mono_mb_emit_byte (mb, CEE_ADD);
-	mono_mb_emit_icon (mb, 1);
-	mono_mb_emit_byte (mb, CEE_STIND_I1);
+		CEE_ADD,
+		CEE_LDC_I4_1,
+		CEE_STIND_I1,
+		CEE_NOP);
 
 	// return;
 	for (i = 0; i < 2; ++i) {

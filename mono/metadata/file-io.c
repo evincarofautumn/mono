@@ -640,7 +640,18 @@ ves_icall_System_IO_MonoIO_GetFileAttributes (MonoString *path, gint32 *error)
 	
 	*error=ERROR_SUCCESS;
 	
-	ret=get_file_attributes (mono_string_chars (path));
+	/* FIXME: get_file_attributes should decide whether to do this re-encoding. */
+	if (mono_string_is_compact (path)) {
+		size_t length = mono_string_length_fast (path, TRUE);
+		MonoString *path_utf16 = mono_string_new_size (((MonoObject *)path)->vtable->domain, length, MONO_ENCODING_UTF16);
+		gunichar2 *dst = mono_string_chars_fast (path_utf16);
+		char *src = mono_string_bytes_fast (path);
+		for (size_t i = 0; i < length; ++i)
+			dst [i] = src [i];
+		ret=get_file_attributes (mono_string_chars_fast (path_utf16));
+	} else {
+		ret=get_file_attributes (mono_string_chars_fast (path));
+	}
 
 	/* 
 	 * The definition of INVALID_FILE_ATTRIBUTES in the cygwin win32

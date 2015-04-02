@@ -2577,7 +2577,7 @@ mono_remote_class (MonoDomain *domain, MonoString *class_name, MonoClass *proxy_
 	rc->xdomain_vtable = NULL;
 	rc->proxy_class_name = name;
 #ifndef DISABLE_PERFCOUNTERS
-	mono_perfcounters->loader_bytes += mono_string_length (class_name) + 1;
+	mono_perfcounters->loader_bytes += mono_string_size_fast (class_name);
 #endif
 
 	g_hash_table_insert (domain->proxy_vtable_hash, key, rc);
@@ -4987,25 +4987,9 @@ MonoString *
 mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 {
 	MonoString *s;
-#if 1
-	size_t i;
-	MonoInternalEncoding encoding = MONO_ENCODING_ASCII;
-
-	for (i = 0; i < len; ++i) {
-		if ((text [i] & ~(guint16)0x7f) != 0) {
-			encoding = MONO_ENCODING_UTF16;
-			break;
-		}
-	}
-#else
-	MonoInternalEncoding encoding = MONO_ENCODING_UTF16;
-#endif
-
-	s = mono_string_new_size (domain, len, encoding);
+	s = mono_string_new_size (domain, len, MONO_ENCODING_UTF16);
 	g_assert (s != NULL);
-
-	memcpy (mono_string_chars (s), text, len * 2);
-
+	memcpy (mono_string_chars_fast (s), text, len * 2);
 	return s;
 }
 
@@ -5127,6 +5111,25 @@ mono_string_new_len (MonoDomain *domain, const char *text, guint length)
 	return o;
 }
 
+static MonoInternalEncoding
+mono_string_infer_encoding (const char *text)
+{
+#if 1
+	size_t len = strlen (text);
+	size_t i;
+	MonoInternalEncoding encoding = MONO_ENCODING_ASCII;
+	for (i = 0; i < len; ++i) {
+		if ((signed char)text [i] < 0) {
+			encoding = MONO_ENCODING_UTF16;
+			break;
+		}
+	}
+#else
+	MonoInternalEncoding encoding = MONO_ENCODING_UTF16;
+#endif
+	return encoding;
+}
+
 /**
  * mono_string_new:
  * @text: a pointer to an utf8 string
@@ -5141,17 +5144,25 @@ mono_string_new (MonoDomain *domain, const char *text)
     guint16 *ut;
     glong items_written;
     int l;
+	MonoInternalEncoding encoding = mono_string_infer_encoding (text);;
 
     l = strlen (text);
-   
-    ut = g_utf8_to_utf16 (text, l, NULL, &items_written, &error);
 
-    if (!error)
-        o = mono_string_new_utf16 (domain, ut, items_written);
-    else
-        g_error_free (error);
+	switch (encoding) {
+	case MONO_ENCODING_UTF16: 
+		ut = g_utf8_to_utf16 (text, l, NULL, &items_written, &error);
+		if (!error)
+			o = mono_string_new_utf16 (domain, ut, items_written);
+		else
+			g_error_free (error);
+		g_free (ut);
+		break;
+	case MONO_ENCODING_ASCII:
+		o = mono_string_new_size (domain, l, MONO_ENCODING_ASCII);
+		memcpy (mono_string_bytes_fast (o), text, l);
+		break;
+	}
 
-    g_free (ut);
 /*FIXME g_utf8_get_char, g_utf8_next_char and g_utf8_validate are not part of eglib.*/
 #if 0
 	gunichar2 *str;
@@ -6782,7 +6793,7 @@ mono_get_addr_from_ftnptr (gpointer descr)
 gunichar2 *
 mono_string_chars (MonoString *s)
 {
-	return (gunichar2 *)s->chars;
+	return mono_string_chars_fast (s);
 }
 
 /**

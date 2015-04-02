@@ -732,8 +732,11 @@ init_perf_counter (const char *category, const char *counter)
 		return NULL;
 	root = mono_get_root_domain ();
 	category_str = mono_string_new (root, category);
+	g_assert (category_str);
 	counter_str = mono_string_new (root, counter);
+	g_assert (counter_str);
 	machine = mono_string_new (root, ".");
+	g_assert (machine);
 	return mono_perfcounter_get_impl (category_str, counter_str, NULL, machine, &type, &custom);
 }
 #endif

@@ -476,12 +476,20 @@ namespace System.Globalization {
 			string tmp = String.InternalAllocateStr (str.Length, String.ENCODING_UTF16);
 			fixed (byte* source_ = &str.start_byte, dest_ = &tmp.start_byte) {
 				char* destPtr = (char*)dest_;
-				char* sourcePtr = (char*)source_;
-
-				for (int n = 0; n < str.Length; n++) {
-					*destPtr = ToLower (*sourcePtr);
-					sourcePtr++;
-					destPtr++;
+				if (str.IsCompact) {
+					byte* sourcePtr = source_;
+					for (int n = 0; n < str.Length; n++) {
+						*destPtr = ToLower ((char)*sourcePtr);
+						sourcePtr++;
+						destPtr++;
+					}
+				} else {
+					char* sourcePtr = (char*)source_;
+					for (int n = 0; n < str.Length; n++) {
+						*destPtr = ToLower (*sourcePtr);
+						sourcePtr++;
+						destPtr++;
+					}
 				}
 			}
 			return tmp;
@@ -503,12 +511,20 @@ namespace System.Globalization {
 			string tmp = String.InternalAllocateStr (str.Length, String.ENCODING_UTF16);
 			fixed (byte* source_ = &str.start_byte, dest_ = &tmp.start_byte) {
 				char* destPtr = (char*)dest_;
-				char* sourcePtr = (char*)source_;
-
-				for (int n = 0; n < str.Length; n++) {
-					*destPtr = ToUpper (*sourcePtr);
-					sourcePtr++;
-					destPtr++;
+				if (str.IsCompact) {
+					byte* sourcePtr = source_;
+					for (int n = 0; n < str.Length; n++) {
+						*destPtr = ToUpper ((char)*sourcePtr);
+						sourcePtr++;
+						destPtr++;
+					}
+				} else {
+					char* sourcePtr = (char*)source_;
+					for (int n = 0; n < str.Length; n++) {
+						*destPtr = ToUpper (*sourcePtr);
+						sourcePtr++;
+						destPtr++;
+					}
 				}
 			}
 			return tmp;

@@ -64,7 +64,8 @@ namespace System
 		// positive lengths denote the normal (UTF-16) encoding, while negative
 		// lengths denote the compact (ASCII) encoding.
 		[NonSerialized] private UInt32 tagged_length;
-		[NonSerialized] internal byte start_byte;
+		/* FIXME: This has to be private. */
+		[NonSerialized] public byte start_byte;
 
 		public static readonly String Empty = "";
 
@@ -80,7 +81,7 @@ namespace System
 			}
 		}
 
-		private bool IsCompact {
+		internal bool IsCompact {
 			get {
 				return (tagged_length & 1) != 0;
 			}
@@ -233,11 +234,8 @@ namespace System
 				if (index < 0 || index >= Length)
 					throw new IndexOutOfRangeException ();
 				if (IsCompact) {
-					Console.Write('[');
-					Console.Write(']');
-					Console.Write('\n');
 					fixed (byte* c = &start_byte)
-						return (char)c [index];
+						return (char)(c [index]);
 				} else {
 					fixed (byte* c = &start_byte)
 						return ((char*)c) [index];
@@ -425,70 +423,55 @@ namespace System
 
 		unsafe string[] SplitByCharacters (char[] sep, int count, bool removeEmpty)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
-
 			int[] split_points = null;
 			int total_points = 0;
 			--count;
 
 			if (sep == null || sep.Length == 0) {
-				fixed (byte* src_ = &this.start_byte) {
-					char* src = (char*)src_;
-					char* src_ptr = src;
-					int len = Length;
-
-					while (len > 0) {
-						if (char.IsWhiteSpace (*src_ptr++)) {
-							if (split_points == null) {
-								split_points = new int[8];
-							} else if (split_points.Length == total_points) {
-								Array.Resize (ref split_points, split_points.Length * 2);
-							}
-
-							split_points[total_points++] = Length - len;
-							if (total_points == count && !removeEmpty)
-								break;
+				int src_ptr = 0;
+				int len = Length;
+				while (len > 0) {
+					if (char.IsWhiteSpace (this [src_ptr++])) {
+						if (split_points == null) {
+							split_points = new int[8];
+						} else if (split_points.Length == total_points) {
+							Array.Resize (ref split_points, split_points.Length * 2);
 						}
+						split_points[total_points++] = Length - len;
+						if (total_points == count && !removeEmpty)
+							break;
+					}
+					--len;
+				}
+			} else {
+				int src = 0;
+				fixed (char* sep_src = sep) {
+					int src_ptr = src;
+					char* sep_ptr_end = sep_src + sep.Length;
+					int len = Length;
+					while (len > 0) {
+						char* sep_ptr = sep_src;
+						do {
+							if (*sep_ptr++ == this [src_ptr]) {
+								if (split_points == null) {
+									split_points = new int[8];
+								} else if (split_points.Length == total_points) {
+									Array.Resize (ref split_points, split_points.Length * 2);
+								}
+								split_points[total_points++] = Length - len;
+								if (total_points == count && !removeEmpty)
+									len = 0;
+								break;
+								}
+						} while (sep_ptr != sep_ptr_end);
+						++src_ptr;
 						--len;
 					}
 				}
-			} else {
-				fixed (byte* src_ = &this.start_byte) {
-					char* src = (char*)src_;
-					fixed (char* sep_src = sep) {
-						char* src_ptr = src;
-						char* sep_ptr_end = sep_src + sep.Length;
-						int len = Length;
-						while (len > 0) {
-							char* sep_ptr = sep_src;
-							do {
-								if (*sep_ptr++ == *src_ptr) {
-									if (split_points == null) {
-										split_points = new int[8];
-									} else if (split_points.Length == total_points) {
-										Array.Resize (ref split_points, split_points.Length * 2);
-									}
-
-									split_points[total_points++] = Length - len;
-									if (total_points == count && !removeEmpty)
-										len = 0;
-
-									break;
-								}
-							} while (sep_ptr != sep_ptr_end);
-
-							++src_ptr;
-							--len;
-						}
-					}
-				}
 			}
-
 			if (total_points == 0)
 				return new string[] { this };
-
-			var res = new string[Math.Min (total_points, count) + 1];
+			var res = new string [Math.Min (total_points, count) + 1];
 			int prev_index = 0;
 			int i = 0;
 			if (!removeEmpty) {
@@ -497,7 +480,6 @@ namespace System
 					res[i] = SubstringUnchecked (prev_index, start - prev_index);
 					prev_index = start + 1;
 				}
-
 				res[i] = SubstringUnchecked (prev_index, Length - prev_index);
 			} else {
 				int used = 0;
@@ -511,18 +493,14 @@ namespace System
 
 						res[used++] = SubstringUnchecked (prev_index, length);
 					}
-
 					prev_index = start + 1;
 				}
-
 				length = Length - prev_index;
 				if (length != 0)
 					res[used++] = SubstringUnchecked (prev_index, length);
-
 				if (used != res.Length)
 					Array.Resize (ref res, used);
 			}
-
 			return res;
 		}
 
@@ -1082,9 +1060,6 @@ namespace System
 
 		private unsafe int IndexOfAnyUnchecked (char[] anyOf, int startIndex, int count)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
-
 			if (anyOf.Length == 0)
 				return -1;
 
@@ -1108,26 +1083,49 @@ namespace System
 				}
 
 				fixed (byte* start_ = &start_byte) {
-					char* start = (char*)start_;
-					char* ptr = start + startIndex;
-					char* end_ptr = ptr + count;
-
-					while (ptr != end_ptr) {
-						if (*ptr > highest || *ptr < lowest) {
+					if (IsCompact) {
+						Console.Error.Write ('i');
+						Console.Error.Write ('o');
+						Console.Error.Write ('a');
+						Console.Error.Write ('c');
+						Console.Error.Write ('\n');
+						byte* ptr = start_ + startIndex;
+						byte* end_ptr = ptr + count;
+						while (ptr != end_ptr) {
+							if ((char)*ptr > highest || (char)*ptr < lowest) {
+								ptr++;
+								continue;
+							}
+							if ((char)*ptr == *any)
+								return (int)(ptr - start_);
+							any_ptr = any;
+							while (++any_ptr != end_any_ptr)
+								if ((char)*ptr == *any_ptr)
+									return (int)(ptr - start_);
 							ptr++;
-							continue;
 						}
+					} else {
+						char* start = (char*)start_;
+						char* ptr = start + startIndex;
+						char* end_ptr = ptr + count;
 
-						if (*ptr == *any)
-							return (int)(ptr - start);
+						while (ptr != end_ptr) {
+							if (*ptr > highest || *ptr < lowest) {
+								ptr++;
+								continue;
+							}
 
-						any_ptr = any;
-						while (++any_ptr != end_any_ptr) {
-							if (*ptr == *any_ptr)
+							if (*ptr == *any)
 								return (int)(ptr - start);
-						}
 
-						ptr++;
+							any_ptr = any;
+							while (++any_ptr != end_any_ptr) {
+								if (*ptr == *any_ptr)
+									return (int)(ptr - start);
+							}
+
+							ptr++;
+						}
 					}
 				}
 			}
@@ -1629,46 +1627,52 @@ namespace System
 
 		internal unsafe int LastIndexOfUnchecked (char value, int startIndex, int count)
 		{
-			if (IsCompact)
-				throw new NotImplementedException ();
-
-			// It helps JIT compiler to optimize comparison
-			int value_32 = (int)value;
-
-			fixed (byte* start_ = &start_byte) {
-				char* start = (char*)start_;
-				char* ptr = start + startIndex;
-				char* end_ptr = ptr - (count >> 3 << 3);
-
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-					if (ptr[-1] == value_32)
-						return (int)(ptr - start) - 1;
-					if (ptr[-2] == value_32)
-						return (int)(ptr - start) - 2;
-					if (ptr[-3] == value_32)
-						return (int)(ptr - start) - 3;
-					if (ptr[-4] == value_32)
-						return (int)(ptr - start) - 4;
-					if (ptr[-5] == value_32)
-						return (int)(ptr - start) - 5;
-					if (ptr[-6] == value_32)
-						return (int)(ptr - start) - 6;
-					if (ptr[-7] == value_32)
-						return (int)(ptr - start) - 7;
-
-					ptr -= 8;
+			if (IsCompact) {
+				fixed (byte* start_ = &start_byte) {
+					for (int i = startIndex; i < startIndex + count; ++i)
+						if ((char)start_ [i] == value)
+							return i;
+					return -1;
 				}
+			} else {
+				// It helps JIT compiler to optimize comparison
+				int value_32 = (int)value;
 
-				end_ptr -= count & 0x07;
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
+				fixed (byte* start_ = &start_byte) {
+					char* start = (char*)start_;
+					char* ptr = start + startIndex;
+					char* end_ptr = ptr - (count >> 3 << 3);
 
-					ptr--;
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+						if (ptr[-1] == value_32)
+							return (int)(ptr - start) - 1;
+						if (ptr[-2] == value_32)
+							return (int)(ptr - start) - 2;
+						if (ptr[-3] == value_32)
+							return (int)(ptr - start) - 3;
+						if (ptr[-4] == value_32)
+							return (int)(ptr - start) - 4;
+						if (ptr[-5] == value_32)
+							return (int)(ptr - start) - 5;
+						if (ptr[-6] == value_32)
+							return (int)(ptr - start) - 6;
+						if (ptr[-7] == value_32)
+							return (int)(ptr - start) - 7;
+
+						ptr -= 8;
+					}
+
+					end_ptr -= count & 0x07;
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+
+						ptr--;
+					}
+					return -1;
 				}
-				return -1;
 			}
 		}
 
@@ -2471,13 +2475,19 @@ namespace System
 					fixed (byte* src_ = &str0.start_byte)
 						for (int i = 0; i < str0.Length; ++i)
 							dest [i] = (char)src_ [i];
-					fixed (byte* src_ = &str1.start_byte) {
-						char* src = (char*)src_;
-						CharCopy (dest + str0.Length, src, str1.Length);
-					}
+					fixed (byte* src_ = &str1.start_byte)
+						CharCopy (dest + str0.Length, (char*)src_, str1.Length);
 				}
 			} else if (str1.IsCompact) {
-				throw new NotImplementedException ();
+				tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
+				fixed (byte* dest_ = &tmp.start_byte) {
+					char* dest = (char*)dest_;
+					fixed (byte* src_ = &str0.start_byte)
+						CharCopy (dest, (char*)src_, str0.Length);
+					fixed (byte* src_ = &str1.start_byte)
+						for (int i = 0; i < str1.Length; ++i)
+							dest [str0.Length + i] = (char)src_ [i];
+				}
 			} else {
 				tmp = InternalAllocateStr (nlen, ENCODING_UTF16);
 				fixed (byte* dest_ = &tmp.start_byte, src_ = &str0.start_byte) {
@@ -2496,6 +2506,8 @@ namespace System
 
 		public unsafe static String Concat (String str0, String str1, String str2)
 		{
+			return Concat (Concat (str0, str1), str2);
+/*
 			if (str0 == null || str0.Length == 0){
 				if (str1 == null || str1.Length == 0){
 					if (str2 == null || str2.Length == 0)
@@ -2552,10 +2564,13 @@ namespace System
 			}
 
 			return tmp;
+*/
 		}
 
 		public unsafe static String Concat (String str0, String str1, String str2, String str3)
 		{
+			return Concat (Concat (str0, str1), Concat (str2, str3));
+/*
 			if (str0 == null && str1 == null && str2 == null && str3 == null)
 				return Empty;
 
@@ -2612,6 +2627,7 @@ namespace System
 			}
 
 			return tmp;
+*/
 		}
 
 		public static String Concat (params Object[] args)
@@ -2670,11 +2686,12 @@ namespace System
 					String source = values[i];
 					if (source != null) {
 						if (source.IsCompact)
-							throw new NotImplementedException ();
-						fixed (byte* src_ = &source.start_byte) {
-							char* src = (char*)src_;
-							CharCopy (dest + pos, src, source.Length);
-						}
+							fixed (byte* src_ = &source.start_byte)
+								for (int j = 0; j < source.Length; ++j)
+									dest [pos + j] = (char)src_ [j];
+						else
+							fixed (byte* src_ = &source.start_byte)
+								CharCopy (dest + pos, (char*)src_, source.Length);
 						pos += source.Length;
 					}
 				}
@@ -3153,8 +3170,6 @@ namespace System
 			uint h = 0;
 			fixed (byte* c_ = &this.start_byte) {
 				if (IsCompact) {
-					Console.WriteLine ('X');
-					throw new NotImplementedException ();
 					byte* cc = c_;
 					byte* end = cc + this.Length - 1;
 					while (cc < end) {
@@ -3564,19 +3579,33 @@ namespace System
 
 		internal static unsafe void CharCopy (String target, int targetIndex, String source, int sourceIndex, int count)
 		{
-			if (source.IsCompact || target.IsCompact)
+			if (source.IsCompact && target.IsCompact) {
+				fixed (byte* dest_ = &target.start_byte, src_ = &source.start_byte)
+					memcpy (dest_ + targetIndex, src_ + sourceIndex, count);
+			} else if (source.IsCompact) {
+				fixed (byte* dest_ = &target.start_byte, src_ = &source.start_byte) {
+					char* dest = (char*)dest_;
+					for (int i = 0; i < count; ++i)
+						dest [targetIndex + i] = (char)src_ [sourceIndex + i];
+				}
+			} else if (target.IsCompact) {
+				/* Not safe to copy UTF-16 into ASCII string. */
 				throw new NotImplementedException ();
-			fixed (byte* dest_ = &target.start_byte, src_ = &source.start_byte) {
-				char* dest = (char*)dest_;
-				char* src = (char*)src_;
-				CharCopy (dest + targetIndex, src + sourceIndex, count);
+			} else {
+				fixed (byte* dest_ = &target.start_byte, src_ = &source.start_byte) {
+					char* dest = (char*)dest_;
+					char* src = (char*)src_;
+					CharCopy (dest + targetIndex, src + sourceIndex, count);
+				}
 			}
 		}
 
 		internal static unsafe void CharCopy (String target, int targetIndex, Char[] source, int sourceIndex, int count)
 		{
-			if (target.IsCompact)
+			if (target.IsCompact) {
+				Console.Error.Write ('X');
 				throw new NotImplementedException ();
+			}
 			fixed (byte* dest_ = &target.start_byte)
 			fixed (char* src = source) {
 				char* dest = (char*)dest_;

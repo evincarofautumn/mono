@@ -32,7 +32,7 @@
 
 namespace System.IO
 {
-	internal enum MonoFileType {
+	public enum MonoFileType {
 		Unknown=0x0000,
 		Disk=0x0001,
 		Char=0x0002,

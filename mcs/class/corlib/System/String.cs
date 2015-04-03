@@ -81,9 +81,17 @@ namespace System
 			}
 		}
 
-		internal bool IsCompact {
+		/* FIXME: Should be internal. */
+		public bool IsCompact {
 			get {
 				return (tagged_length & 1) != 0;
+			}
+			set {
+				if (value) {
+					tagged_length |= (UInt32)1;
+				} else {
+					tagged_length &= ~(UInt32)1;
+				}
 			}
 		}
 
@@ -1561,19 +1569,14 @@ namespace System
 
 			fixed (byte* start_ = &this.start_byte)
 			fixed (char* testStart_ = anyOf) {
-				char* test;
-				char* testStart = (char*)testStart_;
-				char* testEnd = testStart + anyOf.Length;
+				char* testEnd = testStart_ + anyOf.Length;
 				if (IsCompact) {
 					byte* ptr = start_ + startIndex;
 					byte* ptrEnd = ptr - count;
 					while (ptr != ptrEnd) {
-						test = testStart;
-						while (test != testEnd) {
+						for (char* test = testStart_; test != testEnd; ++test)
 							if (*test == (char)*ptr)
 								return (int)(ptr - start_);
-							test++;
-						}
 						--ptr;
 					}
 					return -1;
@@ -1582,12 +1585,9 @@ namespace System
 					char* ptr = start + startIndex;
 					char* ptrEnd = ptr - count;
 					while (ptr != ptrEnd) {
-						test = testStart;
-						while (test != testEnd) {
+						for (char* test = testStart_; test != testEnd; ++test)
 							if (*test == *ptr)
 								return (int)(ptr - start);
-							test++;
-						}
 						--ptr;
 					}
 					return -1;
@@ -1629,7 +1629,7 @@ namespace System
 		{
 			if (IsCompact) {
 				fixed (byte* start_ = &start_byte) {
-					for (int i = startIndex; i < startIndex + count; ++i)
+					for (int i = startIndex; i > startIndex - count; --i)
 						if ((char)start_ [i] == value)
 							return i;
 					return -1;

@@ -778,7 +778,7 @@ create_allocator (int atype)
 	if (!registered) {
 		mono_register_jit_icall (mono_gc_alloc_obj, "mono_gc_alloc_obj", mono_create_icall_signature ("object ptr int"), FALSE);
 		mono_register_jit_icall (mono_gc_alloc_vector, "mono_gc_alloc_vector", mono_create_icall_signature ("object ptr int int"), FALSE);
-		mono_register_jit_icall (mono_gc_alloc_string, "mono_gc_alloc_string", mono_create_icall_signature ("object ptr int int32 int"), FALSE);
+		mono_register_jit_icall (mono_gc_alloc_string, "mono_gc_alloc_string", mono_create_icall_signature ("object ptr int int32 int32"), FALSE);
 		registered = TRUE;
 	}
 
@@ -792,7 +792,7 @@ create_allocator (int atype)
 		num_params = 2;
 		name = "AllocVector";
 	} else if (atype == ATYPE_STRING) {
-		num_params = 2;
+		num_params = 3;
 		name = "AllocString";
 	} else {
 		g_assert_not_reached ();
@@ -803,6 +803,7 @@ create_allocator (int atype)
 		csig->ret = &mono_defaults.string_class->byval_arg;
 		csig->params [0] = &mono_defaults.int_class->byval_arg;
 		csig->params [1] = &mono_defaults.int32_class->byval_arg;
+		csig->params [2] = &mono_defaults.int32_class->byval_arg;
 	} else {
 		csig->ret = &mono_defaults.object_class->byval_arg;
 		for (i = 0; i < num_params; ++i)
@@ -907,7 +908,7 @@ create_allocator (int atype)
 		int pos;
 
 		/*
-		 * a string allocator method takes the args: (vtable, len)
+		 * a string allocator method takes the args: (vtable, len, encoding)
 		 *
 		 * bytes = offsetof (MonoString, chars) + ((len + 1) * 2)
 		 *
@@ -1004,8 +1005,7 @@ create_allocator (int atype)
 		mono_mb_emit_icall (mb, mono_gc_alloc_vector);
 	} else if (atype == ATYPE_STRING) {
 		mono_mb_emit_ldarg (mb, 1);
-		/* FIXME: Use the actual encoding? */
-		mono_mb_emit_icon (mb, MONO_ENCODING_UTF16);
+		mono_mb_emit_ldarg (mb, 2);
 		mono_mb_emit_icall (mb, mono_gc_alloc_string);
 	} else {
 		g_assert_not_reached ();
@@ -1044,7 +1044,7 @@ create_allocator (int atype)
 #endif
 	} else 	if (atype == ATYPE_STRING) {
 		/* need to set length and clear the last char */
-		/* s->length = len; */
+		/* s->length = len << 1; */
 		mono_mb_emit_ldloc (mb, p_var);
 		mono_mb_emit_icon (mb, MONO_STRUCT_OFFSET (MonoString, tagged_length));
 		mono_mb_emit_byte (mb, MONO_CEE_ADD);

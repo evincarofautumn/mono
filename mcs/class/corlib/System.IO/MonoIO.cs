@@ -42,7 +42,7 @@ using System.IO.IsolatedStorage;
 
 namespace System.IO
 {
-	unsafe static class MonoIO {
+	unsafe public static class MonoIO {
 		public const int FileAlreadyExistsHResult = unchecked ((int) 0x80070000) | (int)MonoIOError.ERROR_FILE_EXISTS;
 
 		public const FileAttributes

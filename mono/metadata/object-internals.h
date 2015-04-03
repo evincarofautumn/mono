@@ -229,9 +229,12 @@ mono_string_set_length (MonoString *s, int32_t len, MonoInternalEncoding encodin
 	case MONO_ENCODING_UTF16:
 		s->tagged_length = len << 1;
 		break;
-	default:
+	case MONO_ENCODING_ASCII:
 		s->tagged_length = (len << 1) | 1;
 		break;
+	default:
+		g_print ("invalid encoding %d\n", (int)encoding);
+		g_assert_not_reached ();
 	}
 }
 

@@ -110,7 +110,7 @@ namespace System.IO {
 				return path1;
 
 			if (path1.IndexOfAny (InvalidPathChars) != -1)
-				throw new ArgumentException (String.Format ("Illegal characters in path at index {0} of {1} (compact={2}): {3}", path1.IndexOfAny (InvalidPathChars), path1.Length, path1.IsCompact, path1));
+				throw new ArgumentException (String.Format ("Illegal characters in path at index {0} of {1} (compact={2})", path1.IndexOfAny (InvalidPathChars), path1.Length, path1.IsCompact));
 
 			if (path2.IndexOfAny (InvalidPathChars) != -1)
 				throw new ArgumentException ("Illegal characters in path.");

@@ -34,7 +34,7 @@ using System;
 
 namespace System.IO
 {
-	internal struct MonoIOStat {
+	public struct MonoIOStat {
 		public FileAttributes Attributes;
 		public long Length;
 		public long CreationTime;

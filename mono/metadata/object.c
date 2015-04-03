@@ -5114,7 +5114,7 @@ mono_string_new_len (MonoDomain *domain, const char *text, guint length)
 static MonoInternalEncoding
 mono_string_infer_encoding (const char *text)
 {
-#if 1
+#if 0
 	size_t len = strlen (text);
 	size_t i;
 	MonoInternalEncoding encoding = MONO_ENCODING_ASCII;

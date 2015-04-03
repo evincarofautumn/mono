@@ -34,7 +34,7 @@ using System;
 
 namespace System.IO
 {
-	internal enum MonoIOError: int {
+	public enum MonoIOError: int {
 		ERROR_SUCCESS = 0,
 	/*	ERROR_INVALID_FUNCTION = 1,
 	*/	ERROR_FILE_NOT_FOUND = 2,

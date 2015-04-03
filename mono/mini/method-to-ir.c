@@ -6576,7 +6576,7 @@ mini_redirect_call (MonoCompile *cfg, MonoMethod *method,
 	if (method->klass == mono_defaults.string_class) {
 		/* managed string allocation support */
 		if (strcmp (method->name, "InternalAllocateStr") == 0 && !(mono_profiler_events & MONO_PROFILE_ALLOCATIONS) && !(cfg->opt & MONO_OPT_SHARED)) {
-			MonoInst *iargs [2];
+			MonoInst *iargs [3];
 			MonoVTable *vtable = mono_class_vtable (cfg->domain, method->klass);
 			MonoMethod *managed_alloc = NULL;
 
@@ -6587,7 +6587,7 @@ mini_redirect_call (MonoCompile *cfg, MonoMethod *method,
 			if (!managed_alloc)
 				return NULL;
 			EMIT_NEW_VTABLECONST (cfg, iargs [0], vtable);
-			iargs [1] = args [0];
+			iargs [2] = iargs [1] = args [0];
 			return mono_emit_method_call (cfg, managed_alloc, iargs, this);
 		}
 	}

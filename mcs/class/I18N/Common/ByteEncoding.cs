@@ -382,18 +382,14 @@ public abstract class ByteEncoding : MonoEncoding
 				if (count == 0)
 					return string.Empty;
 
-				string s = new string ((char) 0, count);
-
+				var s = new StringBuilder (count);
 				fixed (byte* bytePtr = bytes)
-					fixed (char* charPtr = s)
-						fixed (char* cvt = toChars) {
-							byte* b = bytePtr + index;
-							char* c = charPtr;
-							while(count-- != 0)
-								*(c++) = cvt[*(b++)];
-						}
-
-				return s;
+				fixed (char* cvt = toChars) {
+					byte* b = bytePtr + index;
+					while(count-- != 0)
+						s.Append (cvt[*(b++)]);
+				}
+				return s.ToString ();
 			}
 	public override String GetString(byte[] bytes)
 			{

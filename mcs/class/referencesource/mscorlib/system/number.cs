@@ -663,14 +663,82 @@ namespace System {
 
         [System.Security.SecurityCritical]  // auto-generated
         private unsafe static char * MatchChars(char* p, string str) {
-            fixed (char* stringPointer = str) {
-                return MatchChars(p, stringPointer);
+#if MONO
+            fixed (byte* stringPointer = &str.m_firstByte) {
+                if (str.IsCompact)
+                    return MatchCharsCompact(p, stringPointer);
+                return MatchChars(p, (char*)stringPointer);
             }
+#else
+            fixed (char* stringPointer = str)
+                return MatchChars(p, stringPointer);
+#endif
         }
+
+#if MONO
+        [System.Security.SecurityCritical]  // auto-generated
+        private unsafe static char * MatchCharsCompact(char* p, byte* str) {
+            Contract.Assert(p != null && str != null, "");
+            if ((char)*str == '\0')
+                return null;
+            // The French/Kazakh fix is not necessary here, since a compact
+            // string cannot contain a no-break space.
+            for (; ((char)*str != '\0'); p++, str++)
+                if (*p != *str)
+                    return null;
+            return p;
+        }
+#endif
+
         [System.Security.SecurityCritical]  // auto-generated
         private unsafe static char * MatchChars(char* p, char* str) {
             Contract.Assert(p != null && str != null, "");
+            if (*str == '\0') {
+                return null;
+            }
+            for (; (*str != '\0'); p++, str++) {
+                if (*p != *str) { //We only hurt the failure case
+                    if ((*str == '\u00A0') && (*p == '\u0020')) {// This fix is for French or Kazakh cultures. Since a user cannot type 0xA0 as a
+                        // space character we use 0x20 space character instead to mean the same.
+                        continue;
+                    }
+                    return null;
+                }
+            }
+            return p;
+        }
 
+        private unsafe static byte * MatchChars(byte* p, string str) {
+#if MONO
+            fixed (byte* stringPointer = &str.m_firstByte) {
+                if (str.IsCompact)
+                    return MatchCharsCompact(p, stringPointer);
+                return MatchChars(p, (char*)stringPointer);
+            }
+#else
+            fixed (char* stringPointer = str)
+                return MatchChars(p, stringPointer);
+#endif
+        }
+
+#if MONO
+        [System.Security.SecurityCritical]  // auto-generated
+        private unsafe static byte * MatchCharsCompact(byte* p, byte* str) {
+            Contract.Assert(p != null && str != null, "");
+            if ((char)*str == '\0')
+                return null;
+            // The French/Kazakh fix is not necessary here, since a compact
+            // string cannot contain a no-break space.
+            for (; ((char)*str != '\0'); p++, str++)
+                if (*p != *str)
+                    return null;
+            return p;
+        }
+#endif
+
+        [System.Security.SecurityCritical]  // auto-generated
+        private unsafe static byte * MatchChars(byte* p, char* str) {
+            Contract.Assert(p != null && str != null, "");
             if (*str == '\0') {
                 return null;
             }
@@ -979,6 +1047,207 @@ namespace System {
             return false;
         }
 
+        [System.Security.SecurityCritical]  // auto-generated
+        private unsafe static Boolean ParseNumber(ref byte * str, NumberStyles options, ref NumberBuffer number, StringBuilder sb, NumberFormatInfo numfmt, Boolean parseDecimal) {
+
+            const Int32 StateSign = 0x0001;
+            const Int32 StateParens = 0x0002;
+            const Int32 StateDigits = 0x0004;
+            const Int32 StateNonZero = 0x0008;
+            const Int32 StateDecimal = 0x0010;
+            const Int32 StateCurrency = 0x0020;
+
+            number.scale = 0;
+            number.sign = false;
+            string decSep;                  // decimal separator from NumberFormatInfo.
+            string groupSep;                // group separator from NumberFormatInfo.
+            string currSymbol = null;       // currency symbol from NumberFormatInfo.
+
+            // The alternative currency symbol used in ANSI codepage, that can not roundtrip between ANSI and Unicode.
+            // Currently, only ja-JP and ko-KR has non-null values (which is U+005c, backslash)
+            string ansicurrSymbol = null;   // currency symbol from NumberFormatInfo.
+            string altdecSep = null;        // decimal separator from NumberFormatInfo as a decimal
+            string altgroupSep = null;      // group separator from NumberFormatInfo as a decimal
+
+            Boolean parsingCurrency = false;
+            if ((options & NumberStyles.AllowCurrencySymbol) != 0) {
+                currSymbol = numfmt.CurrencySymbol;
+                if (numfmt.ansiCurrencySymbol != null) {
+                    ansicurrSymbol = numfmt.ansiCurrencySymbol;
+                }
+
+                // The idea here is to match the currency separators and on failure match the number separators to keep the perf of VB's IsNumeric fast.
+                // The values of decSep are setup to use the correct relevant separator (currency in the if part and decimal in the else part).
+                altdecSep = numfmt.NumberDecimalSeparator;
+                altgroupSep = numfmt.NumberGroupSeparator;
+                decSep = numfmt.CurrencyDecimalSeparator;
+                groupSep = numfmt.CurrencyGroupSeparator;
+                parsingCurrency = true;
+            }
+            else {
+                decSep = numfmt.NumberDecimalSeparator;
+                groupSep = numfmt.NumberGroupSeparator;
+            }
+
+            Int32 state = 0;
+            Boolean signflag = false; // Cache the results of "options & PARSE_LEADINGSIGN && !(state & STATE_SIGN)" to avoid doing this twice
+            Boolean bigNumber = (sb != null); // When a StringBuilder is provided then we use it in place of the number.digits char[50]
+            Boolean bigNumberHex = (bigNumber && ((options & NumberStyles.AllowHexSpecifier) != 0));
+            Int32 maxParseDigits = bigNumber ? Int32.MaxValue : NumberMaxDigits;
+
+            byte* p = str;
+            char ch = (char)*p;
+            byte* next;
+
+            while (true) {
+                // Eat whitespace unless we've found a sign which isn't followed by a currency symbol.
+                // "-Kr 1231.47" is legal but "- 1231.47" is not.
+                if (IsWhite(ch) && ((options & NumberStyles.AllowLeadingWhite) != 0) && (((state & StateSign) == 0) || (((state & StateSign) != 0) && (((state & StateCurrency) != 0) || numfmt.NumberNegativePattern == 2)))) {
+                    // Do nothing here. We will increase p at the end of the loop.
+                }
+                else if ((signflag = (((options & NumberStyles.AllowLeadingSign) != 0) && ((state & StateSign) == 0))) && ((next = MatchChars(p, numfmt.PositiveSign)) != null)) {
+                    state |= StateSign;
+                    p = next - 1;
+                } else if (signflag && (next = MatchChars(p, numfmt.NegativeSign)) != null) {
+                    state |= StateSign;
+                    number.sign = true;
+                    p = next - 1;
+                }
+                else if (ch == '(' && ((options & NumberStyles.AllowParentheses) != 0) && ((state & StateSign) == 0)) {
+                    state |= StateSign | StateParens;
+                    number.sign = true;
+                }
+                else if ((currSymbol != null && (next = MatchChars(p, currSymbol)) != null) || (ansicurrSymbol != null && (next = MatchChars(p, ansicurrSymbol)) != null)) {
+                    state |= StateCurrency;
+                    currSymbol = null;
+                    ansicurrSymbol = null;
+                    // We already found the currency symbol. There should not be more currency symbols. Set
+                    // currSymbol to NULL so that we won't search it again in the later code path.
+                    p = next - 1;
+                }
+                else {
+                    break;
+                }
+                ch = (char)*++p;
+            }
+            Int32 digCount = 0;
+            Int32 digEnd = 0;
+            while (true) {
+                if ((ch >= '0' && ch <= '9') || (((options & NumberStyles.AllowHexSpecifier) != 0) && ((ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')))) {
+                    state |= StateDigits;
+
+                    if (ch != '0' || (state & StateNonZero) != 0 || bigNumberHex) {
+                        if (digCount < maxParseDigits) {
+                            if (bigNumber)
+                                sb.Append(ch);
+                            else
+                                number.digits[digCount++] = ch;
+                            if (ch != '0' || parseDecimal) {
+                                digEnd = digCount;
+                            }
+                        }
+                        if ((state & StateDecimal) == 0) {
+                            number.scale++;
+                        }
+                        state |= StateNonZero;
+                    }
+                    else if ((state & StateDecimal) != 0) {
+                        number.scale--;
+                    }
+                }
+                else if (((options & NumberStyles.AllowDecimalPoint) != 0) && ((state & StateDecimal) == 0) && ((next = MatchChars(p, decSep)) != null || ((parsingCurrency) && (state & StateCurrency) == 0) && (next = MatchChars(p, altdecSep)) != null)) {
+                    state |= StateDecimal;
+                    p = next - 1;
+                }
+                else if (((options & NumberStyles.AllowThousands) != 0) && ((state & StateDigits) != 0) && ((state & StateDecimal) == 0) && ((next = MatchChars(p, groupSep)) != null || ((parsingCurrency) && (state & StateCurrency) == 0) && (next = MatchChars(p, altgroupSep)) != null)) {
+                    p = next - 1;
+                }
+                else {
+                    break;
+                }
+                ch = (char)*++p;
+            }
+
+            Boolean negExp = false;
+            number.precision = digEnd;
+            if (bigNumber)
+                sb.Append('\0');
+            else
+                number.digits[digEnd] = '\0';
+            if ((state & StateDigits) != 0) {
+                if ((ch == 'E' || ch == 'e') && ((options & NumberStyles.AllowExponent) != 0)) {
+                    byte* temp = p;
+                    ch = (char)*++p;
+                    if ((next = MatchChars(p, numfmt.PositiveSign)) != null) {
+                        ch = (char)*(p = next);
+                    }
+                    else if ((next = MatchChars(p, numfmt.NegativeSign)) != null) {
+                        ch = (char)*(p = next);
+                        negExp = true;
+                    }
+                    if (ch >= '0' && ch <= '9') {
+                        Int32 exp = 0;
+                        do {
+                            exp = exp * 10 + (ch - '0');
+                            ch = (char)*++p;
+                            if (exp > 1000) {
+                                exp = 9999;
+                                while (ch >= '0' && ch <= '9') {
+                                    ch = (char)*++p;
+                                }
+                            }
+                        } while (ch >= '0' && ch <= '9');
+                        if (negExp) {
+                            exp = -exp;
+                        }
+                        number.scale += exp;
+                    }
+                    else {
+                        p = temp;
+                        ch = (char)*p;
+                    }
+                }
+                while (true) {
+                    if (IsWhite(ch) && ((options & NumberStyles.AllowTrailingWhite) != 0)) {
+                    }
+                    else if ((signflag = (((options & NumberStyles.AllowTrailingSign) != 0) && ((state & StateSign) == 0))) && (next = MatchChars(p, numfmt.PositiveSign)) != null) {
+                        state |= StateSign;
+                        p = next - 1;
+                    } else if (signflag && (next = MatchChars(p, numfmt.NegativeSign)) != null) {
+                        state |= StateSign;
+                        number.sign = true;
+                        p = next - 1;
+                    }
+                    else if (ch == ')' && ((state & StateParens) != 0)) {
+                        state &= ~StateParens;
+                    }
+                    else if ((currSymbol != null && (next = MatchChars(p, currSymbol)) != null) || (ansicurrSymbol != null && (next = MatchChars(p, ansicurrSymbol)) != null)) {
+                        currSymbol = null;
+                        ansicurrSymbol = null;
+                        p = next - 1;
+                    }
+                    else {
+                        break;
+                    }
+                    ch = (char)*++p;
+                }
+                if ((state & StateParens) == 0) {
+                    if ((state & StateNonZero) == 0) {
+                        if (!parseDecimal) {
+                            number.scale = 0;
+                        }
+                        if ((state & StateDecimal) == 0) {
+                            number.sign = false;
+                        }
+                    }
+                    str = p;
+                    return true;
+                }
+            }
+            str = p;
+            return false;
+        }
+
         [System.Security.SecuritySafeCritical]  // auto-generated
         internal unsafe static Single ParseSingle(String value, NumberStyles options, NumberFormatInfo numfmt) {
             if (value == null) {
@@ -1067,13 +1336,29 @@ namespace System {
             }
             Contract.EndContractBlock();
             Contract.Assert(info != null, "");
-            fixed (char* stringPointer = str) {
-                char * p = stringPointer;
-                if (!ParseNumber(ref p, options, ref number, null, info , parseDecimal) 
-                    || (p - stringPointer < str.Length && !TrailingZeros(str, (int)(p - stringPointer)))) {
-                    throw new FormatException(Environment.GetResourceString("Format_InvalidString"));
+#if MONO
+            fixed (byte* start = &str.m_firstByte) {
+                if (str.IsCompact) {
+                    byte* startByte = start;
+                    byte* p = startByte;
+                    if (!ParseNumber(ref p, options, ref number, null, info, parseDecimal)
+                        || (p - startByte < str.Length && !TrailingZeros(str, (int)(p - startByte))))
+                        throw new FormatException(Environment.GetResourceString("Format_InvalidString"));
+                } else {
+                    char* p = (char*)start;
+                    if (!ParseNumber(ref p, options, ref number, null, info, parseDecimal)
+                        || (p - start < str.Length && !TrailingZeros(str, (int)(p - start))))
+                        throw new FormatException(Environment.GetResourceString("Format_InvalidString"));
                 }
             }
+#else
+            fixed (char* start = str) {
+                char* p = start;
+                if (!ParseNumber(ref p, options, ref number, null, info, parseDecimal)
+                    || (p - start < str.Length && !TrailingZeros(str, (int)(p - start))))
+                    throw new FormatException(Environment.GetResourceString("Format_InvalidString"));
+            }
+#endif
         }
         
         private static Boolean TrailingZeros(String s, Int32 index) {
@@ -1250,13 +1535,29 @@ namespace System {
             }
             Contract.Assert(numfmt != null, "");
 
-            fixed (char* stringPointer = str) {
-                char * p = stringPointer;
-                if (!ParseNumber(ref p, options, ref number, sb, numfmt, parseDecimal) 
-                    || (p - stringPointer < str.Length && !TrailingZeros(str, (int)(p - stringPointer)))) {
-                    return false;
+#if MONO
+            fixed (byte* start = &str.m_firstByte) {
+                if (str.IsCompact) {
+                    byte* startByte = start;
+                    byte* p = startByte;
+                    if (!ParseNumber(ref p, options, ref number, sb, numfmt, parseDecimal)
+                        || (p - startByte < str.Length && !TrailingZeros(str, (int)(p - startByte))))
+                        return false;
+                } else {
+                    char* p = (char*)start;
+                    if (!ParseNumber(ref p, options, ref number, sb, numfmt, parseDecimal)
+                        || (p - start < str.Length && !TrailingZeros(str, (int)(p - start))))
+                        return false;
                 }
             }
+#else
+            fixed (char* start = str) {
+                char* p = start;
+                if (!ParseNumber(ref p, options, ref number, sb, numfmt, parseDecimal)
+                    || (p - start < str.Length && !TrailingZeros(str, (int)(p - start))))
+                    return false;
+            }
+#endif
 
             return true;
         }

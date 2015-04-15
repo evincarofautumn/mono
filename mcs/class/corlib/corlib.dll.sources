@@ -1630,4 +1630,5 @@ ReferenceSources/BinaryCompatibility.cs
 ../referencesource/mscorlib/microsoft/win32/safehandles/win32safehandles.cs
 
 ReferenceSources/String.cs
+ReferenceSources/StringBuilder.cs
 ReferenceSources/Type.cs

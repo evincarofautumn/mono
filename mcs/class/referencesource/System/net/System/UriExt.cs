@@ -242,7 +242,8 @@ namespace System {
             bool initConfig = false;
             int length = data.Length;
 
-            fixed (char* temp = data){
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* temp = data.ToCharArray ()){
                 for (int i = 0; i < length; ++i){
 
                     if ((temp[i] > '\x7f') || (temp[i] == '%') ||
@@ -286,7 +287,8 @@ namespace System {
         // Does this string have any %6A sequences that are 3986 Unreserved characters?  These should be un-escaped.
         private unsafe bool CheckForEscapedUnreserved(String data)
         {
-            fixed (char* tempPtr = data)
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* tempPtr = data.ToCharArray ())
             {
                 for (int i = 0; i < data.Length - 2; ++i)
                 {
@@ -465,7 +467,8 @@ namespace System {
             if (UserDrivenParsing)
                 throw new InvalidOperationException(SR.GetString(SR.net_uri_UserDrivenParsing, this.GetType().FullName));
 
-            fixed (char* str = m_String)
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* str = m_String.ToCharArray ())
             {
                 ushort idx = 0;
                 //
@@ -588,7 +591,8 @@ namespace System {
                 return string.Empty;
 
             unsafe {
-                fixed (char* pStr = stringToUnescape)
+                /* FIXME: Avoid ToCharArray. */
+                fixed (char* pStr = stringToUnescape.ToCharArray ())
                 {
                     int position;
                     for (position = 0; position < stringToUnescape.Length; ++position)
@@ -655,7 +659,8 @@ namespace System {
         // should be called only if IRI parsing is switched on 
         internal unsafe string EscapeUnescapeIri(string input, int start, int end, UriComponents component)
         {
-            fixed (char *pInput = input)
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char *pInput = input.ToCharArray ())
             {
                 return IriHelper.EscapeUnescapeIri(pInput, start, end, component);
             }
@@ -972,9 +977,11 @@ namespace System {
 
             unsafe
             {
-                fixed (char* pMe = me)
+                /* FIXME: Avoid ToCharArray. */
+                fixed (char* pMe = me.ToCharArray ())
                 {
-                    fixed (char* pShe = she)
+                    /* FIXME: Avoid ToCharArray. */
+                    fixed (char* pShe = she.ToCharArray ())
                     {
                         return UriHelper.TestForSubPath(pMe, (ushort)me.Length, pShe, (ushort)she.Length, 
                             IsUncOrDosPath || uriLink.IsUncOrDosPath);

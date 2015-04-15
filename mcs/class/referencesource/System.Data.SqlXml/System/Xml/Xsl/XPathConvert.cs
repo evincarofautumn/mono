@@ -2647,7 +2647,8 @@ namespace System.Xml.Xsl {
             // numDig is the number of digits. pch - pchFirstDig may be numDig + 1
             // (if there is a decimal point).
 
-            fixed (char *pchStart = s) {
+            /* FIXME: Avoid ToCharArray(). */
+            fixed (char *pchStart = s.ToCharArray()) {
                 int numDig = 0;
                 char *pch = pchStart;
                 char *pchFirstDig = null;

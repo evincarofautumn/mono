@@ -243,13 +243,19 @@ namespace Mono.Net
 		[DllImport (CoreFoundationLibrary)]
 		extern static IntPtr CFStringCreateWithCharacters (IntPtr alloc, IntPtr chars, /* CFIndex */ IntPtr length);
 
+		[DllImport (CoreFoundationLibrary)]
+		extern static IntPtr CFStringCreateWithCString
+			(IntPtr alloc, IntPtr chars, /* CFIndex */ IntPtr length, /* CFStringEncoding */ IntPtr encoding);
+
 		public static CFString Create (string value)
 		{
 			IntPtr handle;
 
 			unsafe {
-				fixed (char *ptr = value) {
-					handle = CFStringCreateWithCharacters (IntPtr.Zero, (IntPtr) ptr, (IntPtr) value.Length);
+				fixed (byte *ptr = &value.m_firstByte) {
+					handle = value.IsCompact
+						? CFStringCreateWithCString (IntPtr.Zero, (IntPtr) ptr, (IntPtr) value.Length, IntPtr.Zero)
+						: CFStringCreateWithCharacters (IntPtr.Zero, (IntPtr) ptr, (IntPtr) value.Length);
 				}
 			}
 

@@ -562,7 +562,8 @@ namespace System.Xml {
             Debug.Assert( ws != null );
             if ( trackTextContent && inTextContent != false ) { ChangeTextContentMark( false ); }
 
-            fixed ( char * pSrc = ws ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrc = ws.ToCharArray() ) {
                 char * pSrcEnd = pSrc + ws.Length;
                 if ( inAttributeValue) {
                     WriteAttributeTextBlock( pSrc, pSrcEnd );
@@ -580,7 +581,8 @@ namespace System.Xml {
             Debug.Assert( text != null );
             if ( trackTextContent && inTextContent != true ) { ChangeTextContentMark( true ); }
 
-            fixed ( char * pSrc = text ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrc = text.ToCharArray() ) {
                 char * pSrcEnd = pSrc + text.Length;
                 if ( inAttributeValue) {
                     WriteAttributeTextBlock( pSrc, pSrcEnd );
@@ -650,7 +652,8 @@ namespace System.Xml {
 
             if ( trackTextContent && inTextContent != false ) { ChangeTextContentMark( false ); }
 
-            fixed ( char * pSrcBegin = data ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrcBegin = data.ToCharArray() ) {
                 WriteRawWithCharChecking( pSrcBegin, pSrcBegin + data.Length );
             }
 
@@ -1009,7 +1012,8 @@ namespace System.Xml {
         protected unsafe void RawText( string s ) {
             Debug.Assert( s != null );
 
-            fixed ( char * pSrcBegin = s ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrcBegin = s.ToCharArray() ) {
                 RawText( pSrcBegin, pSrcBegin + s.Length );
             }
         }
@@ -1150,7 +1154,8 @@ namespace System.Xml {
                 return;
             }
               // write text
-            fixed ( char * pSrcBegin = text )
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrcBegin = text.ToCharArray() )
             
             fixed ( char * pDstBegin = bufChars ) {
                 char * pSrc = pSrcBegin;
@@ -1271,7 +1276,8 @@ namespace System.Xml {
 
                       // write text
 
-            fixed ( char * pSrcBegin = text )
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrcBegin = text.ToCharArray() )
 
             fixed ( char * pDstBegin = bufChars ) {
                 char * pSrc = pSrcBegin;
@@ -1541,7 +1547,8 @@ namespace System.Xml {
             pDst[2] = (char)'x'; 
             pDst += 3;
             
-            fixed ( char *pSrc = s ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char *pSrc = s.ToCharArray() ) {
                 char *pS = pSrc;
                 while ( ( *pDst++ = (char)*pS++ ) != 0 );
             }

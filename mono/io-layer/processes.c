@@ -618,7 +618,7 @@ gboolean CreateProcess (const gunichar2 *appname, const gunichar2 *cmdline,
 	 * so crap, with an API like this :-(
 	 */
 	if (appname != NULL) {
-		cmd = mono_unicode_to_external (appname);
+		cmd = mono_utf16_to_external (appname);
 		if (cmd == NULL) {
 			MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL",
 				   __func__);
@@ -631,7 +631,7 @@ gboolean CreateProcess (const gunichar2 *appname, const gunichar2 *cmdline,
 	}
 	
 	if (cmdline != NULL) {
-		args = mono_unicode_to_external (cmdline);
+		args = mono_utf16_to_external (cmdline);
 		if (args == NULL) {
 			MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -641,7 +641,7 @@ gboolean CreateProcess (const gunichar2 *appname, const gunichar2 *cmdline,
 	}
 
 	if (cwd != NULL) {
-		dir = mono_unicode_to_external (cwd);
+		dir = mono_utf16_to_external (cwd);
 		if (dir == NULL) {
 			MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -942,7 +942,7 @@ gboolean CreateProcess (const gunichar2 *appname, const gunichar2 *cmdline,
 		env_count = 0;
 		for (new_environp = (gunichar2 *)new_environ; *new_environp;
 		     new_environp++) {
-			env_strings[env_count] = mono_unicode_to_external (new_environp);
+			env_strings[env_count] = mono_utf16_to_external (new_environp);
 			env_count++;
 			while (*new_environp) {
 				new_environp++;

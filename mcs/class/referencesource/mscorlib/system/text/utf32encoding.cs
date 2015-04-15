@@ -136,8 +136,19 @@ namespace System.Text
                 throw new ArgumentNullException("s");
             Contract.EndContractBlock();
 
+#if MONO
+            fixed (byte* pChars = &s.m_firstByte) {
+                /* This is safe because a compact string cannot contain invalid
+                 * Unicode, so fallbacks are unnecessary.
+                 */
+                return s.IsCompact
+                    ? s.Length * sizeof(UInt32)
+                    : GetByteCount((char*)pChars, s.Length, null);
+            }
+#else
             fixed (char* pChars = s)
                 return GetByteCount(pChars, s.Length, null);
+#endif
         }
 
         // All of our public Encodings that don't use EncodingNLS must have this (including EncodingNLS)
@@ -194,10 +205,34 @@ namespace System.Text
             if (bytes.Length == 0)
                 bytes = new byte[1];
 
+            fixed (byte* pBytes = bytes)
+#if MONO
+            fixed (byte* pChars = &s.m_firstByte) {
+                if (s.IsCompact) {
+                    if (bigEndian) {
+						/* TODO: Make this less dumb. */
+                        for (int i = 0; i < charCount; ++i) {
+                            pBytes[byteIndex + sizeof(UInt32) * i + 0] = 0;
+                            pBytes[byteIndex + sizeof(UInt32) * i + 1] = 0;
+                            pBytes[byteIndex + sizeof(UInt32) * i + 2] = 0;
+                            pBytes[byteIndex + sizeof(UInt32) * i + 3] = pChars[charIndex + i];
+                        }
+                    } else {
+                        for (int i = 0; i < charCount; ++i) {
+                            pBytes[byteIndex + sizeof(UInt32) * i + 0] = pChars[charIndex + i];
+                            pBytes[byteIndex + sizeof(UInt32) * i + 1] = 0;
+                            pBytes[byteIndex + sizeof(UInt32) * i + 2] = 0;
+                            pBytes[byteIndex + sizeof(UInt32) * i + 3] = 0;
+                        }
+                    }
+                    return charCount * sizeof(UInt32);
+                }
+                return GetBytes((char*)pChars + charIndex, charCount, pBytes + byteIndex, byteCount, null);
+            }
+#else
             fixed (char* pChars = s)
-                fixed ( byte* pBytes = bytes)
-                    return GetBytes(pChars + charIndex, charCount,
-                                    pBytes + byteIndex, byteCount, null);
+                return GetBytes(pChars + charIndex, charCount, pBytes + byteIndex, byteCount, null);
+#endif
         }
 
         // Encodes a range of characters in a character array into a range of bytes

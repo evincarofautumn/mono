@@ -201,7 +201,8 @@ namespace System.Text
                 throw new ArgumentNullException("s");
             Contract.EndContractBlock();
 
-            fixed (char* pChars = s)
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* pChars = s.ToCharArray())
                 return GetByteCount(pChars, s.Length, null);
         }
 
@@ -261,10 +262,17 @@ namespace System.Text
             if (bytes.Length == 0)
                 bytes = new byte[1];
 
-            fixed (char* pChars = s)
-                fixed ( byte* pBytes = bytes)
-                    return GetBytes(pChars + charIndex, charCount,
-                                    pBytes + byteIndex, byteCount, null);
+            fixed (byte* pBytes = bytes) {
+#if MONO
+                if (s.IsCompact) {
+                    /* FIXME: Avoid ToCharArray. */
+                    fixed (char* pChars = s.ToCharArray())
+                        return GetBytes(pChars + charIndex, charCount, pBytes + byteIndex, byteCount, null);
+                }
+#endif
+                fixed (char* pChars = s)
+                    return GetBytes(pChars + charIndex, charCount, pBytes + byteIndex, byteCount, null);
+            }
         }
 
         // Encodes a range of characters in a character array into a range of bytes

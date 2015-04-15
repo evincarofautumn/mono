@@ -2180,7 +2180,16 @@ namespace System {
             //Create the new string.  This is the maximally required length.
             stringLength = ToBase64_CalculateAndValidateOutputLength(length, insertLineBreaks);
 
-            string returnString = string.FastAllocateString(stringLength);
+            string returnString = string.FastAllocateString(stringLength, String.ENCODING_UTF16);
+#if MONO
+            fixed (byte* outChars = &returnString.m_firstByte){
+                fixed (byte* inData = inArray) {
+                    int j = ConvertToBase64Array((char*)outChars,inData,offset,length, insertLineBreaks);
+                    BCLDebug.Assert(returnString.Length == j, "returnString.Length == j");
+                    return returnString;
+                }
+            }
+#else
             fixed (char* outChars = returnString){
                 fixed (byte* inData = inArray) {
                     int j = ConvertToBase64Array(outChars,inData,offset,length, insertLineBreaks);
@@ -2188,6 +2197,7 @@ namespace System {
                     return returnString;
                 }
             }
+#endif
         }
 
         public static int ToBase64CharArray(byte[] inArray, int offsetIn, int length, char[] outArray, int offsetOut) {
@@ -2352,8 +2362,8 @@ namespace System {
             Contract.EndContractBlock();
 
             unsafe {
-                fixed (Char* sPtr = s) {
-
+                /* FIXME: Avoid ToCharArray. */
+                fixed (char* sPtr = s.ToCharArray()) {
                     return FromBase64CharPtr(sPtr, s.Length);
                 }
             }

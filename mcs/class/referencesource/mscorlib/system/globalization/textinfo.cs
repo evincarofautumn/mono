@@ -983,18 +983,32 @@ namespace System.Globalization {
 #if MONO
 		unsafe int GetInvariantCaseInsensitiveHashCode (string str)
 		{
-			fixed (char * c = str) {
-				char * cc = c;
-				char * end = cc + str.Length - 1;
-				int h = 0;
-				for (;cc < end; cc += 2) {
-					h = (h << 5) - h + Char.ToUpperInvariant (*cc);
-					h = (h << 5) - h + Char.ToUpperInvariant (cc [1]);
+			fixed (byte* c = &str.m_firstByte) {
+				if (str.IsCompact) {
+					byte * cc = c;
+					byte * end = cc + str.Length - 1;
+					int h = 0;
+					for (;cc < end; cc += 2) {
+						h = (h << 5) - h + Char.ToUpperInvariant ((char)*cc);
+						h = (h << 5) - h + Char.ToUpperInvariant ((char)cc [1]);
+					}
+					++end;
+					if (cc < end)
+						h = (h << 5) - h + Char.ToUpperInvariant ((char)*cc);
+					return h;
+				} else {
+					char * cc = (char *)c;
+					char * end = cc + str.Length - 1;
+					int h = 0;
+					for (;cc < end; cc += 2) {
+						h = (h << 5) - h + Char.ToUpperInvariant (*cc);
+						h = (h << 5) - h + Char.ToUpperInvariant (cc [1]);
+					}
+					++end;
+					if (cc < end)
+						h = (h << 5) - h + Char.ToUpperInvariant (*cc);
+					return h;
 				}
-				++end;
-				if (cc < end)
-					h = (h << 5) - h + Char.ToUpperInvariant (*cc);
-				return h;
 			}
 		}
 #else

@@ -20,6 +20,7 @@
 #include <mono/metadata/tabledefs.h>
 #include <mono/metadata/loader.h>
 #include <mono/metadata/object.h>
+#include <mono/metadata/object-internals.h>
 #include <mono/metadata/exception.h>
 #include <mono/metadata/debug-helpers.h>
 #include <mono/metadata/profiler.h>
@@ -34,13 +35,17 @@ ves_icall_System_String_ctor_RedirectToCreateString (void)
 	g_assert_not_reached ();
 }
 
+MonoBoolean
+ves_icall_System_String_CompactRepresentable (const guint16 *const str, const gint32 length) {
+	return mono_string_infer_encoding_ucs2 (str, length) == MONO_ENCODING_ASCII;
+}
+
 MonoString *
-ves_icall_System_String_InternalAllocateStr (gint32 length)
+ves_icall_System_String_InternalAllocateStr (gint32 length, gint32 encoding)
 {
 	MonoError error;
-	MonoString *str = mono_string_new_size_checked (mono_domain_get (), length, &error);
+	MonoString *str = mono_string_new_size_checked (mono_domain_get (), length, encoding, &error);
 	mono_error_set_pending_exception (&error);
-
 	return str;
 }
 
@@ -68,7 +73,7 @@ int
 ves_icall_System_String_GetLOSLimit (void)
 {
 	int limit = mono_gc_get_los_limit ();
-
-	return (limit - 2 - G_STRUCT_OFFSET (MonoString, chars)) / 2;
+	/* FIXME: I guess this should still compute in UTF-16 for the sake of being conservative, but I'm not sure. */
+	return (limit - sizeof (gunichar2) - G_STRUCT_OFFSET (MonoString, bytes)) / sizeof (gunichar2);
 }
 

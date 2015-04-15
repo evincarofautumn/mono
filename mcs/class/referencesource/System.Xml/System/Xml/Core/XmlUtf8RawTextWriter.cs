@@ -495,7 +495,8 @@ namespace System.Xml {
         public override unsafe void WriteWhitespace( string ws ) {
             Debug.Assert( ws != null );
             
-            fixed ( char * pSrc = ws ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrc = ws.ToCharArray() ) {
                 char * pSrcEnd = pSrc + ws.Length;
                 if ( inAttributeValue) {
                     WriteAttributeTextBlock( pSrc, pSrcEnd );
@@ -512,7 +513,8 @@ namespace System.Xml {
         public override unsafe void WriteString( string text ) {
             Debug.Assert( text != null );
             
-            fixed ( char * pSrc = text ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrc = text.ToCharArray() ) {
                 char * pSrcEnd = pSrc + text.Length;
                 if ( inAttributeValue) {
                     WriteAttributeTextBlock( pSrc, pSrcEnd );
@@ -576,7 +578,8 @@ namespace System.Xml {
         public override unsafe void WriteRaw( string data ) {
             Debug.Assert( data != null );
 
-            fixed ( char * pSrcBegin = data ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrcBegin = data.ToCharArray() ) {
                 WriteRawWithCharChecking( pSrcBegin, pSrcBegin + data.Length );
             }
 
@@ -869,7 +872,8 @@ namespace System.Xml {
         protected unsafe void RawText( string s ) {
             Debug.Assert( s != null );
 
-            fixed ( char * pSrcBegin = s ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrcBegin = s.ToCharArray() ) {
                 RawText( pSrcBegin, pSrcBegin + s.Length );
             }
         }
@@ -1010,7 +1014,8 @@ namespace System.Xml {
                 return;
             }
               // write text
-            fixed ( char * pSrcBegin = text )
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrcBegin = text.ToCharArray() )
             
             fixed ( byte * pDstBegin = bufBytes ) {
                 char * pSrc = pSrcBegin;
@@ -1131,7 +1136,8 @@ namespace System.Xml {
 
                       // write text
 
-            fixed ( char * pSrcBegin = text )
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char * pSrcBegin = text.ToCharArray() )
 
             fixed ( byte * pDstBegin = bufBytes ) {
                 char * pSrc = pSrcBegin;
@@ -1278,7 +1284,7 @@ namespace System.Xml {
 
             if ( checkCharacters ) {
                 // This method will never be called on surrogates, so it is ok to pass in '\0' to the CreateInvalidCharException
-                throw XmlConvert.CreateInvalidCharException( (char)ch, '\0' );
+                throw XmlConvert.CreateInvalidCharException( (char)ch, '#' );
             }
             else {
                 if ( entitize ) {
@@ -1441,7 +1447,8 @@ namespace System.Xml {
             pDst[2] = (byte)'x'; 
             pDst += 3;
             
-            fixed ( char *pSrc = s ) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed ( char *pSrc = s.ToCharArray() ) {
                 char *pS = pSrc;
                 while ( ( *pDst++ = (byte)*pS++ ) != 0 );
             }

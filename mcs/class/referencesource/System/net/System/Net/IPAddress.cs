@@ -233,7 +233,8 @@ namespace System.Net {
                             offset = 1;
 
                         int end = ipString.Length;
-                        fixed (char *name = ipString)
+                        /* FIXME: Avoid ToCharArray. */
+                        fixed (char *name = ipString.ToCharArray())
                         {
                             if (IPv6AddressHelper.IsValidStrict(name, offset, ref end) || (end != ipString.Length))
                             {
@@ -291,7 +292,8 @@ namespace System.Net {
                 long result;
                 unsafe
                 {
-                    fixed (char *name = ipString)
+                    /* FIXME: Avoid ToCharArray. */
+                    fixed (char *name = ipString.ToCharArray())
                     {
                         result = IPv4AddressHelper.ParseNonCanonical(name, 0, ref end, true);
                     }

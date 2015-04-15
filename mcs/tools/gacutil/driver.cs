@@ -414,7 +414,8 @@ namespace Mono.Tools {
 			absPath = Path.GetFullPath (absPath);
 			baseDirectoryPath = Path.GetFullPath (baseDirectoryPath).TrimEnd (Path.DirectorySeparatorChar);
 
-			fixed (char* bPtr = baseDirectoryPath, aPtr = absPath) {
+			/* FIXME: Avoid ToCharArray (). */
+			fixed (char* bPtr = baseDirectoryPath.ToCharArray (), aPtr = absPath.ToCharArray ()) {
 				var bEnd = bPtr + baseDirectoryPath.Length;
 				var aEnd = aPtr + absPath.Length;
 				char* lastStartA = aEnd;

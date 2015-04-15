@@ -34,17 +34,60 @@
 //
 //
 
+using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
+using System.Runtime.ConstrainedExecution;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace System
 {
 	partial class String
 	{
+
+		[NonSerialized]private UInt32 m_taggedStringLength;
+		[NonSerialized]internal byte m_firstByte;
+
+		internal const int ENCODING_UTF16 = 0;
+		internal const int ENCODING_ASCII = 1;
+
 		public int Length {
-			get {
-				return m_stringLength;
-			}
+			get { return (int)(m_taggedStringLength >> 1); }
+		}
+
+		public bool IsCompact {
+			get { return (m_taggedStringLength & 1) != 0; }
+		}
+
+		internal static int SelectEncoding(bool compact)
+		{
+			return compact ? ENCODING_ASCII : ENCODING_UTF16;
+		}
+
+		internal int CharSize
+		{
+			get { return IsCompact ? sizeof(byte) : sizeof(char); }
+		}
+
+		internal static bool CompactRepresentable(char value)
+		{
+			return (int)value <= 0x7F;
+		}
+
+		internal static unsafe bool CompactRepresentable(char [] value)
+		{
+			fixed (char* p = value)
+				return CompactRepresentable(p, value.Length);
+		}
+
+		internal unsafe bool CompactRepresentable()
+		{
+			if (IsCompact)
+				/* We could assert here that all strings that claim to be compact in fact are. */
+				return true;
+			/* TODO: Collect metrics on strings that could have been made compact. */
+			fixed (byte* p = &this.m_firstByte)
+				return CompactRepresentable((char*)p, Length);
 		}
 
 		internal static unsafe int CompareOrdinalUnchecked (String strA, int indexA, int lenA, String strB, int indexB, int lenB)
@@ -55,36 +98,74 @@ namespace System
 			if (strB == null) {
 				return 1;
 			}
-			int lengthA = Math.Min (lenA, strA.m_stringLength - indexA);
-			int lengthB = Math.Min (lenB, strB.m_stringLength - indexB);
+			int lengthA = Math.Min (lenA, strA.Length - indexA);
+			int lengthB = Math.Min (lenB, strB.Length - indexB);
 
 			if (lengthA == lengthB && indexA == indexB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			fixed (char* aptr = strA, bptr = strB) {
-				char* ap = aptr + indexA;
-				char* end = ap + Math.Min (lengthA, lengthB);
-				char* bp = bptr + indexB;
-				while (ap < end) {
-					if (*ap != *bp)
-						return *ap - *bp;
-					ap++;
-					bp++;
+			fixed (byte* aptr = &strA.m_firstByte, bptr = &strB.m_firstByte) {
+				if (strA.IsCompact && strB.IsCompact) {
+					byte* ap = aptr + indexA;
+					byte* end = ap + Math.Min (lengthA, lengthB);
+					byte* bp = bptr + indexB;
+					while (ap < end) {
+						if (*ap != *bp)
+							return *ap - *bp;
+						ap++;
+						bp++;
+					}
+					return lengthA - lengthB;
 				}
-				return lengthA - lengthB;
+				if (strA.IsCompact) {
+					byte* ap = aptr + indexA;
+					byte* end = ap + Math.Min (lengthA, lengthB);
+					char* bp = (char*)bptr + indexB;
+					while (ap < end) {
+						if ((char)*ap != *bp)
+							return *ap - *bp;
+						ap++;
+						bp++;
+					}
+					return lengthA - lengthB;
+				}
+				if (strB.IsCompact) {
+					char* ap = (char*)aptr + indexA;
+					char* end = ap + Math.Min (lengthA, lengthB);
+					byte* bp = bptr + indexB;
+					while (ap < end) {
+						if (*ap != (char)*bp)
+							return *ap - *bp;
+						ap++;
+						bp++;
+					}
+					return lengthA - lengthB;
+				}
+				{
+					char* ap = (char*)aptr + indexA;
+					char* end = ap + Math.Min (lengthA, lengthB);
+					char* bp = (char*)bptr + indexB;
+					while (ap < end) {
+						if (*ap != *bp)
+							return *ap - *bp;
+						ap++;
+						bp++;
+					}
+					return lengthA - lengthB;
+				}
 			}
 		}
 
 		public int IndexOf (char value, int startIndex, int count)
 		{
-			if (startIndex < 0 || startIndex > this.m_stringLength)
+			if (startIndex < 0 || startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ("startIndex", "Cannot be negative and must be< 0");
 			if (count < 0)
 				throw new ArgumentOutOfRangeException ("count", "< 0");
-			if (startIndex > this.m_stringLength - count)
-				throw new ArgumentOutOfRangeException ("count", "startIndex + count > this.m_stringLength");
+			if (startIndex > this.Length - count)
+				throw new ArgumentOutOfRangeException ("count", "startIndex + count > this.Length");
 
-			if ((startIndex == 0 && this.m_stringLength == 0) || (startIndex == this.m_stringLength) || (count == 0))
+			if ((startIndex == 0 && this.Length == 0) || (startIndex == this.Length) || (count == 0))
 				return -1;
 
 			return IndexOfUnchecked (value, startIndex, count);
@@ -95,37 +176,42 @@ namespace System
 			// It helps JIT compiler to optimize comparison
 			int value_32 = (int)value;
 
-			fixed (char* start = &m_firstChar) {
-				char* ptr = start + startIndex;
-				char* end_ptr = ptr + (count >> 3 << 3);
+			fixed (byte* startByte = &m_firstByte) {
+				if (IsCompact) {
+					/* FIXME: Unroll. */
+					for (int i = startIndex; i < startIndex + count; ++i)
+						if ((char)startByte [i] == value)
+							return i;
+				} else {
+					char* start = (char*)startByte;
+					char* ptr = start + startIndex;
+					char* end_ptr = ptr + (count >> 3 << 3);
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+						if (ptr[1] == value_32)
+							return (int)(ptr - start + 1);
+						if (ptr[2] == value_32)
+							return (int)(ptr - start + 2);
+						if (ptr[3] == value_32)
+							return (int)(ptr - start + 3);
+						if (ptr[4] == value_32)
+							return (int)(ptr - start + 4);
+						if (ptr[5] == value_32)
+							return (int)(ptr - start + 5);
+						if (ptr[6] == value_32)
+							return (int)(ptr - start + 6);
+						if (ptr[7] == value_32)
+							return (int)(ptr - start + 7);
 
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-					if (ptr[1] == value_32)
-						return (int)(ptr - start + 1);
-					if (ptr[2] == value_32)
-						return (int)(ptr - start + 2);
-					if (ptr[3] == value_32)
-						return (int)(ptr - start + 3);
-					if (ptr[4] == value_32)
-						return (int)(ptr - start + 4);
-					if (ptr[5] == value_32)
-						return (int)(ptr - start + 5);
-					if (ptr[6] == value_32)
-						return (int)(ptr - start + 6);
-					if (ptr[7] == value_32)
-						return (int)(ptr - start + 7);
-
-					ptr += 8;
-				}
-
-				end_ptr += count & 0x07;
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-
-					ptr++;
+						ptr += 8;
+					}
+					end_ptr += count & 0x07;
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+						ptr++;
+					}
 				}
 				return -1;
 			}
@@ -143,19 +229,61 @@ namespace System
 				return startIndex;
 			}
 
-			fixed (char* thisptr = &m_firstChar, valueptr = value) {
-				char* ap = thisptr + startIndex;
-				char* thisEnd = ap + count - valueLen + 1;
-				while (ap != thisEnd) {
-					if (*ap == *valueptr) {
-						for (int i = 1; i < valueLen; i++) {
-							if (ap[i] != valueptr[i])
-								goto NextVal;
+			fixed (byte* thisPtrByte = &m_firstByte)
+			fixed (byte* valuePtr = &value.m_firstByte) {
+				char* thisPtr = (char*)thisPtrByte;
+				if (IsCompact && value.IsCompact) {
+					byte* ap = (byte*)thisPtr + startIndex;
+					byte* thisEnd = ap + count - valueLen + 1;
+					while (ap != thisEnd) {
+						if (*ap == *valuePtr) {
+							for (int i = 1; i < valueLen; i++)
+								if (ap[i] != valuePtr[i])
+									goto NextVal;
+							return (int)(ap - thisPtr);
 						}
-						return (int)(ap - thisptr);
+						NextVal:
+						ap++;
 					}
-					NextVal:
-					ap++;
+				} else if (IsCompact) {
+					byte* ap = (byte*)thisPtr + startIndex;
+					byte* thisEnd = ap + count - valueLen + 1;
+					while (ap != thisEnd) {
+						if ((char)*ap == *(char*)valuePtr) {
+							for (int i = 1; i < valueLen; i++)
+								if ((char)ap[i] != ((char*)valuePtr)[i])
+									goto NextVal;
+							return (int)(ap - thisPtr);
+						}
+						NextVal:
+						ap++;
+					}
+				} else if (value.IsCompact) {
+					char* ap = thisPtr + startIndex;
+					char* thisEnd = ap + count - valueLen + 1;
+					while (ap != thisEnd) {
+						if (*ap == (char)*valuePtr) {
+							for (int i = 1; i < valueLen; i++)
+								if (ap[i] != (char)valuePtr[i])
+									goto NextVal;
+							return (int)(ap - thisPtr);
+						}
+						NextVal:
+						ap++;
+					}
+				} else {
+					char* ap = thisPtr + startIndex;
+					char* thisEnd = ap + count - valueLen + 1;
+					while (ap != thisEnd) {
+						if (*ap == *(char*)valuePtr) {
+							for (int i = 1; i < valueLen; i++)
+								if (ap[i] != ((char*)valuePtr)[i])
+									goto NextVal;
+							return (int)(ap - thisPtr);
+						}
+						NextVal:
+						ap++;
+					}
 				}
 			}
 			return -1;
@@ -165,10 +293,10 @@ namespace System
 		{
 			if (anyOf == null)
 				throw new ArgumentNullException ();
-			if (startIndex < 0 || startIndex > this.m_stringLength)
+			if (startIndex < 0 || startIndex > this.Length)
 				throw new ArgumentOutOfRangeException ();
-			if (count < 0 || startIndex > this.m_stringLength - count)
-				throw new ArgumentOutOfRangeException ("count", "Count cannot be negative, and startIndex + count must be less than m_stringLength of the string.");
+			if (count < 0 || startIndex > this.Length - count)
+				throw new ArgumentOutOfRangeException ("count", "Count cannot be negative, and startIndex + count must be less than Length of the string.");
 
 			return IndexOfAnyUnchecked (anyOf, startIndex, count);
 		}		
@@ -197,26 +325,42 @@ namespace System
 						lowest = *any_ptr;
 				}
 
-				fixed (char* start = &m_firstChar) {
-					char* ptr = start + startIndex;
-					char* end_ptr = ptr + count;
-
-					while (ptr != end_ptr) {
-						if (*ptr > highest || *ptr < lowest) {
+				fixed (byte* startByte = &m_firstByte) {
+					char* start = (char*)startByte;
+					if (IsCompact) {
+						byte* ptr = (byte*)start + startIndex;
+						byte* end_ptr = ptr + count;
+						while (ptr != end_ptr) {
+							if (*ptr > highest || *ptr < lowest) {
+								ptr++;
+								continue;
+							}
+							if ((char)*ptr == *any)
+								return (int)(ptr - (byte*)start);
+							any_ptr = any;
+							while (++any_ptr != end_any_ptr) {
+								if ((char)*ptr == *any_ptr)
+									return (int)(ptr - (byte*)start);
+							}
 							ptr++;
-							continue;
 						}
-
-						if (*ptr == *any)
-							return (int)(ptr - start);
-
-						any_ptr = any;
-						while (++any_ptr != end_any_ptr) {
-							if (*ptr == *any_ptr)
+					} else {
+						char* ptr = start + startIndex;
+						char* end_ptr = ptr + count;
+						while (ptr != end_ptr) {
+							if (*ptr > highest || *ptr < lowest) {
+								ptr++;
+								continue;
+							}
+							if (*ptr == *any)
 								return (int)(ptr - start);
+							any_ptr = any;
+							while (++any_ptr != end_any_ptr) {
+								if (*ptr == *any_ptr)
+									return (int)(ptr - start);
+							}
+							ptr++;
 						}
-
-						ptr++;
 					}
 				}
 			}
@@ -225,7 +369,7 @@ namespace System
 
 		public int LastIndexOf (char value, int startIndex, int count)
 		{
-			if (this.m_stringLength == 0)
+			if (this.Length == 0)
 				return -1;
  
 			// >= for char (> for string)
@@ -244,37 +388,64 @@ namespace System
 			// It helps JIT compiler to optimize comparison
 			int value_32 = (int)value;
 
-			fixed (char* start = &m_firstChar) {
-				char* ptr = start + startIndex;
-				char* end_ptr = ptr - (count >> 3 << 3);
-
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-					if (ptr[-1] == value_32)
-						return (int)(ptr - start) - 1;
-					if (ptr[-2] == value_32)
-						return (int)(ptr - start) - 2;
-					if (ptr[-3] == value_32)
-						return (int)(ptr - start) - 3;
-					if (ptr[-4] == value_32)
-						return (int)(ptr - start) - 4;
-					if (ptr[-5] == value_32)
-						return (int)(ptr - start) - 5;
-					if (ptr[-6] == value_32)
-						return (int)(ptr - start) - 6;
-					if (ptr[-7] == value_32)
-						return (int)(ptr - start) - 7;
-
-					ptr -= 8;
-				}
-
-				end_ptr -= count & 0x07;
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-
-					ptr--;
+			fixed (byte* startByte = &m_firstByte) {
+				char* start = (char*)startByte;
+				if (IsCompact) {
+					byte* ptr = (byte*)start + startIndex;
+					byte* end_ptr = (byte*)ptr - (count & ~7);
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - (byte*)start);
+						if (ptr[-1] == value_32)
+							return (int)(ptr - (byte*)start) - 1;
+						if (ptr[-2] == value_32)
+							return (int)(ptr - (byte*)start) - 2;
+						if (ptr[-3] == value_32)
+							return (int)(ptr - (byte*)start) - 3;
+						if (ptr[-4] == value_32)
+							return (int)(ptr - (byte*)start) - 4;
+						if (ptr[-5] == value_32)
+							return (int)(ptr - (byte*)start) - 5;
+						if (ptr[-6] == value_32)
+							return (int)(ptr - (byte*)start) - 6;
+						if (ptr[-7] == value_32)
+							return (int)(ptr - (byte*)start) - 7;
+						ptr -= 8;
+					}
+					end_ptr -= count & 7;
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - (byte*)start);
+						ptr--;
+					}
+				} else {
+					char* ptr = start + startIndex;
+					char* end_ptr = ptr - (count & ~7);
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+						if (ptr[-1] == value_32)
+							return (int)(ptr - start) - 1;
+						if (ptr[-2] == value_32)
+							return (int)(ptr - start) - 2;
+						if (ptr[-3] == value_32)
+							return (int)(ptr - start) - 3;
+						if (ptr[-4] == value_32)
+							return (int)(ptr - start) - 4;
+						if (ptr[-5] == value_32)
+							return (int)(ptr - start) - 5;
+						if (ptr[-6] == value_32)
+							return (int)(ptr - start) - 6;
+						if (ptr[-7] == value_32)
+							return (int)(ptr - start) - 7;
+						ptr -= 8;
+					}
+					end_ptr -= count & 7;
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+						ptr--;
+					}
 				}
 				return -1;
 			}
@@ -284,7 +455,7 @@ namespace System
 		{
 			if (anyOf == null) 
 				throw new ArgumentNullException ();
-			if (this.m_stringLength == 0)
+			if (this.Length == 0)
 				return -1;
 
 			if ((startIndex < 0) || (startIndex >= this.Length))
@@ -294,7 +465,7 @@ namespace System
 			if (startIndex - count + 1 < 0)
 				throw new ArgumentOutOfRangeException ("startIndex - count + 1 < 0");
 
-			if (this.m_stringLength == 0)
+			if (this.Length == 0)
 				return -1;
 
 			return LastIndexOfAnyUnchecked (anyOf, startIndex, count);
@@ -305,20 +476,35 @@ namespace System
 			if (anyOf.Length == 1)
 				return LastIndexOfUnchecked (anyOf[0], startIndex, count);
 
-			fixed (char* start = &m_firstChar, testStart = anyOf) {
-				char* ptr = start + startIndex;
-				char* ptrEnd = ptr - count;
+			fixed (byte* startByte = &m_firstByte)
+			fixed (char* testStart = anyOf) {
+				char* start = (char*)startByte;
 				char* test;
 				char* testEnd = testStart + anyOf.Length;
-
-				while (ptr != ptrEnd) {
-					test = testStart;
-					while (test != testEnd) {
-						if (*test == *ptr)
-							return (int)(ptr - start);
-						test++;
+				if (IsCompact) {
+					byte* ptr = (byte*)start + startIndex;
+					byte* ptrEnd = ptr - count;
+					while (ptr != ptrEnd) {
+						test = testStart;
+						while (test != testEnd) {
+							if (*test == (char)*ptr)
+								return (int)(ptr - (byte*)start);
+							test++;
+						}
+						ptr--;
 					}
-					ptr--;
+				} else {
+					char* ptr = start + startIndex;
+					char* ptrEnd = ptr - count;
+					while (ptr != ptrEnd) {
+						test = testStart;
+						while (test != testEnd) {
+							if (*test == *ptr)
+								return (int)(ptr - start);
+							test++;
+						}
+						ptr--;
+					}
 				}
 				return -1;
 			}
@@ -341,15 +527,15 @@ namespace System
 				throw new ArgumentOutOfRangeException("indexB", Environment.GetResourceString("ArgumentOutOfRange_Index"));
 
 			return CompareOrdinalUnchecked (strA, indexA, count, strB, indexB, count);
-        }
+		}
 
 		unsafe String ReplaceInternal (char oldChar, char newChar)
 		{
 #if !BOOTSTRAP_BASIC			
-			if (this.m_stringLength == 0 || oldChar == newChar)
+			if (this.Length == 0 || oldChar == newChar)
 				return this;
 #endif
-			int start_pos = IndexOfUnchecked (oldChar, 0, this.m_stringLength);
+			int start_pos = IndexOfUnchecked (oldChar, 0, this.Length);
 #if !BOOTSTRAP_BASIC
 			if (start_pos == -1)
 				return this;
@@ -357,23 +543,41 @@ namespace System
 			if (start_pos < 4)
 				start_pos = 0;
 
-			string tmp = FastAllocateString (m_stringLength);
-			fixed (char* dest = tmp, src = &m_firstChar) {
-				if (start_pos != 0)
-					CharCopy (dest, src, start_pos);
-
-				char* end_ptr = dest + m_stringLength;
-				char* dest_ptr = dest + start_pos;
-				char* src_ptr = src + start_pos;
-
-				while (dest_ptr != end_ptr) {
-					if (*src_ptr == oldChar)
-						*dest_ptr = newChar;
-					else
-						*dest_ptr = *src_ptr;
-
-					++src_ptr;
-					++dest_ptr;
+			bool compact = IsCompact && (int)newChar <= 0x7F;
+			string tmp = FastAllocateString (Length, compact ? ENCODING_ASCII : ENCODING_UTF16);
+			fixed (byte* srcByte = &m_firstByte) {
+				fixed (byte* destByte = &tmp.m_firstByte) {
+					if (compact) {
+						if (start_pos != 0)
+							memcpy(destByte, srcByte, start_pos);
+						byte* end_ptr = destByte + Length;
+						byte* dest_ptr = destByte + start_pos;
+						byte* src_ptr = srcByte + start_pos;
+						while (dest_ptr != end_ptr) {
+							if ((char)*src_ptr == oldChar)
+								*dest_ptr = (byte)newChar;
+							else
+								*dest_ptr = *src_ptr;
+							++src_ptr;
+							++dest_ptr;
+						}
+					} else {
+						char* dest = (char*)destByte;
+						char* src = (char*)srcByte;
+						if (start_pos != 0)
+							CharCopy (dest, src, start_pos);
+						char* end_ptr = dest + Length;
+						char* dest_ptr = dest + start_pos;
+						char* src_ptr = src + start_pos;
+						while (dest_ptr != end_ptr) {
+							if (*src_ptr == oldChar)
+								*dest_ptr = newChar;
+							else
+								*dest_ptr = *src_ptr;
+							++src_ptr;
+							++dest_ptr;
+						}
+					}
 				}
 			}
 			return tmp;
@@ -404,25 +608,26 @@ namespace System
 
 		private unsafe String ReplaceUnchecked (String oldValue, String newValue)
 		{
-			if (oldValue.m_stringLength > m_stringLength)
+			if (oldValue.Length > Length)
 #if BOOTSTRAP_BASIC
 				throw new NotImplementedException ("BOOTSTRAP_BASIC");
 #else
 				return this;
 #endif
 
-			if (oldValue.m_stringLength == 1 && newValue.m_stringLength == 1) {
+			if (oldValue.Length == 1 && newValue.Length == 1) {
 				return Replace (oldValue[0], newValue[0]);
-				// ENHANCE: It would be possible to special case oldValue.m_stringLength == newValue.m_stringLength
-				// because the m_stringLength of the result would be this.m_stringLength and m_stringLength calculation unneccesary
+				// ENHANCE: It would be possible to special case oldValue.Length == newValue.Length
+				// because the Length of the result would be this.Length and Length calculation unneccesary
 			}
 
 			const int maxValue = 200; // Allocate 800 byte maximum
 			int* dat = stackalloc int[maxValue];
-			fixed (char* source = &m_firstChar, replace = newValue) {
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char* source = ToCharArray (), replace = newValue.ToCharArray ()) {
 				int i = 0, count = 0;
-				while (i < m_stringLength) {
-					int found = IndexOfUnchecked (oldValue, i, m_stringLength - i);
+				while (i < Length) {
+					int found = IndexOfUnchecked (oldValue, i, Length - i);
 					if (found < 0)
 						break;
 					else {
@@ -431,7 +636,7 @@ namespace System
 						else
 							return ReplaceFallback (oldValue, newValue, maxValue);
 					}
-					i = found + oldValue.m_stringLength;
+					i = found + oldValue.Length;
 				}
 				if (count == 0)
 #if BOOTSTRAP_BASIC
@@ -442,24 +647,26 @@ namespace System
 				int nlen = 0;
 				checked {
 					try {
-						nlen = this.m_stringLength + ((newValue.m_stringLength - oldValue.m_stringLength) * count);
+						nlen = this.Length + ((newValue.Length - oldValue.Length) * count);
 					} catch (OverflowException) {
 						throw new OutOfMemoryException ();
 					}
 				}
-				String tmp = FastAllocateString (nlen);
+				/* FIXME: Use ENCODING_ASCII when possible. */
+				String tmp = FastAllocateString (nlen, ENCODING_UTF16);
 
 				int curPos = 0, lastReadPos = 0;
-				fixed (char* dest = tmp) {
+				fixed (byte* destByte = &tmp.m_firstByte) {
+					char* dest = (char*)destByte;
 					for (int j = 0; j < count; j++) {
 						int precopy = dat[j] - lastReadPos;
 						CharCopy (dest + curPos, source + lastReadPos, precopy);
 						curPos += precopy;
-						lastReadPos = dat[j] + oldValue.m_stringLength;
-						CharCopy (dest + curPos, replace, newValue.m_stringLength);
-						curPos += newValue.m_stringLength;
+						lastReadPos = dat[j] + oldValue.Length;
+						CharCopy (dest + curPos, replace, newValue.Length);
+						curPos += newValue.Length;
 					}
-					CharCopy (dest + curPos, source + lastReadPos, m_stringLength - lastReadPos);
+					CharCopy (dest + curPos, source + lastReadPos, Length - lastReadPos);
 				}
 				return tmp;
 			}
@@ -467,17 +674,17 @@ namespace System
 
 		private String ReplaceFallback (String oldValue, String newValue, int testedCount)
 		{
-			int lengthEstimate = this.m_stringLength + ((newValue.m_stringLength - oldValue.m_stringLength) * testedCount);
+			int lengthEstimate = this.Length + ((newValue.Length - oldValue.Length) * testedCount);
 			StringBuilder sb = new StringBuilder (lengthEstimate);
-			for (int i = 0; i < m_stringLength;) {
-				int found = IndexOfUnchecked (oldValue, i, m_stringLength - i);
+			for (int i = 0; i < Length;) {
+				int found = IndexOfUnchecked (oldValue, i, Length - i);
 				if (found < 0) {
-					sb.Append (InternalSubString (i, m_stringLength - i));
+					sb.Append (InternalSubString (i, Length - i));
 					break;
 				}
 				sb.Append (InternalSubString (i, found - i));
 				sb.Append (newValue);
-				i = found + oldValue.m_stringLength;
+				i = found + oldValue.Length;
 			}
 			return sb.ToString ();
 
@@ -487,29 +694,33 @@ namespace System
 		{
 			if (totalWidth < 0)
 				throw new ArgumentOutOfRangeException ("totalWidth", "Non-negative number required");
-			if (totalWidth <= m_stringLength)
+			if (totalWidth <= Length)
 #if BOOTSTRAP_BASIC
 				throw new NotImplementedException ("BOOTSTRAP_BASIC");
 #else			
 				return this;
 #endif
-			string result = FastAllocateString (totalWidth);
+			/* FIXME: Use ENCODING_ASCII when possible. */
+			string result = FastAllocateString (totalWidth, ENCODING_UTF16);
 
-			fixed (char *dest = result, src = &m_firstChar) {
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char* src = ToCharArray ())
+			fixed (byte *destByte = &result.m_firstByte) {
+				char* dest = (char*)destByte;
 				if (isRightPadded) {
-					CharCopy (dest, src, m_stringLength);
+					CharCopy (dest, src, Length);
 					char *end = dest + totalWidth;
-					char *p = dest + m_stringLength;
+					char *p = dest + Length;
 					while (p < end) {
 						*p++ = paddingChar;
 					}
-	 			} else {
+				} else {
 					char *p = dest;
-					char *end = p + totalWidth - m_stringLength;
+					char *end = p + totalWidth - Length;
 					while (p < end) {
 						*p++ = paddingChar;
 					}
-					CharCopy (p, src, m_stringLength);
+					CharCopy (p, src, Length);
 				}
 			}
 
@@ -521,14 +732,17 @@ namespace System
 #if BOOTSTRAP_BASIC
 			throw new NotImplementedException ("BOOTSTRAP_BASIC");
 #else
-			return m_stringLength >= value.m_stringLength && CompareOrdinalUnchecked (this, 0, value.m_stringLength, value, 0, value.m_stringLength) == 0;
+			return Length >= value.Length && CompareOrdinalUnchecked (this, 0, value.Length, value, 0, value.Length) == 0;
 #endif
 		}
 
 		internal unsafe bool IsAscii ()
 		{
-			fixed (char* src = &m_firstChar) {
-				char* end_ptr = src + m_stringLength;
+			if (IsCompact)
+				return true;
+			fixed (byte* srcByte = &m_firstByte) {
+				char* src = (char*)srcByte;
+				char* end_ptr = src + Length;
 				char* str_ptr = src;
 
 				while (str_ptr != end_ptr) {
@@ -552,6 +766,9 @@ namespace System
 
 		[MethodImplAttribute (MethodImplOptions.InternalCall)]
 		private extern static string InternalIntern (string str);
+
+		[MethodImplAttribute (MethodImplOptions.InternalCall)]
+		internal extern static unsafe bool CompactRepresentable (char* value, int length);
 
 		internal static unsafe void CharCopy (char *dest, char *src, int count) {
 			// Same rules as for memcpy, but with the premise that 
@@ -681,7 +898,7 @@ namespace System
 					length++;
 			} catch (NullReferenceException) {
 				throw new ArgumentOutOfRangeException ("ptr", "Value does not refer to a valid string.");
-		}
+			}
 
 			return CreateString (value, 0, length, null);
 		}
@@ -717,13 +934,25 @@ namespace System
 				throw new ArgumentOutOfRangeException ("count");
 			if (count == 0)
 				return Empty;
-			string result = FastAllocateString (count);
-			fixed (char *dest = result) {
-				char *p = dest;
-				char *end = p + count;
-				while (p < end) {
-					*p = c;
-					p++;
+			bool compact = (int)c <= 0x7F;
+			string result = FastAllocateString (count, compact ? ENCODING_ASCII : ENCODING_UTF16);
+			fixed (byte* destByte = &result.m_firstByte) {
+				if (compact) {
+					byte* dest = destByte;
+					byte* p = dest;
+					byte* end = p + count;
+					while (p < end) {
+						*p = (byte)c;
+						p++;
+					}
+				} else {
+					char* dest = (char*)destByte;
+					char *p = dest;
+					char *end = p + count;
+					while (p < end) {
+						*p = c;
+						p++;
+					}
 				}
 			}
 			return result;
@@ -762,5 +991,1059 @@ namespace System
 			// GetString () is called even when length == 0
 			return enc.GetString (bytes);
 		}
+
+		// Joins an array of strings together as one string with a separator between each original string.
+		//
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		public unsafe static String Join(String separator, String[] value, int startIndex, int count) {
+			//Range check the array
+			if (value == null)
+				throw new ArgumentNullException("value");
+
+			if (startIndex < 0)
+				throw new ArgumentOutOfRangeException("startIndex", Environment.GetResourceString("ArgumentOutOfRange_StartIndex"));
+			if (count < 0)
+				throw new ArgumentOutOfRangeException("count", Environment.GetResourceString("ArgumentOutOfRange_NegativeCount"));
+
+			if (startIndex > value.Length - count)
+				throw new ArgumentOutOfRangeException("startIndex", Environment.GetResourceString("ArgumentOutOfRange_IndexCountBuffer"));
+			Contract.EndContractBlock();
+
+			//Treat null as empty string.
+			if (separator == null) {
+				separator = Empty;
+			}
+
+			//If count is 0, that skews a whole bunch of the calculations below, so just special case that.
+			if (count == 0) {
+				return Empty;
+			}
+			
+			int jointLength = 0;
+			//Figure out the total length of the strings in value
+			int endIndex = startIndex + count - 1;
+			for (int stringToJoinIndex = startIndex; stringToJoinIndex <= endIndex; stringToJoinIndex++) {
+				if (value[stringToJoinIndex] != null) {
+					jointLength += value[stringToJoinIndex].Length;
+				}
+			}
+			
+			//Add enough room for the separator.
+			jointLength += (count - 1) * separator.Length;
+
+			// Note that we may not catch all overflows with this check (since we could have wrapped around the 4gb range any number of times
+			// and landed back in the positive range.) The input array might be modifed from other threads, 
+			// so we have to do an overflow check before each append below anyway. Those overflows will get caught down there.
+			if ((jointLength < 0) || ((jointLength + 1) < 0) ) {
+				throw new OutOfMemoryException();
+			}
+
+			//If this is an empty string, just return.
+			if (jointLength == 0) {
+				return Empty;
+			}
+
+			bool compact = separator.IsCompact;
+			if (compact) {
+				for (int i = 0; i < value.Length; ++i) {
+					if (value[i] != null && !value[i].IsCompact) {
+						compact = false;
+						break;
+					}
+				}
+			}
+			string jointString = FastAllocateString(jointLength, String.SelectEncoding(compact));
+			fixed (byte* pointerToJointStringByte = &jointString.m_firstByte) {
+				UnSafeCharBuffer charBuffer = new UnSafeCharBuffer(pointerToJointStringByte, jointLength, compact);
+
+				// Append the first string first and then append each following string prefixed by the separator.
+				charBuffer.AppendString(value[startIndex]);
+				for (int stringToJoinIndex = startIndex + 1; stringToJoinIndex <= endIndex; stringToJoinIndex++) {
+					charBuffer.AppendString(separator);
+					charBuffer.AppendString(value[stringToJoinIndex]);
+				}
+				// Contract.Assert(*(pointerToJointString + charBuffer.Length) == '\0', "String must be null-terminated!");
+			}
+
+			return jointString;
+		}
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		private unsafe static int CompareOrdinalIgnoreCaseHelper(String strA, String strB) {
+			Contract.Requires(strA != null);
+			Contract.Requires(strB != null);
+			Contract.EndContractBlock();
+			int length = Math.Min(strA.Length, strB.Length);
+
+			fixed (byte* ap = &strA.m_firstByte, bp = &strB.m_firstByte)
+			{
+				if (strA.IsCompact && strB.IsCompact) {
+					byte* a = ap;
+					byte* b = bp;
+					while (length != 0) {
+						int charA = *a;
+						int charB = *b;
+						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
+						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
+						if (charA != charB)
+							return charA - charB;
+						a++;
+						b++;
+						length--;
+					}
+				} else if (strA.IsCompact) {
+					byte* a = ap;
+					char* b = (char*)bp;
+					while (length != 0) {
+						int charA = *a;
+						int charB = *b;
+						Contract.Assert(charB <= 0x7F, "strings have to be ASCII");
+						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
+						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
+						if ((char)charA != charB)
+							return charA - charB;
+						a++;
+						b++;
+						length--;
+					}
+				} else if (strB.IsCompact) {
+					char* a = (char*)ap;
+					byte* b = bp;
+					while (length != 0) {
+						int charA = *a;
+						int charB = *b;
+						Contract.Assert(charA <= 0x7F, "strings have to be ASCII");
+						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
+						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
+						if (charA != charB)
+							return charA - charB;
+						a++;
+						b++;
+						length--;
+					}
+				} else {
+					char* a = (char*)ap;
+					char* b = (char*)bp;
+					while (length != 0) {
+						int charA = *a;
+						int charB = *b;
+						Contract.Assert((charA | charB) <= 0x7F, "strings have to be ASCII");
+						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
+						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
+						if (charA != charB)
+							return charA - charB;
+						a++;
+						b++;
+						length--;
+					}
+				}
+				return strA.Length - strB.Length;
+			}
+		}
+
+		//
+		// This is a helper method for the security team.  They need to uppercase some strings (guaranteed to be less 
+		// than 0x80) before security is fully initialized.	 Without security initialized, we can't grab resources (the nlp's)
+		// from the assembly.  This provides a workaround for that problem and should NOT be used anywhere else.
+		//
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		internal unsafe static string SmallCharToUpper(string strIn) {
+			Contract.Requires(strIn != null);
+			Contract.EndContractBlock();
+			//
+			// Get the length and pointers to each of the buffers.	Walk the length
+			// of the string and copy the characters from the inBuffer to the outBuffer,
+			// capitalizing it if necessary.  We assert that all of our characters are
+			// less than 0x80.
+			//
+			int length = strIn.Length;
+			String strOut = FastAllocateString(length, ENCODING_ASCII);
+			fixed (byte* inPtr = &strIn.m_firstByte)
+				fixed (byte* outPtr = &strOut.m_firstByte) {
+				if (strIn.IsCompact) {
+					for (int i = 0; i < length; ++i) {
+						int c = (char)inPtr[i];
+						Contract.Assert(c <= 0x7F, "string has to be ASCII");
+						// uppercase - notice that we need just one compare
+						if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
+						outPtr[i] = (byte)c;
+					}
+				} else {
+					for(int i = 0; i < length; i++) {
+						int c = ((char*)inPtr)[i];
+						Contract.Assert(c <= 0x7F, "string has to be ASCII");
+						// uppercase - notice that we need just one compare
+						if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
+						((byte*)outPtr)[i] = (byte)c;
+					}
+				}
+				Contract.Assert(((byte*)outPtr)[length]=='\0', "((byte*)outPtr)[length]=='\0'");
+			}
+			return strOut;
+		}
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		[ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
+		private unsafe static bool EqualsHelper(String strA, String strB) {
+			Contract.Requires(strA != null);
+			Contract.Requires(strB != null);
+			Contract.Requires(strA.Length == strB.Length);
+
+			int length = strA.Length;
+
+			fixed (byte* ap = &strA.m_firstByte, bp = &strB.m_firstByte) {
+				if (strA.IsCompact && strB.IsCompact) {
+					byte* a = ap;
+					byte* b = bp;
+					/* FIXME: Unroll. */
+					for (int i = 0; i < strA.Length; ++i)
+						if (a[i] != b[i])
+							return false;
+					return true;
+				} else if (strA.IsCompact) {
+					byte* a = ap;
+					char* b = (char*)bp;
+					/* FIXME: Unroll. */
+					for (int i = 0; i < strA.Length; ++i)
+						if ((char)a[i] != b[i])
+							return false;
+					return true;
+				} else if (strB.IsCompact) {
+					char* a = (char*)ap;
+					byte* b = bp;
+					/* FIXME: Unroll. */
+					for (int i = 0; i < strA.Length; ++i)
+						if (a[i] != (char)b[i])
+							return false;
+					return true;
+				} else {
+					char* a = (char*)ap;
+					char* b = (char*)bp;
+					// unroll the loop
+#if AMD64
+					// for AMD64 bit platform we unroll by 12 and
+					// check 3 qword at a time. This is less code
+					// than the 32 bit case and is shorter
+					// pathlength
+					while (length >= 12)
+					{
+						if (*(long*)a	  != *(long*)b) return false;
+						if (*(long*)(a+4) != *(long*)(b+4)) return false;
+						if (*(long*)(a+8) != *(long*)(b+8)) return false;
+						a += 12; b += 12; length -= 12;
+					}
+#else
+					while (length >= 10)
+					{
+						if (*(int*)a != *(int*)b) return false;
+						if (*(int*)(a+2) != *(int*)(b+2)) return false;
+						if (*(int*)(a+4) != *(int*)(b+4)) return false;
+						if (*(int*)(a+6) != *(int*)(b+6)) return false;
+						if (*(int*)(a+8) != *(int*)(b+8)) return false;
+						a += 10; b += 10; length -= 10;
+					}
+#endif
+					// This depends on the fact that the String objects are
+					// always zero terminated and that the terminating zero is not included
+					// in the length. For odd string sizes, the last compare will include
+					// the zero terminator.
+					while (length > 0)
+					{
+						if (*(int*)a != *(int*)b) break;
+						a += 2; b += 2; length -= 2;
+					}
+					return (length <= 0);
+				}
+			}
+		}
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		private unsafe static int CompareOrdinalHelper(String strA, String strB) {
+			Contract.Requires(strA != null);
+			Contract.Requires(strB != null);
+
+			int length = Math.Min(strA.Length, strB.Length);
+			int diffOffset = -1;
+
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char* ap = strA.ToCharArray ()) fixed (char* bp = strB.ToCharArray ())
+			{
+				char* a = ap;
+				char* b = bp;
+
+				// unroll the loop
+				while (length >= 10)
+				{
+					if (*(int*)a != *(int*)b) { 
+						diffOffset = 0; 
+						break;
+					}
+					
+					if (*(int*)(a+2) != *(int*)(b+2)) {
+						diffOffset = 2;
+						break;
+					}
+					
+					if (*(int*)(a+4) != *(int*)(b+4)) {
+						diffOffset = 4;
+						break;
+					}
+					
+					if (*(int*)(a+6) != *(int*)(b+6)) {
+						diffOffset = 6;
+						break;
+					}
+					
+					if (*(int*)(a+8) != *(int*)(b+8)) {
+						diffOffset = 8;
+						break;
+					}
+					a += 10; 
+					b += 10; 
+					length -= 10;
+				}
+
+				if( diffOffset != -1) {
+					// we already see a difference in the unrolled loop above
+					a += diffOffset;
+					b += diffOffset;
+					int order;
+					if ( (order = (int)*a - (int)*b) != 0) {
+						return order;
+					}
+					Contract.Assert( *(a+1) != *(b+1), "This byte must be different if we reach here!");
+					return ((int)*(a+1) - (int)*(b+1));					   
+				}
+
+				// now go back to slower code path and do comparison on 4 bytes one time.
+				// Following code also take advantage of the fact strings will 
+				// use even numbers of characters (runtime will have a extra zero at the end.)
+				// so even if length is 1 here, we can still do the comparsion.	 
+				while (length > 0) {
+					if (*(int*)a != *(int*)b) {
+						break;
+					}
+					a += 2; 
+					b += 2; 
+					length -= 2;
+				}
+
+				if( length > 0) { 
+					int c;
+					// found a different int on above loop
+					if ( (c = (int)*a - (int)*b) != 0) {
+						return c;
+					}
+					Contract.Assert( *(a+1) != *(b+1), "This byte must be different if we reach here!");
+					return ((int)*(a+1) - (int)*(b+1));										   
+				}
+
+				// At this point, we have compared all the characters in at least one string.
+				// The longer string will be larger.
+				return strA.Length - strB.Length;
+			}
+		}
+
+		// Converts a substring of this string to an array of characters.  Copies the
+		// characters of this string beginning at position startIndex and ending at
+		// startIndex + length - 1 to the character array buffer, beginning
+		// at bufferStartIndex.
+		//
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		unsafe public void CopyTo(int sourceIndex, char[] destination, int destinationIndex, int count) {
+			if (destination == null)
+				throw new ArgumentNullException("destination");
+			if (count < 0)
+				throw new ArgumentOutOfRangeException("count", Environment.GetResourceString("ArgumentOutOfRange_NegativeCount"));
+			if (sourceIndex < 0)
+				throw new ArgumentOutOfRangeException("sourceIndex", Environment.GetResourceString("ArgumentOutOfRange_Index"));
+			if (count > Length - sourceIndex)
+				throw new ArgumentOutOfRangeException("sourceIndex", Environment.GetResourceString("ArgumentOutOfRange_IndexCount"));
+			if (destinationIndex > destination.Length - count || destinationIndex < 0)
+				throw new ArgumentOutOfRangeException("destinationIndex", Environment.GetResourceString("ArgumentOutOfRange_IndexCount"));
+			Contract.EndContractBlock();
+
+			// Note: fixed does not like empty arrays
+			if (count > 0)
+			{
+				fixed (byte* src = &m_firstByte) {
+					if (IsCompact) {
+						/* FIXME: Unroll. */
+						for (int i = 0; i < count; ++i)
+							destination[destinationIndex + i] = (char)src[sourceIndex + i];
+					} else {
+						fixed (char* dest = destination)
+							wstrcpy(dest + destinationIndex, (char*)src + sourceIndex, count);
+					}
+				}
+			}
+		}
+
+		// Returns the entire string as an array of characters.
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		unsafe public char[] ToCharArray() {
+			// <STRIP> huge performance improvement for short strings by doing this </STRIP>
+			int length = Length;
+			char[] chars = new char[length];
+			if (length > 0) {
+				fixed (byte* src = &m_firstByte)
+				fixed (char* dest = chars) {
+					if (IsCompact) {
+						/* FIXME: Unroll. */
+						for (int i = 0; i < length; ++i)
+							dest[i] = (char)src[i];
+					} else {
+						wstrcpy(dest, (char*)src, length);
+					}
+				}
+			}
+			return chars;
+		}
+
+		// Returns a substring of this string as an array of characters.
+		//
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		unsafe public char[] ToCharArray(int startIndex, int length)
+		{
+			// Range check everything.
+			if (startIndex < 0 || startIndex > Length || startIndex > Length - length)
+				throw new ArgumentOutOfRangeException("startIndex", Environment.GetResourceString("ArgumentOutOfRange_Index"));
+			if (length < 0)
+				throw new ArgumentOutOfRangeException("length", Environment.GetResourceString("ArgumentOutOfRange_Index"));
+			Contract.EndContractBlock();
+
+			char[] chars = new char[length];
+			if(length > 0) {
+				fixed (byte* src = &m_firstByte)
+				fixed (char* dest = chars) {
+					if (IsCompact) {
+						/* FIXME: Unroll. */
+						for (int i = 0; i < length; ++i)
+							dest[i] = (char)src[startIndex + i];
+					} else {
+						wstrcpy(dest, (char*)src + startIndex, length);
+					}
+				}
+			}
+			return chars;
+		}
+
+		// Use this if and only if you need the hashcode to not change across app domains (e.g. you have an app domain agile
+		// hash table).
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		[ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
+		internal int GetLegacyNonRandomizedHashCode() {
+			unsafe {
+				/* FIXME: Avoid ToCharArray. */
+				fixed (char *src = this.ToCharArray()) {
+					Contract.Assert(src[this.Length] == '\0', "src[this.Length] == '\\0'");
+					Contract.Assert( ((int)src)%4 == 0, "Managed string should start at 4 bytes boundary");
+
+#if WIN32
+					int hash1 = (5381<<16) + 5381;
+#else
+					int hash1 = 5381;
+#endif
+					int hash2 = hash1;
+
+#if WIN32
+					// 32 bit machines.
+					int* pint = (int *)src;
+					int len = this.Length;
+					while (len > 2)
+					{
+						hash1 = ((hash1 << 5) + hash1 + (hash1 >> 27)) ^ pint[0];
+						hash2 = ((hash2 << 5) + hash2 + (hash2 >> 27)) ^ pint[1];
+						pint += 2;
+						len	 -= 4;
+					}
+
+					if (len > 0)
+					{
+						hash1 = ((hash1 << 5) + hash1 + (hash1 >> 27)) ^ pint[0];
+					}
+#else
+					int		c;
+					char *s = src;
+					while ((c = s[0]) != 0) {
+						hash1 = ((hash1 << 5) + hash1) ^ c;
+						c = s[1];
+						if (c == 0)
+							break;
+						hash2 = ((hash2 << 5) + hash2) ^ c;
+						s += 2;
+					}
+#endif
+#if !MONO && DEBUG
+					// We want to ensure we can change our hash function daily.
+					// This is perfectly fine as long as you don't persist the
+					// value from GetHashCode to disk or count on String A 
+					// hashing before string B.	 Those are bugs in your code.
+					hash1 ^= ThisAssembly.DailyBuildNumber;
+#endif
+					return hash1 + (hash2 * 1566083941);
+				}
+			}
+		}
+
+		[System.Security.SecurityCritical]	// auto-generated
+		unsafe string InternalSubString(int startIndex, int length) {
+			Contract.Assert( startIndex >= 0 && startIndex <= this.Length, "StartIndex is out of range!");
+			Contract.Assert( length >= 0 && startIndex <= this.Length - length, "length is out of range!");			   
+			String result = FastAllocateString(length, IsCompact ? ENCODING_ASCII : ENCODING_UTF16);
+			fixed (byte* dest = &result.m_firstByte)
+			fixed (byte* src = &m_firstByte) {
+				if (IsCompact)
+					memcpy (dest, src + startIndex, length);
+				else
+					CharCopy ((char*)dest, (char*)src + startIndex, length);
+			}
+			return result;
+		}
+
+		// Helper for encodings so they can talk to our buffer directly
+		// stringLength must be the exact size we'll expect
+		[System.Security.SecurityCritical]	// auto-generated
+		unsafe static internal String CreateStringFromEncoding(
+			byte* bytes, int byteLength, Encoding encoding) {
+			Contract.Requires(bytes != null);
+			Contract.Requires(byteLength >= 0);
+
+			// Get our string length
+			int stringLength = encoding.GetCharCount(bytes, byteLength, null);
+			Contract.Assert(stringLength >= 0, "stringLength >= 0");
+
+			// They gave us an empty string if they needed one
+			// 0 bytelength might be possible if there's something in an encoder
+			if (stringLength == 0)
+				return Empty;
+
+			/* FIXME: This could use ENCODING_ASCII, with a bit more cleverness. */
+			String s = FastAllocateString(stringLength, ENCODING_UTF16);
+			fixed (byte* pTempBytes = &s.m_firstByte)
+			{
+				int doubleCheck = encoding.GetChars(bytes, byteLength, (char*)pTempBytes, stringLength, null);
+				Contract.Assert(
+					stringLength == doubleCheck,
+					"Expected encoding.GetChars to return same length as encoding.GetCharCount");
+			}
+
+			return s;
+		}
+
+		[System.Security.SecurityCritical]	// auto-generated
+		[ResourceExposure(ResourceScope.None)]
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static String FastAllocateString(int length, int encoding);
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		unsafe private static void FillNoncompactStringChecked(String dest, int destPos, String src) {
+			Contract.Requires(dest != null);
+			Contract.Requires(src != null);
+			if (src.Length > dest.Length - destPos) {
+				throw new IndexOutOfRangeException();
+			}
+			Contract.EndContractBlock();
+
+			fixed (byte *pSrc = &src.m_firstByte)
+			fixed (byte *pDest = &dest.m_firstByte) {
+				if (src.IsCompact) {
+					for (int i = 0; i < src.Length; ++i)
+						((char*)pDest)[destPos + i] = (char)pSrc[i];
+				} else {
+					wstrcpy((char*)pDest + destPos, (char*)pSrc, src.Length);
+				}
+			}
+		}
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		unsafe private static void FillCompactStringChecked(String dest, int destPos, String src) {
+			Contract.Requires(dest != null);
+			Contract.Requires(src != null);
+			if (src.Length > dest.Length - destPos) {
+				throw new IndexOutOfRangeException();
+			}
+			Contract.EndContractBlock();
+
+			Contract.Assert(src.IsCompact, "Cannot fill compact string from non-compact string.");
+			fixed (byte *pSrc = &src.m_firstByte)
+			fixed (byte *pDest = &dest.m_firstByte) {
+				memcpy(pDest + destPos, pSrc, src.Length);
+			}
+		}
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		private String CtorCharArray(char [] value)
+		{
+			if (value == null || value.Length == 0)
+				return Empty;
+			bool compact = CompactRepresentable(value);
+			String result = FastAllocateString(value.Length, SelectEncoding(compact));
+			unsafe {
+				fixed (byte* dest = &result.m_firstByte)
+				fixed (char* source = value) {
+					if (compact) {
+						for (int i = 0; i < value.Length; ++i)
+							dest[i] = (byte)source[i];
+					} else {
+						wstrcpy((char*)dest, source, value.Length);
+					}
+				}
+			}
+			return result;
+		}
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		unsafe private String CtorCharArrayStartLength(char [] value, int startIndex, int length)
+		{
+			if (value == null)
+				throw new ArgumentNullException("value");
+
+			if (startIndex < 0)
+				throw new ArgumentOutOfRangeException("startIndex", Environment.GetResourceString("ArgumentOutOfRange_StartIndex"));
+
+			if (length < 0)
+				throw new ArgumentOutOfRangeException("length", Environment.GetResourceString("ArgumentOutOfRange_NegativeLength"));
+
+			if (startIndex > value.Length - length)
+				throw new ArgumentOutOfRangeException("startIndex", Environment.GetResourceString("ArgumentOutOfRange_Index"));
+			Contract.EndContractBlock();
+
+			if (length <= 0)
+				return Empty;
+
+			bool compact;
+			fixed (char* source = value)
+				compact = CompactRepresentable(source + startIndex, length);
+			String result = FastAllocateString(length, SelectEncoding(compact));
+			fixed (byte* destByte = &result.m_firstByte)
+				fixed (char* source = value) {
+				if (compact) {
+					for (int i = 0; i < length; ++i)
+						destByte[i] = (byte)source[startIndex + i];
+				} else {
+					wstrcpy((char*)destByte, source + startIndex, length);
+				}
+			}
+			return result;
+		}
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		private String CtorCharCount(char c, int count)
+		{
+			if (count < 0)
+				throw new ArgumentOutOfRangeException("count", Environment.GetResourceString("ArgumentOutOfRange_MustBeNonNegNum", "count"));
+			if (count == 0)
+				return Empty;
+
+			bool compact = CompactRepresentable(c);
+			String result = FastAllocateString(count, SelectEncoding(compact));
+			unsafe {
+				fixed (byte* dest = &result.m_firstByte) {
+					if (compact) {
+						/* FIXME: Unroll. */
+						for (int i = 0; i < count; ++i)
+							dest[i] = (byte)c;
+					} else {
+						char *dmem = (char*)dest;
+						while (((uint)dmem & 3) != 0 && count > 0) {
+							*dmem++ = c;
+							count--;
+						}
+						uint cc = (uint)((c << 16) | c);
+						if (count >= 4) {
+							count -= 4;
+							do{
+								((uint *)dmem)[0] = cc;
+								((uint *)dmem)[1] = cc;
+								dmem += 4;
+								count -= 4;
+							} while (count >= 0);
+						}
+						if ((count & 2) != 0) {
+							((uint *)dmem)[0] = cc;
+							dmem += 2;
+						}
+						if ((count & 1) != 0)
+							dmem[0] = c;
+					}
+				}
+			}
+			return result;
+		}
+
+		[System.Security.SecurityCritical]	// auto-generated
+		private unsafe String CtorCharPtr(char *ptr)
+		{
+			if (ptr == null)
+				return Empty;
+
+#if !FEATURE_PAL
+			if (ptr < (char*)64000)
+				throw new ArgumentException(Environment.GetResourceString("Arg_MustBeStringPtrNotAtom"));
+#endif // FEATURE_PAL
+
+			Contract.Assert(this == null, "this == null");		  // this is the string constructor, we allocate it
+
+			try {
+				int count = wcslen(ptr);
+				if (count == 0)
+					return Empty;
+				bool compact = CompactRepresentable(ptr, count);
+
+				String result = FastAllocateString(count, SelectEncoding(compact));
+				fixed (byte* dest = &result.m_firstByte) {
+					if (compact) {
+						for (int i = 0; i < count; ++i)
+							dest[i] = (byte)ptr[i];
+					} else {
+						wstrcpy((char*)dest, ptr, count);
+					}
+				}
+				return result;
+			}
+			catch (NullReferenceException) {
+				throw new ArgumentOutOfRangeException("ptr", Environment.GetResourceString("ArgumentOutOfRange_PartialWCHAR"));
+			}
+		}
+		[System.Security.SecurityCritical]	// auto-generated
+		private unsafe String CtorCharPtrStartLength(char *ptr, int startIndex, int length)
+		{
+			if (length < 0) {
+				throw new ArgumentOutOfRangeException("length", Environment.GetResourceString("ArgumentOutOfRange_NegativeLength"));
+			}
+
+			if (startIndex < 0) {
+				throw new ArgumentOutOfRangeException("startIndex", Environment.GetResourceString("ArgumentOutOfRange_StartIndex"));
+			}
+			Contract.EndContractBlock();
+			Contract.Assert(this == null, "this == null");		  // this is the string constructor, we allocate it
+
+			char *pFrom = ptr + startIndex;
+			if (pFrom < ptr) {
+				// This means that the pointer operation has had an overflow
+				throw new ArgumentOutOfRangeException("startIndex", Environment.GetResourceString("ArgumentOutOfRange_PartialWCHAR"));
+			}
+
+			if (length == 0)
+				return Empty;
+
+			bool compact = CompactRepresentable(ptr + startIndex, length);
+			String result = FastAllocateString(length, SelectEncoding(compact));
+
+			try {
+				fixed(byte* dest = &result.m_firstByte) {
+					if (compact) {
+						for (int i = 0; i < length; ++i)
+							dest[i] = (byte)ptr[startIndex + i];
+					} else {
+						wstrcpy((char*)dest, pFrom, length);
+					}
+				}
+				return result;
+			}
+			catch (NullReferenceException) {
+				throw new ArgumentOutOfRangeException("ptr", Environment.GetResourceString("ArgumentOutOfRange_PartialWCHAR"));
+			}
+		}
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		public String Insert(int startIndex, String value)
+		{
+			if (value == null)
+				throw new ArgumentNullException("value");
+			if (startIndex < 0 || startIndex > this.Length)
+				throw new ArgumentOutOfRangeException("startIndex");
+			Contract.Ensures(Contract.Result<String>() != null);
+			Contract.Ensures(Contract.Result<String>().Length == this.Length + value.Length);
+			Contract.EndContractBlock();
+			int oldLength = Length;
+			int insertLength = value.Length;
+			// In case this computation overflows, newLength will be negative and FastAllocateString throws OutOfMemoryException
+			int newLength = oldLength + insertLength;
+			if (newLength == 0)
+				return Empty;
+			bool resultIsCompact = IsCompact && value.IsCompact;
+			String result = FastAllocateString(newLength, SelectEncoding(resultIsCompact));
+			unsafe
+			{
+				fixed (byte* srcThis = &m_firstByte)
+				fixed (byte* srcInsert = &value.m_firstByte)
+				fixed (byte* dst = &result.m_firstByte) {
+                    if (IsCompact)
+                        result.CopyFromBytes(0, srcThis, startIndex);
+                    else
+                        result.CopyFromChars(0, (char*)srcThis, startIndex);
+
+                    if (value.IsCompact)
+                        result.CopyFromBytes(startIndex, srcInsert, insertLength);
+                    else
+                        result.CopyFromChars(startIndex, (char*)srcInsert, insertLength);
+
+                    if (IsCompact)
+                        result.CopyFromBytes(startIndex + insertLength, srcThis + startIndex, oldLength - startIndex);
+                    else
+                        result.CopyFromChars(startIndex + insertLength, (char*)srcThis + startIndex, oldLength - startIndex);
+				}
+			}
+			return result;
+		}
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		public String Remove(int startIndex, int count)
+		{
+			if (startIndex < 0)
+				throw new ArgumentOutOfRangeException("startIndex", 
+					Environment.GetResourceString("ArgumentOutOfRange_StartIndex"));
+			if (count < 0)
+				throw new ArgumentOutOfRangeException("count", 
+					Environment.GetResourceString("ArgumentOutOfRange_NegativeCount"));
+			if (count > Length - startIndex)
+				throw new ArgumentOutOfRangeException("count", 
+					Environment.GetResourceString("ArgumentOutOfRange_IndexCount"));
+			Contract.Ensures(Contract.Result<String>() != null);
+			Contract.Ensures(Contract.Result<String>().Length == this.Length - count);
+			Contract.EndContractBlock();
+			int newLength = Length - count;
+			if (newLength == 0)
+				return Empty;
+			bool compact = IsCompact;
+			String result = FastAllocateString(newLength, SelectEncoding(compact));
+			unsafe
+			{
+				fixed (byte* src = &m_firstByte)
+				fixed (byte* dst = &result.m_firstByte) {
+					if (compact) {
+						memcpy(dst, src, startIndex);
+						memcpy(dst + startIndex, src + startIndex + count, newLength - startIndex);
+					} else {
+						wstrcpy((char*)dst, (char*)src, startIndex);
+						wstrcpy((char*)dst + startIndex, (char*)src + startIndex + count, newLength - startIndex);
+					}
+				}
+			}
+			return result;
+		}
+	
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		unsafe public static String Copy (String str) {
+			if (str==null) {
+				throw new ArgumentNullException("str");
+			}
+			Contract.Ensures(Contract.Result<String>() != null);
+			Contract.EndContractBlock();
+
+			int length = str.Length;
+
+			bool compact = str.IsCompact;
+			String result = FastAllocateString(length, SelectEncoding(compact));
+
+			fixed (byte* src = &str.m_firstByte)
+			fixed (byte* dest = &result.m_firstByte) {
+				if (compact)
+					memcpy(dest, src, length);
+				else
+					wstrcpy((char*)dest, (char*)src, length);
+			}
+			return result;
+		}
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		public static String Concat(String str0, String str1) {
+			Contract.Ensures(Contract.Result<String>() != null);
+			Contract.Ensures(Contract.Result<String>().Length ==
+				(str0 == null ? 0 : str0.Length) +
+				(str1 == null ? 0 : str1.Length));
+			Contract.EndContractBlock();
+
+			if (IsNullOrEmpty(str0)) {
+				if (IsNullOrEmpty(str1)) {
+					return Empty;
+				}
+				return str1;
+			}
+
+			if (IsNullOrEmpty(str1)) {
+				return str0;
+			}
+
+			int str0Length = str0.Length;
+
+			bool compact = str0.IsCompact && str1.IsCompact;
+			String result = FastAllocateString(str0Length + str1.Length, SelectEncoding(compact));
+
+			if (compact) {
+				FillCompactStringChecked(result, 0, str0);
+				FillCompactStringChecked(result, str0Length, str1);
+			} else {
+				FillNoncompactStringChecked(result, 0, str0);
+				FillNoncompactStringChecked(result, str0Length, str1);
+			}
+
+			return result;
+		}
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		public static String Concat(String str0, String str1, String str2) {
+			Contract.Ensures(Contract.Result<String>() != null);
+			Contract.Ensures(Contract.Result<String>().Length ==
+				(str0 == null ? 0 : str0.Length) +
+				(str1 == null ? 0 : str1.Length) +
+				(str2 == null ? 0 : str2.Length));
+			Contract.EndContractBlock();
+
+			if (str0==null && str1==null && str2==null) {
+				return Empty;
+			}
+
+			if (str0==null) {
+				str0 = Empty;
+			}
+
+			if (str1==null) {
+				str1 = Empty;
+			}
+
+			if (str2 == null) {
+				str2 = Empty;
+			}
+
+			int totalLength = str0.Length + str1.Length + str2.Length;
+
+			bool compact = str0.IsCompact && str1.IsCompact && str2.IsCompact;
+			String result = FastAllocateString(totalLength, SelectEncoding(compact));
+			if (compact) {
+				FillCompactStringChecked(result, 0, str0);
+				FillCompactStringChecked(result, str0.Length, str1);
+				FillCompactStringChecked(result, str0.Length + str1.Length, str2);
+			} else {
+				FillNoncompactStringChecked(result, 0, str0);
+				FillNoncompactStringChecked(result, str0.Length, str1);
+				FillNoncompactStringChecked(result, str0.Length + str1.Length, str2);
+			}
+
+			return result;
+		}
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		public static String Concat(String str0, String str1, String str2, String str3) {
+			Contract.Ensures(Contract.Result<String>() != null);
+			Contract.Ensures(Contract.Result<String>().Length == 
+				(str0 == null ? 0 : str0.Length) +
+				(str1 == null ? 0 : str1.Length) +
+				(str2 == null ? 0 : str2.Length) +
+				(str3 == null ? 0 : str3.Length));
+			Contract.EndContractBlock();
+
+			if (str0==null && str1==null && str2==null && str3==null) {
+				return Empty;
+			}
+
+			if (str0==null) {
+				str0 = Empty;
+			}
+
+			if (str1==null) {
+				str1 = Empty;
+			}
+
+			if (str2 == null) {
+				str2 = Empty;
+			}
+			
+			if (str3 == null) {
+				str3 = Empty;
+			}
+
+			int totalLength = str0.Length + str1.Length + str2.Length + str3.Length;
+
+			bool compact = str0.IsCompact && str1.IsCompact && str2.IsCompact && str3.IsCompact;
+			String result = FastAllocateString(totalLength, SelectEncoding(compact));
+
+			if (compact) {
+				FillCompactStringChecked(result, 0, str0);
+				FillCompactStringChecked(result, str0.Length, str1);
+				FillCompactStringChecked(result, str0.Length + str1.Length, str2);
+				FillCompactStringChecked(result, str0.Length + str1.Length + str2.Length, str3);
+			} else {
+				FillNoncompactStringChecked(result, 0, str0);
+				FillNoncompactStringChecked(result, str0.Length, str1);
+				FillNoncompactStringChecked(result, str0.Length + str1.Length, str2);
+				FillNoncompactStringChecked(result, str0.Length + str1.Length + str2.Length, str3);
+			}
+
+			return result;
+		}
+
+		[System.Security.SecuritySafeCritical]	// auto-generated
+		private static String ConcatArray(String[] values, int totalLength) {
+			bool compact = true;
+			for (int i = 0; i < values.Length; ++i) {
+				if (!values[i].IsCompact) {
+					compact = false;
+					break;
+				}
+			}
+			String result = FastAllocateString(totalLength, SelectEncoding(compact));
+			int currPos=0;
+
+			if (compact) {
+				for (int i = 0; i < values.Length; ++i) {
+					Contract.Assert(
+						(currPos <= totalLength - values[i].Length),
+						"[String.ConcatArray](currPos <= totalLength - values[i].Length)");
+					FillCompactStringChecked(result, currPos, values[i]);
+					currPos+=values[i].Length;
+				}
+			} else {
+				for (int i=0; i<values.Length; i++) {
+					Contract.Assert(
+						(currPos <= totalLength - values[i].Length),
+						"[String.ConcatArray](currPos <= totalLength - values[i].Length)");
+					FillNoncompactStringChecked(result, currPos, values[i]);
+					currPos+=values[i].Length;
+				}
+			}
+
+			return result;
+		}
+
+		// Copies the source String (byte buffer) to the destination IntPtr memory allocated with len bytes.
+		[System.Security.SecurityCritical]	// auto-generated
+		internal unsafe static void InternalCopy(String src, IntPtr dest,int len)
+		{
+			if (len == 0)
+				return;
+			fixed (byte* srcPtr = &src.m_firstByte) {
+				if (src.IsCompact) {
+					char* dstPtr = (char*)dest;
+					/* Maintaining the UTF-16 illusion, to be on the safe side. */
+					for (int i = 0; i < len; ++i)
+						*dstPtr++ = (char)*srcPtr;
+				} else {
+					memcpy((byte*)dest, srcPtr, len);
+				}
+			}
+		}
+
+
+		internal unsafe void CopyFromChars(int destIndex, char *source, int count) {
+			fixed (byte* dest = &m_firstByte) {
+				if (IsCompact) {
+					for (int i = 0; i < count; i++)
+						dest[destIndex + i] = (byte)source[i];
+				} else {
+					/* FIXME: Not thread-safe. */
+					String.wstrcpy((char*)dest + destIndex, source, count);
+				}
+			}
+		}
+
+		internal unsafe void CopyFromBytes(int destIndex, byte *source, int count) {
+			fixed (byte* dest = &m_firstByte) {
+				if (IsCompact) {
+					Buffer.Memcpy(dest + destIndex, source, count);
+				} else {
+					for (int i = 0; i < count; i++)
+						((char*)dest)[destIndex + i] = (char)source[i];
+				}
+			}
+		}
+
 	}
 }

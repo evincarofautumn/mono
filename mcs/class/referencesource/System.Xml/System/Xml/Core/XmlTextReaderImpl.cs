@@ -8547,7 +8547,8 @@ namespace System.Xml {
             Debug.Assert(endPos < str.Length);
             Debug.Assert(startPos <= endPos);
 
-            fixed (char* pChars = str) {
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* pChars = str.ToCharArray()) {
                 AdjustLineInfo(pChars + startPos, endPos - startPos, isNormalized, ref lineInfo);
             }
         }

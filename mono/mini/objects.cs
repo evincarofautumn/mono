@@ -960,15 +960,6 @@ class Tests {
 		return 0;
 	}
 
-	public static unsafe int test_0_pin_string () {
-		string x = "xxx";
-		fixed (char *c = x) {
-			if (*c != 'x')
-				return 1;
-		}
-		return 0;
-	}
-	
 	public static int my_flags;
 	public static int test_0_and_cmp_static ()
 	{
@@ -1216,12 +1207,6 @@ ncells ) {
 		Array a2 = a;
 
 		return (a2.Length == 100) ? 0 : 1;
-	}
-
-	public static int test_0_intrins_runtimehelpers_offset_to_string_data () {
-		int i = RuntimeHelpers.OffsetToStringData;
-		
-		return i - i;
 	}
 
 	public static int test_0_intrins_string_setchar () {
@@ -1698,19 +1683,6 @@ ncells ) {
 		[MethodImplAttribute (MethodImplOptions.NoInlining)]
 		public unsafe void EncodeIntoBuffer(char* value, int valueLength, char* buffer, int bufferLength) {
 		}
-	}
-
-	static unsafe int test_0_mul_ovf_regress_36052 () {
-		var p = new MulOvfClass ();
-
-		string typeName = typeof(int).Name;
-		int bufferSize = 45;
-
-		fixed (char* value = typeName) {
-			char* buffer = stackalloc char[bufferSize];
-			p.EncodeIntoBuffer(value, typeName.Length, buffer, bufferSize);
-		}
-		return 0;
 	}
 
 	struct Struct16 {

@@ -1208,34 +1208,42 @@ namespace System {
             
             char formatCh = format[0];
             if (formatCh == 'D' || formatCh == 'd') {
-                guidString = string.FastAllocateString(36);
+                /* FIXME: Use compact encoding. */
+                guidString = string.FastAllocateString(36, String.ENCODING_UTF16);
             }            
             else if (formatCh == 'N' || formatCh == 'n') {
-                guidString = string.FastAllocateString(32);
+                /* FIXME: Use compact encoding. */
+                guidString = string.FastAllocateString(32, String.ENCODING_UTF16);
                 dash = false;
             }
             else if (formatCh == 'B' || formatCh == 'b') {
-                guidString = string.FastAllocateString(38);
+                /* FIXME: Use compact encoding. */
+                guidString = string.FastAllocateString(38, String.ENCODING_UTF16);
                 unsafe {
-                    fixed (char* guidChars = guidString) {
+                    fixed (byte* guidBytes = &guidString.m_firstByte) {
+                        char* guidChars = (char*)guidBytes;
                         guidChars[offset++] = '{';
                         guidChars[37] = '}';
                     }
                 }
             }
             else if (formatCh == 'P' || formatCh == 'p') {
-                guidString = string.FastAllocateString(38);
+                /* FIXME: Use compact encoding. */
+                guidString = string.FastAllocateString(38, String.ENCODING_UTF16);
                 unsafe {
-                    fixed (char* guidChars = guidString) {
+                    fixed (byte* guidBytes = &guidString.m_firstByte) {
+                        char* guidChars = (char*)guidBytes;
                         guidChars[offset++] = '(';
                         guidChars[37] = ')';
                     }
                 }
             }
             else if (formatCh == 'X' || formatCh == 'x') {
-                guidString = string.FastAllocateString(68);
+                /* FIXME: Use compact encoding. */
+                guidString = string.FastAllocateString(68, String.ENCODING_UTF16);
                 unsafe {
-                    fixed (char* guidChars = guidString) {
+                    fixed (byte* guidBytes = &guidString.m_firstByte) {
+                        char* guidChars = (char*)guidBytes;
                         guidChars[offset++] = '{';
                         guidChars[67] = '}';
                     }
@@ -1248,7 +1256,8 @@ namespace System {
             }
 
             unsafe {
-                fixed (char* guidChars = guidString) {
+                fixed (byte* guidBytes = &guidString.m_firstByte) {
+                    char* guidChars = (char*)guidBytes;
                     if (hex) {
                         // {0xdddddddd,0xdddd,0xdddd,{0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd}}
                         guidChars[offset++] = '0';

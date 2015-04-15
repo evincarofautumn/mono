@@ -132,7 +132,8 @@ namespace System
             int prevInputPos = start;
             byte *bytes = stackalloc byte[c_MaxUnicodeCharsReallocate*c_MaxUTF_8BytesPerUnicodeChar];   // 40*4=160
 
-            fixed (char* pStr = input)
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* pStr = input.ToCharArray ())
             {
                 for(; i < end; ++i)
                 {
@@ -260,7 +261,8 @@ namespace System
             ref int destPosition, char rsvd1, char rsvd2, char rsvd3, UnescapeMode unescapeMode, UriParser syntax, 
             bool isQuery)
         {
-            fixed (char *pStr = input)
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char *pStr = input.ToCharArray ())
             {
                 return UnescapeString(pStr, start, end, dest, ref destPosition, rsvd1, rsvd2, rsvd3, unescapeMode, 
                     syntax, isQuery);

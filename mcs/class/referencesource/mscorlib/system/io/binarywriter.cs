@@ -360,11 +360,14 @@ namespace System.IO {
         // to the stream.
         // 
         [System.Security.SecuritySafeCritical]  // auto-generated
-        public unsafe virtual void Write(String value) 
+        public unsafe virtual void Write(String value_)
         {
-            if (value==null)
+            if (value_==null)
                 throw new ArgumentNullException("value");
             Contract.EndContractBlock();
+
+			/* FIXME: Avoid ToCharArray. */
+			char[] value = value_.ToCharArray ();
 
             int len = _encoding.GetByteCount(value);
             Write7BitEncodedInt(len);

@@ -1505,7 +1505,7 @@ namespace System.Runtime.InteropServices
 				case COR_E_MISSINGMEMBER:
 					return new MissingMemberException ();
 				case COR_E_MISSINGMETHOD:
-					return new MissingMethodException ();
+					return new MissingMethodException ("SHABBADOO");
 				case COR_E_MULTICASTNOTSUPPORTED:
 					return new MulticastNotSupportedException ();
 				case COR_E_NOTFINITENUMBER:

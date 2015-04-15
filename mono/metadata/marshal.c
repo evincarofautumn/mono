@@ -17,6 +17,7 @@
 #endif
 
 #include "object.h"
+#include "object-internals.h"
 #include "loader.h"
 #include "cil-coff.h"
 #include "metadata/marshal.h"
@@ -843,14 +844,15 @@ mono_array_to_byte_byvalarray (gpointer native_arr, MonoArray *arr, guint32 elnu
 }
 
 static MonoStringBuilder *
-mono_string_builder_new (int starting_string_length)
+mono_string_builder_new (int starting_string_length, MonoInternalEncoding encoding)
 {
 	static MonoClass *string_builder_class;
 	static MonoMethod *sb_ctor;
-	static void *args [1];
-
+	static void *args [3];
 	MonoError error;
 	int initial_len = starting_string_length;
+	int max_capacity = INT_MAX;
+	MonoBoolean is_compact = encoding == MONO_ENCODING_ASCII;
 
 	if (initial_len < 0)
 		initial_len = 0;
@@ -861,7 +863,7 @@ mono_string_builder_new (int starting_string_length)
 
 		string_builder_class = mono_class_get_string_builder_class ();
 		g_assert (string_builder_class);
-		desc = mono_method_desc_new (":.ctor(int)", FALSE);
+		desc = mono_method_desc_new (":.ctor(int,int,bool)", FALSE);
 		m = mono_method_desc_search_in_class (desc, string_builder_class);
 		g_assert (m);
 		mono_method_desc_free (desc);
@@ -872,6 +874,8 @@ mono_string_builder_new (int starting_string_length)
 	// We make a new array in the _to_builder function, so this
 	// array will always be garbage collected.
 	args [0] = &initial_len;
+	args [1] = &max_capacity;
+	args [2] = &is_compact;
 
 	MonoStringBuilder *sb = (MonoStringBuilder*)mono_object_new_checked (mono_domain_get (), string_builder_class, &error);
 	mono_error_assert_ok (&error);
@@ -879,23 +883,86 @@ mono_string_builder_new (int starting_string_length)
 	MonoObject *exc;
 	mono_runtime_try_invoke (sb_ctor, sb, args, &exc, &error);
 	g_assert (exc == NULL);
-	mono_error_assert_ok (&error);
-
-	g_assert (sb->chunkChars->max_length >= initial_len);
-
+	g_assert (sb->chunkBytes->max_length >= initial_len);
 	return sb;
+}
+
+/* As long as this is only called by mono_string_utf8_to_builder, it can assume
+ * that the text is compact-representable.
+*/
+static void
+mono_string_utf8_to_builder_copy (MonoStringBuilder *sb, char *text, size_t string_len)
+{
+	if (sb->isCompact) {
+		memcpy (sb->chunkBytes->vector, text, string_len);
+	} else {
+		MonoError error;
+		mono_error_init (&error);
+		MonoArray *array = mono_array_new_checked (mono_domain_get (), mono_defaults.byte_class, string_len, &error);
+		if (mono_error_set_pending_exception (&error))
+			return;
+		memcpy (sb->chunkBytes->vector, text, string_len);
+		MONO_OBJECT_SETREF (sb, chunkBytes, array);
+		sb->isCompact = TRUE;
+	}
+	sb->chunkLength = string_len;
 }
 
 static void
 mono_string_utf16_to_builder_copy (MonoStringBuilder *sb, gunichar2 *text, size_t string_len)
 {
-	gunichar2 *charDst = (gunichar2 *)sb->chunkChars->vector;
-	gunichar2 *charSrc = (gunichar2 *)text;
-	memcpy (charDst, charSrc, sizeof (gunichar2) * string_len);
-
+	/* Unfortunately we have to re-infer the encoding, because the StringBuilder
+	 * data may have been changed by unmanaged code, so its representation might
+	 * have to change. Fortunately, the new representation might be the compact
+	 * encoding, so we might get to save some memory.
+	 */
+	MonoInternalEncoding encoding = mono_string_infer_encoding_ucs2 (text, string_len);
+	if (sb->isCompact) {
+		switch (encoding) {
+		case MONO_ENCODING_ASCII:
+			/* StringBuilder is compact and string is compact-representable: copy. */
+			{
+				/* FIXME: Unroll. */
+				for (int i = 0; i < string_len; ++i)
+					((char *)sb->chunkBytes->vector) [i] = (char)text [i];
+				break;
+			}
+		case MONO_ENCODING_UTF16:
+			/* StringBuilder is compact but string is not compact-representable: degrade to non-compact. */
+			{
+				g_assert_not_reached ();
+				break;
+			}
+		}
+	} else {
+		switch (encoding) {
+		case MONO_ENCODING_ASCII:
+			/* StringBuilder is non-compact but string is compact-representable: upgrade to compact. */
+			{
+				MonoError error;
+				mono_error_init (&error);
+				/* FIXME: Is mono_domain_get() the correct domain here? */
+				MonoArray *array = mono_array_new_checked (mono_domain_get (), mono_defaults.byte_class, string_len, &error);
+				if (mono_error_set_pending_exception (&error))
+					return;
+				/* FIXME: Unroll. */
+				for (int i = 0; i < string_len; ++i)
+					((char *)array->vector) [i] = (char)text [i];
+				MONO_OBJECT_SETREF (sb, chunkBytes, array);
+				sb->isCompact = TRUE;
+				break;
+			}
+		case MONO_ENCODING_UTF16:
+			/* StringBuilder is non-compact and string is not compact-representable: copy. */
+			{
+				gunichar2 *charDst = (gunichar2 *)sb->chunkBytes->vector;
+				gunichar2 *charSrc = (gunichar2 *)text;
+				memcpy (charDst, charSrc, sizeof (gunichar2) * string_len);
+				break;
+			}
+		}
+	}
 	sb->chunkLength = string_len;
-
-	return;
 }
 
 MonoStringBuilder *
@@ -907,11 +974,14 @@ mono_string_utf16_to_builder2 (gunichar2 *text)
 	int len;
 	for (len = 0; text [len] != 0; ++len);
 
-	MonoStringBuilder *sb = mono_string_builder_new (len);
+	MonoInternalEncoding encoding = mono_string_infer_encoding_ucs2 (text, len);
+	MonoStringBuilder *sb = mono_string_builder_new (len, encoding);
 	mono_string_utf16_to_builder (sb, text);
 
 	return sb;
 }
+
+gpointer sgen_client_get_provenance (MonoObject *);
 
 void
 mono_string_utf8_to_builder (MonoStringBuilder *sb, char *text)
@@ -919,21 +989,39 @@ mono_string_utf8_to_builder (MonoStringBuilder *sb, char *text)
 	if (!sb || !text)
 		return;
 
+#if 0
+	g_print ("%s(%p)", __FUNCTION__, sb);
+	// g_assert_not_reached ();
+#endif
+
 	int len = strlen (text);
 	if (len > mono_string_builder_capacity (sb))
 		len = mono_string_builder_capacity (sb);
 
-	GError *error = NULL;
-	glong copied;
-	gunichar2* ut = g_utf8_to_utf16 (text, len, NULL, &copied, &error);
+	MonoInternalEncoding encoding = mono_string_infer_encoding_utf8 (text, len);
+	switch (encoding) {
+	case MONO_ENCODING_ASCII:
+		{
+			MONO_OBJECT_SETREF (sb, chunkPrevious, NULL);
+			mono_string_utf8_to_builder_copy (sb, text, len);
+			break;
+		}
+	case MONO_ENCODING_UTF16:
+		{
+			GError *error = NULL;
+			glong copied;
+			gunichar2* ut = g_utf8_to_utf16 (text, len, NULL, &copied, &error);
 
-	if (!error) {
-		MONO_OBJECT_SETREF (sb, chunkPrevious, NULL);
-		mono_string_utf16_to_builder_copy (sb, ut, copied);
-	} else
-		g_error_free (error);
+			if (!error) {
+				MONO_OBJECT_SETREF (sb, chunkPrevious, NULL);
+				mono_string_utf16_to_builder_copy (sb, ut, copied);
+			} else
+				g_error_free (error);
 
-	g_free (ut);
+			g_free (ut);
+			break;
+		}
+	}
 }
 
 MonoStringBuilder *
@@ -943,7 +1031,8 @@ mono_string_utf8_to_builder2 (char *text)
 		return NULL;
 
 	int len = strlen (text);
-	MonoStringBuilder *sb = mono_string_builder_new (len);
+	MonoInternalEncoding encoding = mono_string_infer_encoding_utf8 (text, len);
+	MonoStringBuilder *sb = mono_string_builder_new (len, encoding);
 	mono_string_utf8_to_builder (sb, text);
 
 	return sb;
@@ -955,6 +1044,11 @@ mono_string_utf16_to_builder (MonoStringBuilder *sb, gunichar2 *text)
 {
 	if (!sb || !text)
 		return;
+
+#if 0
+	g_print ("%s(%p)", __FUNCTION__, sb);
+	// g_assert_not_reached ();
+#endif
 
 	guint32 len;
 	for (len = 0; text [len] != 0; ++len);
@@ -1037,7 +1131,12 @@ mono_string_builder_to_utf16 (MonoStringBuilder *sb)
 	if (!sb)
 		return NULL;
 
-	g_assert (sb->chunkChars);
+	g_assert (sb->chunkBytes);
+
+#if 0
+	g_print ("mono_string_builder_to_utf16(%p[chunkBytes[max_length=%lu],chunkPrevious=%p,chunkLength=%d,chunkOffset=%d,isCompact=%s])\n",
+			 sb, sb->chunkBytes->max_length, sb->chunkPrevious, sb->chunkLength, sb->chunkOffset, sb->isCompact ? "true" : "false");
+#endif
 
 	guint len = mono_string_builder_capacity (sb);
 
@@ -1059,14 +1158,22 @@ mono_string_builder_to_utf16 (MonoStringBuilder *sb)
 	do {
 		if (chunk->chunkLength > 0) {
 			// Check that we will not overrun our boundaries.
-			gunichar2 *source = (gunichar2 *)chunk->chunkChars->vector;
-
-			if (chunk->chunkLength <= len) {
-				memcpy (str + chunk->chunkOffset, source, chunk->chunkLength * sizeof(gunichar2));
+			if (chunk->isCompact) {
+				char *source = (char *)chunk->chunkBytes->vector;
+				if (chunk->chunkLength <= len) {
+					for (int i = 0; i < chunk->chunkLength; ++i)
+						str [chunk->chunkOffset + i] = (gunichar2)source [i];
+				} else {
+					g_error ("A compact chunk in the StringBuilder had a length (%d) longer than expected (%d) from the offset.", chunk->chunkLength, len);
+				}
 			} else {
-				g_error ("A chunk in the StringBuilder had a length longer than expected from the offset.");
+				gunichar2 *source = (gunichar2 *)chunk->chunkBytes->vector;
+				if (chunk->chunkLength <= len) {
+					memcpy (str + chunk->chunkOffset, source, chunk->chunkLength * sizeof (gunichar2));
+				} else {
+					g_error ("A non-compact chunk in the StringBuilder had a length (%d) longer than expected (%d) from the offset.", chunk->chunkLength, len);
+				}
 			}
-
 			len -= chunk->chunkLength;
 		}
 		chunk = chunk->chunkPrevious;
@@ -1176,9 +1283,16 @@ mono_string_to_byvalwstr (gpointer dst, MonoString *src, int size)
 		return;
 	}
 
-	len = MIN (size, (mono_string_length (src)));
-	memcpy (dst, mono_string_chars (src), size * 2);
-	if (size <= mono_string_length (src))
+	len = MIN (size, (mono_string_length_fast (src, TRUE)));
+	if (mono_string_is_compact (src)) {
+		size_t i;
+		for (i = 0; i < size; ++i)
+			((gunichar2 *)dst) [i] = (gunichar2)mono_string_bytes_fast (src) [i];
+	} else {
+		memcpy (dst, mono_string_chars_fast (src), size * 2);
+	}
+
+	if (size <= mono_string_length_fast (src, TRUE))
 		len--;
 	*((gunichar2 *) dst + len) = 0;
 }
@@ -2522,8 +2636,6 @@ mono_marshal_get_ptr_to_stringbuilder_conv (MonoMethodPInvoke *piinfo, MonoMarsh
 static gboolean
 mono_marshal_need_free (MonoType *t, MonoMethodPInvoke *piinfo, MonoMarshalSpec *spec)
 {
-	MonoMarshalNative encoding;
-
 	switch (t->type) {
 	case MONO_TYPE_VALUETYPE:
 		/* FIXME: Optimize this */
@@ -2537,8 +2649,7 @@ mono_marshal_need_free (MonoType *t, MonoMethodPInvoke *piinfo, MonoMarshalSpec 
 		}
 		return FALSE;
 	case MONO_TYPE_STRING:
-		encoding = mono_marshal_get_string_encoding (piinfo, spec);
-		return (encoding == MONO_NATIVE_LPWSTR) ? FALSE : TRUE;
+		return TRUE;
 	default:
 		return FALSE;
 	}
@@ -10571,7 +10682,7 @@ mono_marshal_free_array (gpointer *ptr, int size)
 void *
 mono_marshal_string_to_utf16 (MonoString *s)
 {
-	return s ? mono_string_chars (s) : NULL;
+	return s ? mono_string_to_utf16 (s) : NULL;
 }
 
 /* This is a JIT icall, it sets the pending exception and returns NULL on error. */
@@ -10582,13 +10693,14 @@ mono_marshal_string_to_utf16_copy (MonoString *s)
 		return NULL;
 	} else {
 		MonoError error;
-		gunichar2 *res = (gunichar2 *)mono_marshal_alloc ((mono_string_length (s) * 2) + 2, &error);
+		size_t length = mono_string_length_fast (s, TRUE);
+		gunichar2 *res = (gunichar2 *)mono_marshal_alloc ((length + 1) * sizeof (gunichar2), &error);
 		if (!mono_error_ok (&error)) {
 			mono_error_set_pending_exception (&error);
 			return NULL;
 		}
-		memcpy (res, mono_string_chars (s), mono_string_length (s) * 2);
-		res [mono_string_length (s)] = 0;
+		mono_string_copy_to_utf16 (s, res);
+		res [length] = 0;
 		return res;
 	}
 }
@@ -10989,13 +11101,13 @@ ves_icall_System_Runtime_InteropServices_Marshal_StringToHGlobalUni (MonoString 
 		return NULL;
 	else {
 #ifdef TARGET_WIN32
-		gunichar2 *res = ves_icall_System_Runtime_InteropServices_Marshal_AllocHGlobal 
-			((mono_string_length (string) + 1) * 2);
+		gunichar2 *res = ves_icall_System_Runtime_InteropServices_Marshal_AllocHGlobal
+			((mono_string_length_fast (string, TRUE) + 1) * sizeof (gunichar2));
 #else
-		gunichar2 *res = (gunichar2 *)g_malloc ((mono_string_length (string) + 1) * 2);
+		gunichar2 *res = (gunichar2 *)g_malloc ((mono_string_length_fast (string, TRUE) + 1) * sizeof (gunichar2));
 #endif
-		memcpy (res, mono_string_chars (string), mono_string_length (string) * 2);
-		res [mono_string_length (string)] = 0;
+		mono_string_copy_to_utf16 (string, res);
+		res [mono_string_length_fast (string, TRUE)] = 0;
 		return res;
 	}
 }

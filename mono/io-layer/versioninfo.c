@@ -322,7 +322,7 @@ map_pe_file (gunichar2 *filename, gint32 *map_size, void **handle)
 	 * straight to fopen
 	 */
 
-	filename_ext = mono_unicode_to_external (filename);
+	filename_ext = mono_utf16_to_external (filename);
 	if (filename_ext == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 

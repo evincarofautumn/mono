@@ -118,7 +118,7 @@ mono_string_new_utf16	    (MonoDomain *domain, const mono_unichar2 *text, int32_
 
 MONO_RT_EXTERNAL_ONLY
 MONO_API MonoString*
-mono_string_new_size	    (MonoDomain *domain, int32_t len);
+mono_string_new_size	    (MonoDomain *domain, int32_t len, int32_t encoding);
 
 MONO_RT_EXTERNAL_ONLY
 MONO_API MonoString*
@@ -154,6 +154,9 @@ mono_string_to_utf8_checked (MonoString *string_obj, MonoError *error);
 
 MONO_API mono_unichar2 *
 mono_string_to_utf16	    (MonoString *string_obj);
+
+MONO_API void
+mono_string_copy_to_utf16	    (MonoString *string, mono_unichar2 *buffer);
 
 MONO_API mono_unichar4 *
 mono_string_to_utf32	    (MonoString *string_obj);

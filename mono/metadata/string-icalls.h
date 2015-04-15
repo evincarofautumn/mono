@@ -18,8 +18,11 @@
 void
 ves_icall_System_String_ctor_RedirectToCreateString (void);
 
+MonoBoolean
+ves_icall_System_String_CompactRepresentable (const guint16 *str, gint32 length);
+
 MonoString *
-ves_icall_System_String_InternalAllocateStr (gint32 length);
+ves_icall_System_String_InternalAllocateStr (gint32 length, gint32 encoding);
 
 MonoString  *
 ves_icall_System_String_InternalIntern (MonoString *str);

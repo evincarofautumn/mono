@@ -9,16 +9,19 @@ namespace System.Globalization
 			if (str.Length == 0)
 				return String.Empty;
 
-			string tmp = String.FastAllocateString (str.Length);
-			fixed (char* source = str, dest = tmp) {
-
-				char* destPtr = (char*)dest;
-				char* sourcePtr = (char*)source;
-
-				for (int n = 0; n < str.Length; n++) {
-					*destPtr = ToUpper (*sourcePtr);
-					sourcePtr++;
-					destPtr++;
+			// UTF-16 because 'ToUpper' may not return ASCII given ASCII input.
+			string tmp = String.FastAllocateString (str.Length, String.ENCODING_UTF16);
+			fixed (byte* source = &str.m_firstByte)
+			fixed (byte* dest = &tmp.m_firstByte) {
+                char* destPtr = (char*)dest;
+				if (str.IsCompact) {
+					byte* sourcePtr = source;
+					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
+						*destPtr = ToUpper((char)*sourcePtr);
+				} else {
+					char* sourcePtr = (char*)source;
+					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
+						*destPtr = ToUpper(*sourcePtr);
 				}
 			}
 			return tmp;
@@ -29,16 +32,19 @@ namespace System.Globalization
 			if (str.Length == 0)
 				return String.Empty;
 
-			string tmp = String.FastAllocateString (str.Length);
-			fixed (char* source = str, dest = tmp) {
-
-				char* destPtr = (char*)dest;
-				char* sourcePtr = (char*)source;
-
-				for (int n = 0; n < str.Length; n++) {
-					*destPtr = ToLower (*sourcePtr);
-					sourcePtr++;
-					destPtr++;
+			// UTF-16 because 'ToUpper' may not return ASCII given ASCII input.
+			string tmp = String.FastAllocateString (str.Length, String.ENCODING_UTF16);
+			fixed (byte* source = &str.m_firstByte)
+			fixed (byte* destByte = &tmp.m_firstByte) {
+                char* destPtr = (char*)destByte;
+				if (str.IsCompact) {
+					byte* sourcePtr = source;
+					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
+						*destPtr = ToLower((char)*sourcePtr);
+				} else {
+					char* sourcePtr = (char*)source;
+					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
+						*destPtr = ToLower(*sourcePtr);
 				}
 			}
 			return tmp;
@@ -212,7 +218,8 @@ namespace System.Globalization
 			if (lengthA == lengthB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			fixed (char* aptr = strA, bptr = strB) {
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char* aptr = strA.ToCharArray (), bptr = strB.ToCharArray ()) {
 				char* ap = aptr + indexA;
 				char* end = ap + Math.Min (lengthA, lengthB);
 				char* bp = bptr + indexB;

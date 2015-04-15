@@ -587,7 +587,8 @@ namespace System {
                         break;
                     }
                     string scheme =  relativeStr.Substring(0, i);
-                    fixed (char* sptr = scheme) {
+                    /* FIXME: Avoid ToCharArray. */
+                    fixed (char* sptr = scheme.ToCharArray ()) {
                         UriParser syntax = null;
                         if (CheckSchemeSyntax(sptr, (ushort) scheme.Length, ref syntax) == ParsingError.None) {
                             if (baseUri.Syntax == syntax) {
@@ -1399,7 +1400,8 @@ namespace System {
             }
             int end = name.Length;
             unsafe {
-                fixed (char* fixedName = name) {
+                /* FIXME: Avoid ToCharArray. */
+                fixed (char* fixedName = name.ToCharArray ()) {
 
                     if (name[0] == '[' && name[name.Length-1] == ']') {
                         // we require that _entire_ name is recognized as ipv6 address
@@ -1429,7 +1431,8 @@ namespace System {
                 end = name.Length+2;
                 // we require that _entire_ name is recognized as ipv6 address
                 name = "["+name+"]";
-                fixed (char* newFixedName = name) {
+                /* FIXME: Avoid ToCharArray. */
+                fixed (char* newFixedName = name.ToCharArray ()) {
                     if (IPv6AddressHelper.IsValid(newFixedName, 1, ref end) && end == name.Length) {
                         return UriHostNameType.IPv6;
                     }
@@ -1814,8 +1817,10 @@ namespace System {
                     if (m_String.Length == obj.m_String.Length) {
                         unsafe {
                             // Try case sensitive compare on m_Strings
-                            fixed (char* pMe = m_String) {
-                                fixed (char* pShe = obj.m_String) {
+                            /* FIXME: Avoid ToCharArray. */
+                            fixed (char* pMe = m_String.ToCharArray ()) {
+                                /* FIXME: Avoid ToCharArray. */
+                                fixed (char* pShe = obj.m_String.ToCharArray ()) {
                                     // This will never go negative since m_String is checked to be a valid URI
                                     int i = (m_String.Length-1);
                                     for ( ;i >= 0 ; --i) {
@@ -1923,8 +1928,10 @@ namespace System {
                 }
                 unsafe {
                     // Try case sensitive compare on m_Strings
-                    fixed (char* pMe = me) {
-                        fixed (char* pShe = she) {
+                    /* FIXME: Avoid ToCharArray. */
+                    fixed (char* pMe = me.ToCharArray ()) {
+                        /* FIXME: Avoid ToCharArray. */
+                        fixed (char* pShe = she.ToCharArray ()) {
                             char *endMe  = pMe  + me.Length;
                             char *endShe = pShe + me.Length;
                             while (endMe != pMe) {
@@ -2033,7 +2040,8 @@ namespace System {
                 return ParsingError.SizeLimit;
 
             //STEP1: parse scheme, lookup this Uri Syntax or create one using UnknownV1SyntaxFlags uri syntax template
-            fixed (char* pUriString = uriString)
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* pUriString = uriString.ToCharArray ())
             {
                 ParsingError err = ParsingError.None;
                 ushort idx = ParseSchemeCheckImplicitFile(pUriString, (ushort)length, ref err, ref flags, ref syntax);
@@ -2084,9 +2092,10 @@ namespace System {
 
             //STEP2: Parse up to the port
 
+            /* FIXME: Avoid ToCharArray. */
             fixed (char* pUriString =   ((m_iriParsing &&
                                         ((m_Flags & Flags.HasUnicode)!=0) &&
-                                        ((m_Flags & Flags.HostUnicodeNormalized) == 0)) ? m_originalUnicodeString : m_String))
+                                          ((m_Flags & Flags.HostUnicodeNormalized) == 0)) ? m_originalUnicodeString.ToCharArray () : m_String.ToCharArray ()))
             {
                 // Cut trailing spaces in m_String
                 if (length > idx && IsLWS(pUriString[length-1]))
@@ -2437,7 +2446,8 @@ namespace System {
                 info.Offset.End = (ushort)m_originalUnicodeString.Length;
 
             if (idx < info.Offset.End ){
-                fixed (char* userString = UseOrigUnicodeStrOffset ? m_originalUnicodeString : m_String){
+                /* FIXME: Avoid ToCharArray. */
+                fixed (char* userString = UseOrigUnicodeStrOffset ? m_originalUnicodeString.ToCharArray () : m_String.ToCharArray ()){
                     if (userString[idx] == ':'){
                         int port = 0;
 
@@ -2536,7 +2546,8 @@ namespace System {
                 if (HostType == Flags.BasicHostType) {
                     ushort idx = 0;
                     Check result;
-                    fixed (char* pHost = host) {
+                    /* FIXME: Avoid ToCharArray. */
+                    fixed (char* pHost = host.ToCharArray ()) {
                         result = CheckCanonical(pHost, ref idx, (ushort)host.Length, c_DummyChar);
                     }
 
@@ -2673,7 +2684,8 @@ namespace System {
                 ParsingError err = ParsingError.None;
                 Flags flags = m_Flags & ~Flags.HostTypeMask;
 
-                fixed (char *pHost = host)
+                /* FIXME: Avoid ToCharArray. */
+                fixed (char *pHost = host.ToCharArray ())
                 {
                     string newHost = null;
                     if (CheckAuthorityHelper(pHost, 0, (ushort)host.Length, ref err, ref flags, m_Syntax, ref newHost) != 
@@ -2907,7 +2919,8 @@ namespace System {
                 {
                     unsafe
                     {
-                        fixed (char* hostPtr = stemp)
+                        /* FIXME: Avoid ToCharArray. */
+                        fixed (char* hostPtr = stemp.ToCharArray ())
                         {
                             bool allAscii = false;
                             bool atLeastOneValidIdn = false;
@@ -3298,7 +3311,8 @@ namespace System {
             // Multithreading!
             // m_Info.Offset values may be parsed twice but we lock only on m_Flags update.
 
-            fixed (char* str = m_String){
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* str = m_String.ToCharArray ()){
                 // Cut trailing spaces in m_String
                 if (length > idx && IsLWS(str[length - 1]))
                 {
@@ -3411,7 +3425,8 @@ namespace System {
                 length = (ushort)m_String.Length;
             }
 
-            fixed (char* str = m_String){
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* str = m_String.ToCharArray ()){
                 if (IsImplicitFile || ((syntaxFlags & (UriSyntaxFlags.MayHaveQuery | UriSyntaxFlags.MayHaveFragment)) == 0)){
                     result = CheckCanonical(str, ref idx, length, c_DummyChar);
                 }
@@ -3531,7 +3546,8 @@ namespace System {
 
             m_Info.Offset.Query = idx;
 
-            fixed (char* str = m_String){
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* str = m_String.ToCharArray ()){
                 if (idx < length && str[idx] == '?'){
                     ++idx; // This is to exclude first '?' character from checking
                     result = CheckCanonical(str, ref idx, length, ((syntaxFlags & (UriSyntaxFlags.MayHaveFragment)) != 0) 
@@ -3584,7 +3600,8 @@ namespace System {
 
             m_Info.Offset.Fragment = idx;
 
-            fixed (char* str = m_String){
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* str = m_String.ToCharArray ()){
                 if (idx < length && str[idx] == '#'){
                     ++idx; // This is to exclude first '#' character from checking
                     //We don't using c_DummyChar since want to allow '?' and '#' as unescaped
@@ -4447,7 +4464,8 @@ namespace System {
 
         private unsafe void FindEndOfComponent(string input, ref ushort idx, ushort end, char delim)
         {
-            fixed (char* str = input)
+            /* FIXME: Avoid ToCharArray. */
+            fixed (char* str = input.ToCharArray ())
             {
                 FindEndOfComponent(str, ref idx, end, delim);
             }

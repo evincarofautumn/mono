@@ -627,14 +627,18 @@ foreach_shared_item (SharedFunc func, void *data)
 static int
 mono_string_compare_ascii (MonoString *str, const char *ascii_str)
 {
-	/* FIXME: make this case insensitive */
-	guint16 *strc = mono_string_chars (str);
-	while (*strc == *ascii_str++) {
-		if (*strc == 0)
-			return 0;
-		strc++;
+	if (mono_string_is_compact (str)) {
+		return strcmp (mono_string_bytes_fast (str), ascii_str);
+	} else {
+		/* FIXME: make this case insensitive */
+		guint16 *strc = mono_string_chars_fast (str);
+		while (*strc == *ascii_str++) {
+			if (*strc == 0)
+				return 0;
+			strc++;
+		}
+		return *strc - *(const unsigned char *)(ascii_str - 1);
 	}
-	return *strc - *(const unsigned char *)(ascii_str - 1);
 }
 
 typedef struct {
@@ -1324,8 +1328,10 @@ mono_perfcounter_get_impl (MonoString* category, MonoString* counter, MonoString
 {
 	const CategoryDesc *cdesc;
 	/* no support for counters on other machines */
-	if (mono_string_compare_ascii (machine, "."))
+	if (mono_string_compare_ascii (machine, ".")) {
+		g_assert_not_reached ();
 		return NULL;
+	}
 	cdesc = find_category (category);
 	if (!cdesc) {
 		SharedCategory *scat = find_custom_category (category);

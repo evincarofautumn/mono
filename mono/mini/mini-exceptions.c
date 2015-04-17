@@ -2628,8 +2628,8 @@ mono_invoke_unhandled_exception_hook (MonoObject *exc)
 			char *original_backtrace = mono_exception_get_managed_backtrace ((MonoException*)exc);
 			char *nested_backtrace = mono_exception_get_managed_backtrace ((MonoException*)other);
 
-			msg = g_strdup_printf ("Nested exception detected.\nOriginal Exception: %s\nNested exception:%s\n",
-				original_backtrace, nested_backtrace);
+			msg = g_strdup_printf ("Nested exception detected.\nOriginal Exception: (%s) %s\nNested exception: (%s) %s\n",
+				exc->vtable->klass->name, original_backtrace, other->vtable->klass->name, nested_backtrace);
 
 			g_free (original_backtrace);
 			g_free (nested_backtrace);

@@ -1315,6 +1315,8 @@ create_allocator (int atype, gboolean slowpath)
 		mono_mb_emit_icall (mb, mono_gc_alloc_vector);
 	} else if (atype == ATYPE_STRING) {
 		mono_mb_emit_ldarg (mb, 1);
+		
+		mono_mb_emit_icon (mb, MONO_ENCODING_UTF16);
 		mono_mb_emit_icall (mb, mono_gc_alloc_string);
 	} else {
 		g_assert_not_reached ();
@@ -1353,13 +1355,15 @@ create_allocator (int atype, gboolean slowpath)
 #endif
 	} else 	if (atype == ATYPE_STRING) {
 		/* need to set length and clear the last char */
-		/* s->length = len; */
+		/* s->tagged_length = len << 1; */
 		mono_mb_emit_ldloc (mb, p_var);
-		mono_mb_emit_icon (mb, MONO_STRUCT_OFFSET (MonoString, length));
+		mono_mb_emit_icon (mb, MONO_STRUCT_OFFSET (MonoString, tagged_length));
 		mono_mb_emit_byte (mb, MONO_CEE_ADD);
 		mono_mb_emit_ldarg (mb, 1);
+		mono_mb_emit_icon (mb, 1);
+		mono_mb_emit_byte (mb, MONO_CEE_SHL);
 		mono_mb_emit_byte (mb, MONO_CEE_STIND_I4);
-		/* s->chars [len] = 0; */
+		/* s->bytes [len] = 0; */
 		mono_mb_emit_ldloc (mb, p_var);
 		mono_mb_emit_ldloc (mb, size_var);
 		mono_mb_emit_icon (mb, 2);
@@ -1795,7 +1799,7 @@ mono_gc_alloc_array (MonoVTable *vtable, size_t size, uintptr_t max_length, uint
 }
 
 void*
-mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len)
+mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalEncoding encoding)
 {
 	MonoString *str;
 	TLAB_ACCESS_INIT;
@@ -1808,7 +1812,7 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len)
 	str = sgen_try_alloc_obj_nolock ((GCVTable*)vtable, size);
 	if (str) {
 		/*This doesn't require fencing since EXIT_CRITICAL_REGION already does it for us*/
-		str->length = len;
+		mono_string_set_length (str, len, encoding);
 		EXIT_CRITICAL_REGION;
 		goto done;
 	}
@@ -1842,6 +1846,7 @@ void
 mono_gc_set_string_length (MonoString *str, gint32 new_length)
 {
 	mono_unichar2 *new_end = str->chars + new_length;
+	g_assert (!mono_string_is_compact (str));
 
 	/* zero the discarded string. This null-delimits the string and allows
 	 * the space to be reclaimed by SGen. */
@@ -1854,6 +1859,7 @@ mono_gc_set_string_length (MonoString *str, gint32 new_length)
 		memset (new_end, 0, (str->length - new_length + 1) * sizeof (mono_unichar2));
 	}
 
+	mono_string_set_length (str, new_length, mono_string_is_compact (str) ? MONO_ENCODING_ASCII : MONO_ENCODING_UTF16);
 	str->length = new_length;
 }
 

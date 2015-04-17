@@ -863,7 +863,7 @@ ves_icall_System_Runtime_CompilerServices_RuntimeHelpers_InitializeArray (MonoAr
 ICALL_EXPORT gint
 ves_icall_System_Runtime_CompilerServices_RuntimeHelpers_GetOffsetToStringData (void)
 {
-	return offsetof (MonoString, chars);
+	return offsetof (MonoString, bytes);
 }
 
 ICALL_EXPORT MonoObject *

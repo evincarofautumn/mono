@@ -107,7 +107,7 @@ MONO_API MonoString*
 mono_string_new_utf16	    (MonoDomain *domain, const mono_unichar2 *text, int32_t len);
 
 MONO_API MonoString*
-mono_string_new_size	    (MonoDomain *domain, int32_t len);
+mono_string_new_size	    (MonoDomain *domain, int32_t len, int32_t encoding);
 
 MONO_API MonoString*
 mono_ldstr		    (MonoDomain *domain, MonoImage *image, uint32_t str_index);

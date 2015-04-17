@@ -992,6 +992,7 @@ void sgen_check_nursery_objects_pinned (gboolean pinned);
 void sgen_check_for_xdomain_refs (void);
 char* sgen_find_object_for_ptr (char *ptr);
 
+<<<<<<< HEAD:mono/sgen/sgen-gc.h
 void mono_gc_scan_for_specific_ref (GCObject *key, gboolean precise);
 
 void sgen_debug_enable_heap_dump (const char *filename);
@@ -999,6 +1000,10 @@ void sgen_debug_dump_heap (const char *type, int num, const char *reason);
 
 void sgen_debug_verify_nursery (gboolean do_dump_nursery_content);
 void sgen_debug_check_nursery_is_clean (void);
+=======
+void mono_gc_scan_for_specific_ref (MonoObject *key, gboolean precise);
+void sgen_scan_for_string (char *search);
+>>>>>>> WIP Migrate referencesource string methods.:mono/metadata/sgen-gc.h
 
 /* Write barrier support */
 

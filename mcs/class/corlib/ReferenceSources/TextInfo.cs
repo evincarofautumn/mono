@@ -32,9 +32,11 @@ namespace System.Globalization
 				return String.Empty;
 
 			string tmp = String.FastAllocateString (str.Length);
-			fixed (char* source = str, dest = tmp) {
-
-				char* destPtr = (char*)dest;
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char* source = str.ToCharArray ())
+			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
+			fixed (char* destByte = tmp) {
+				char* destPtr = (char*)destByte;
 				char* sourcePtr = (char*)source;
 
 				for (int n = 0; n < str.Length; n++) {
@@ -52,9 +54,12 @@ namespace System.Globalization
 				return String.Empty;
 
 			string tmp = String.FastAllocateString (str.Length);
-			fixed (char* source = str, dest = tmp) {
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char* source = str.ToCharArray ())
+			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
+			fixed (char* destByte = tmp) {
 
-				char* destPtr = (char*)dest;
+				char* destPtr = (char*)destByte;
 				char* sourcePtr = (char*)source;
 
 				for (int n = 0; n < str.Length; n++) {
@@ -180,7 +185,8 @@ namespace System.Globalization
 			if (lengthA == lengthB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			fixed (char* aptr = strA, bptr = strB) {
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char* aptr = strA.ToCharArray (), bptr = strB.ToCharArray ()) {
 				char* ap = aptr + indexA;
 				char* end = ap + Math.Min (lengthA, lengthB);
 				char* bp = bptr + indexB;

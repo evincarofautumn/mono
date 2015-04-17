@@ -1013,7 +1013,9 @@ namespace System
 			if (count == 0)
 				return Empty;
 			string result = FastAllocateString (count);
-			fixed (char *dest = result) {
+			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
+			fixed (byte* destByte = &result.m_firstByte) {
+				char* dest = (char*)destByte;
 				char *p = dest;
 				char *end = p + count;
 				while (p < end) {

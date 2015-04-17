@@ -976,7 +976,7 @@ namespace System
 					length++;
 			} catch (NullReferenceException) {
 				throw new ArgumentOutOfRangeException ("ptr", "Value does not refer to a valid string.");
-		}
+			}
 
 			return CreateString (value, 0, length, null);
 		}

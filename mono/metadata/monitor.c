@@ -276,7 +276,10 @@ mon_new (gsize id)
 		new = NULL;
 		for (marray = monitor_allocated; marray; marray = marray->next) {
 			for (i = 0; i < marray->num_monitors; ++i) {
-				if (marray->monitors [i].data == NULL) {
+				guint32 handle = (guint32)marray->monitors [i].data;
+				/* g_assert (marray->monitors [i].data); */
+				/* g_assert (mono_gchandle_is_valid (handle)); */
+				if (FALSE && mono_gchandle_get_target (handle) == NULL) {
 					new = &marray->monitors [i];
 					if (new->wait_list) {
 						/* Orphaned events left by aborted threads */

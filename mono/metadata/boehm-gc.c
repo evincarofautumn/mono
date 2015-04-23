@@ -1725,6 +1725,14 @@ mono_gchandle_set_target (guint32 gchandle, MonoObject *obj)
 	unlock_handles (handles);
 }
 
+
+gboolean
+mono_gchandle_is_valid (guint32 gchandle)
+{
+	g_assert_not_reached ();
+}
+
+
 /**
  * mono_gchandle_is_in_domain:
  * @gchandle: a GCHandle's handle.

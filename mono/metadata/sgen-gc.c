@@ -5414,7 +5414,10 @@ static HandleData gc_handles [] = {
 static HandleData *
 gc_handles_for_type (GCHandleType type)
 {
-	g_assert (type < HANDLE_TYPE_MAX);
+	if (type >= HANDLE_TYPE_MAX) {
+		g_printerr ("invalid handle type %d", type);
+		SGEN_ASSERT (0, type < HANDLE_TYPE_MAX, "How did we get an invalid handle type?");
+	}
 	return &gc_handles [type];
 }
 
@@ -5700,6 +5703,22 @@ retry:
 		mono_gc_weak_link_unregister (&handles->entries [bucket] [offset], track);
 	if (obj)
 		mono_gc_weak_link_register (&handles->entries [bucket] [offset], obj, track);
+}
+
+gboolean
+mono_gchandle_is_valid (guint32 gchandle)
+{
+	guint index = MONO_GC_HANDLE_SLOT (gchandle);
+	guint type = MONO_GC_HANDLE_TYPE (gchandle);
+	guint bucket, offset;
+	HandleData *handles;
+	if (type >= HANDLE_TYPE_MAX)
+		return FALSE;
+	handles = gc_handles_for_type (type);
+	if (index >= handles->capacity)
+		return FALSE;
+	bucketize (index, &bucket, &offset);
+	return MONO_GC_HANDLE_OCCUPIED (handles->entries [bucket] [offset]);
 }
 
 static MonoDomain *

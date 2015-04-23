@@ -202,6 +202,7 @@ typedef enum {
 void mono_gchandle_iterate (GCHandleType handle_type, int max_generation, gpointer callback(gpointer, GCHandleType, gpointer), gpointer user);
 
 void mono_gchandle_set_target (guint32 gchandle, MonoObject *obj);
+gboolean mono_gchandle_is_valid (guint32 gchandle);
 void mono_gc_weak_link_add (void **link_addr, MonoObject *obj, gboolean track);
 void mono_gc_weak_link_remove (void **link_addr, gboolean track);
 MonoObject *mono_gc_weak_link_get (void **link_addr);

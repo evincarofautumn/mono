@@ -730,7 +730,6 @@ mono_gc_clear_domain (MonoDomain * domain)
 	int i;
 
 	LOCK_GC;
-
 	binary_protocol_domain_unload_begin (domain);
 
 	sgen_stop_world (0);
@@ -5251,6 +5250,8 @@ sgen_get_array_fill_vtable (void)
 	return array_fill_vtable;
 }
 
+THREAD_INFO_TYPE *volatile gc_lock_holder = NULL;
+
 void
 sgen_gc_lock (void)
 {
@@ -5262,6 +5263,7 @@ sgen_gc_unlock (void)
 {
 	gboolean try_free = sgen_try_free_some_memory;
 	sgen_try_free_some_memory = FALSE;
+	gc_lock_holder = NULL;
 	mono_mutex_unlock (&gc_mutex);
 	MONO_GC_UNLOCKED ();
 	if (try_free)

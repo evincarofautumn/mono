@@ -235,8 +235,9 @@ forget_stuck_regions (void)
 	return forgotten;
 }
 
-/* Intercepts writes of 'src' into 'dst'. If they are not in the same region,
- * then this sticks the region of 'src'.
+/* Intercepts writes of 'src' into 'dst'. If they are not in the same
+ * region, then this sticks the region of 'src'. If 'dst' is 'NULL',
+ * the region is always stuck.
  */
 void
 mono_gc_stick_region_if_necessary (gpointer src, gpointer dst) {
@@ -263,7 +264,7 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst) {
 	if (major_to_minor || old_tlab_to_new_tlab || old_region_to_new_region || old_frame_to_new_frame || always_stick) {
 		char *stuck = TLAB_STUCK;
 		char *src_end = (char *)src + ALIGN_UP (sgen_safe_object_get_size (src));
-		SGEN_ASSERT (0, sgen_ptr_in_tlab (src_end), "Stuck object should not extend beyond the end of a TLAB");
+		SGEN_ASSERT (0, sgen_ptr_in_tlab (src_end - 1), "Stuck object should not extend beyond the end of a TLAB");
 		TLAB_STUCK = MAX (stuck, src_end);
 		SGEN_ASSERT (0, TLAB_STUCK <= TLAB_NEXT, "Why are we sticking an object that is not in the current region?");
 		forget_stuck_regions ();
@@ -305,7 +306,7 @@ mono_gc_region_bail (void)
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
 #endif
 	sgen_gc_lock ();
-	TLAB_REGIONS_BEGIN = TLAB_REGIONS_END;
+	TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
 	TLAB_STUCK = NULL;
 	sgen_gc_unlock ();
 }
@@ -383,7 +384,10 @@ mono_gc_region_exit (MonoObject *ret)
 		goto end;
 	}
 	region = TLAB_REGIONS_END [-1];
-	SGEN_ASSERT (0, sgen_ptr_in_tlab (region), "Region pointers should always be in the current TLAB");
+	if (!(sgen_ptr_in_tlab (region) || region == TLAB_REAL_END)) {
+		g_printerr ("Region pointer %p outside current tlab %p-%p\n", region, TLAB_START, TLAB_REAL_END);
+		SGEN_ASSERT (0, sgen_ptr_in_tlab (region) || region == TLAB_REAL_END, "Region pointers should always be in the current TLAB");
+	}
 	if (TLAB_STUCK)
 		SGEN_ASSERT (0, sgen_ptr_in_tlab (TLAB_STUCK), "The TLAB info has been reset incorrectly");
 	SGEN_ASSERT (0, region >= TLAB_STUCK, "Stuck regions should not be accessible");
@@ -395,7 +399,7 @@ mono_gc_region_exit (MonoObject *ret)
 	}
 	region_size = next - region;
 	if (region_size) {
-#if 1
+#if 0
 		g_print ("clearing %lu bytes from %p to %p, start %p, next %p, stuck %p\n", region_size, region, region + region_size, TLAB_START, TLAB_NEXT, TLAB_STUCK);
 #endif
 #if 0

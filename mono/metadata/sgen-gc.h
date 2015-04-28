@@ -152,6 +152,8 @@ struct _GCMemSection {
 	size_t num_scan_start;
 };
 
+extern THREAD_INFO_TYPE *volatile gc_lock_holder;
+
 /*
  * Recursion is not allowed for the thread lock.
  */
@@ -162,10 +164,11 @@ struct _GCMemSection {
 #define LOCK_GC do {						\
 		MONO_TRY_BLOCKING	\
 		mono_mutex_lock (&gc_mutex);			\
+		gc_lock_holder = mono_thread_info_current (); \
 		MONO_GC_LOCKED ();				\
 		MONO_FINISH_TRY_BLOCKING	\
 	} while (0)
-#define UNLOCK_GC do { sgen_gc_unlock (); } while (0)
+#define UNLOCK_GC do { gc_lock_holder = NULL; sgen_gc_unlock (); } while (0)
 
 extern LOCK_DECLARE (sgen_interruption_mutex);
 

@@ -192,18 +192,18 @@ zero_tlab_if_necessary (void *p, size_t size)
 static gboolean
 sgen_ptr_in_tlab (gpointer ptr)
 {
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-#endif
+// #endif
 	return (char *)ptr >= TLAB_START && (char *)ptr < TLAB_REAL_END;
 }
 
 static size_t
 forget_stuck_regions (void)
 {
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-#endif
+// #endif
 	char **begin = TLAB_REGIONS_BEGIN;
 	char **end = TLAB_REGIONS_END;
 	char **p = begin;
@@ -241,9 +241,9 @@ forget_stuck_regions (void)
  */
 void
 mono_gc_stick_region_if_necessary (gpointer src, gpointer dst) {
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-#endif
+// #endif
 	sgen_gc_lock ();
 	/* SGEN_ASSERT (0, dst, "Why are we writing into a null reference?"); */
 	if (!sgen_ptr_in_tlab (src))
@@ -302,9 +302,9 @@ get_method_from_ip (void *ip)
 void
 mono_gc_region_bail (void)
 {
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-#endif
+// #endif
 	sgen_gc_lock ();
 	TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
 	TLAB_STUCK = NULL;
@@ -314,9 +314,9 @@ mono_gc_region_bail (void)
 void
 mono_gc_region_enter (void)
 {
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-#endif
+// #endif
 	char *next;
 	sgen_gc_lock ();
 	HEAVY_STAT (++stat_regions_entered);
@@ -356,9 +356,9 @@ end:
 void
 mono_gc_region_exit (MonoObject *ret)
 {
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-#endif
+// #endif
 	char *region;
 	size_t region_size;
 	char *next;
@@ -961,9 +961,9 @@ mono_gc_free_fixed (void* addr)
 void
 sgen_init_tlab_info (SgenThreadInfo* info)
 {
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	SgenThreadInfo *__thread_info__ = info;
-#endif
+// #endif
 
 	info->tlab_start_addr = &TLAB_START;
 	info->tlab_next_addr = &TLAB_NEXT;

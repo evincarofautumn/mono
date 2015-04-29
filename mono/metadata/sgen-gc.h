@@ -119,7 +119,7 @@ struct _SgenThreadInfo {
 	gpointer regs[ARCH_NUM_REGS];	    /* ditto */
 #endif
 
-#ifndef HAVE_KW_THREAD
+// #ifndef HAVE_KW_THREAD
 	char *tlab_start;
 	char *tlab_next;
 	char *tlab_temp_end;
@@ -128,7 +128,7 @@ struct _SgenThreadInfo {
 	char **tlab_regions_begin, **tlab_regions_end, **tlab_regions_capacity;
 	/* Address below which we cannot clear regions, due to escaped pointers. */
 	char *tlab_stuck;
-#endif
+// #endif
 };
 
 /*

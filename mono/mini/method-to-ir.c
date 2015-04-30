@@ -11128,15 +11128,15 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 					if (sp [0]->opcode != OP_LDADDR)
 						store->flags |= MONO_INST_FAULT;
 
-				if (cfg->gen_write_barriers && mini_type_to_stind (cfg, field->type) == CEE_STIND_REF && !(sp [1]->opcode == OP_PCONST && sp [1]->inst_c0 == 0)) {
-					/* insert call to write barrier */
-					MonoInst *ptr;
-					int dreg;
+					if (cfg->gen_write_barriers && mini_type_to_stind (cfg, field->type) == CEE_STIND_REF && !(sp [1]->opcode == OP_PCONST && sp [1]->inst_c0 == 0)) {
+						/* insert call to write barrier */
+						MonoInst *ptr;
+						int dreg;
 
-					dreg = alloc_ireg_mp (cfg);
-					EMIT_NEW_BIALU_IMM (cfg, ptr, OP_PADD_IMM, dreg, sp [0]->dreg, foffset);
-					emit_write_barrier (cfg, ptr, sp [1]);
-				}
+						dreg = alloc_ireg_mp (cfg);
+						EMIT_NEW_BIALU_IMM (cfg, ptr, OP_PADD_IMM, dreg, sp [0]->dreg, foffset);
+						emit_write_barrier (cfg, ptr, sp [1]);
+					}
 
 					store->flags |= ins_flag;
 				}
@@ -11442,12 +11442,13 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 				store->flags |= ins_flag;
 
-				if (cfg->gen_write_barriers && store_val->type == STACK_OBJ)
+				if (cfg->gen_write_barriers && store_val->type == STACK_OBJ) {
 					/* FIXME: This is for the region allocator, and could be an
 					 * icall to mono_gc_stick_region_if_necessary() rather than
 					 * a write barrier.
 					 */
 					emit_write_barrier (cfg, ins, store_val);
+				}
 
 			} else {
 				gboolean is_const = FALSE;

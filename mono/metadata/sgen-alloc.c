@@ -71,9 +71,18 @@ static guint64 stat_objects_alloced = 0;
 static guint64 stat_bytes_alloced = 0;
 static guint64 stat_bytes_alloced_los = 0;
 
+static guint64 stat_regions_bailed = 0;
 static guint64 stat_regions_entered = 0;
 static guint64 stat_regions_exited = 0;
 static guint64 stat_regions_stuck = 0;
+
+static guint64 stat_region_bytes_cleared = 0;
+static guint64 stat_region_bytes_stuck = 0;
+
+static guint64 stat_region_stuck_major_to_minor = 0;
+static guint64 stat_region_stuck_old_tlab_to_new_tlab = 0;
+static guint64 stat_region_stuck_old_region_to_new_region = 0;
+static guint64 stat_region_stuck_old_frame_to_new_frame = 0;
 #endif
 
 /*
@@ -209,6 +218,10 @@ forget_stuck_regions (void)
 	char **p = begin;
 	char *stuck = TLAB_STUCK;
 	size_t forgotten;
+#ifdef HEAVY_STATISTICS
+	if (TLAB_STUCK > TLAB_START && TLAB_STUCK <= TLAB_REAL_END)
+		stat_region_bytes_stuck += TLAB_STUCK - TLAB_START;
+#endif
 	while (p != end && *p <= stuck)
 		++p;
 	forgotten = p - begin;
@@ -261,6 +274,16 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst) {
 	/* FIXME: This is WAY too conservative; it should check whether the destination is in a higher stack frame. */
 	gboolean old_frame_to_new_frame = sgen_ptr_on_stack (dst);
 	gboolean always_stick = !dst;
+#ifdef HEAVY_STATISTICS
+	if (major_to_minor)
+		++stat_region_stuck_major_to_minor;
+	else if (old_tlab_to_new_tlab)
+		++stat_region_stuck_old_tlab_to_new_tlab;
+	else if (old_region_to_new_region)
+		++stat_region_stuck_old_region_to_new_region;
+	else if (old_frame_to_new_frame)
+		++stat_region_stuck_old_frame_to_new_frame;
+#endif
 	if (major_to_minor || old_tlab_to_new_tlab || old_region_to_new_region || old_frame_to_new_frame || always_stick) {
 		char *stuck = TLAB_STUCK;
 		char *src_end = (char *)src + ALIGN_UP (sgen_safe_object_get_size (src));
@@ -306,6 +329,7 @@ mono_gc_region_bail (void)
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
 // #endif
 	sgen_gc_lock ();
+	HEAVY_STAT (++stat_regions_bailed);
 	TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
 	TLAB_STUCK = NULL;
 	sgen_gc_unlock ();
@@ -405,6 +429,7 @@ mono_gc_region_exit (MonoObject *ret)
 #if 0
 		g_print ("clearing %lu bytes\n", region_size);
 #endif
+		HEAVY_STAT (stat_region_bytes_cleared += region_size);
 		memset (region, 0, region_size);
 	}
 	/* Reset TLAB pointer. */
@@ -1505,6 +1530,17 @@ sgen_alloc_init_heavy_stats (void)
 	mono_counters_register ("# objects allocated", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_objects_alloced);	
 	mono_counters_register ("bytes allocated", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_bytes_alloced);
 	mono_counters_register ("bytes allocated in LOS", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_bytes_alloced_los);
+
+	mono_counters_register ("regions bailed", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_bailed);
+	mono_counters_register ("regions entered", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_entered);
+	mono_counters_register ("regions exited", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_exited);
+	mono_counters_register ("region bytes cleared", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_bytes_cleared);
+	mono_counters_register ("region bytes stuck", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_bytes_stuck);
+
+	mono_counters_register ("regions stuck major->minor", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_major_to_minor);
+	mono_counters_register ("regions stuck old->new tlab", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_tlab_to_new_tlab);
+	mono_counters_register ("regions stuck old->new region", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_region_to_new_region);
+	mono_counters_register ("regions stuck old->new frame", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_frame_to_new_frame);
 }
 #endif
 

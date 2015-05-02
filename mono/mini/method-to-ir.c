@@ -2187,13 +2187,18 @@ emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
 			break;
 		}
 	}
-	if (!allowed_type)
-		return;
-	if (ret)
-		iargs [0] = ret;
-	else
+	if (cfg->method->wrapper_type == MONO_WRAPPER_MANAGED_TO_NATIVE) {
+#if 0
 		EMIT_NEW_PCONST (cfg, iargs [0], NULL);
-	mono_emit_jit_icall (cfg, func, iargs);
+		mono_emit_jit_icall (cfg, mono_gc_region_bail, iargs);
+#endif
+	} else if (allowed_type) {
+		if (ret)
+			iargs [0] = ret;
+		else
+			EMIT_NEW_PCONST (cfg, iargs [0], NULL);
+		mono_emit_jit_icall (cfg, func, iargs);
+	}
 }
 
 static int

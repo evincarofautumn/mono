@@ -423,6 +423,7 @@ mono_domain_create (void)
 	mono_profiler_appdomain_event (domain, MONO_PROFILE_START_LOAD);
 
 	domain->mp = mono_mempool_new ();
+	domain->vt_mp = mono_mempool_new ();
 	domain->code_mp = mono_code_manager_new ();
 	domain->lock_free_mp = lock_free_mempool_new ();
 	domain->env = mono_g_hash_table_new_type ((GHashFunc)mono_string_hash, (GCompareFunc)mono_string_equal, MONO_HASH_KEY_VALUE_GC);
@@ -1242,6 +1243,7 @@ mono_domain_free (MonoDomain *domain, gboolean force)
 
 	if (debug_domain_unload) {
 		mono_mempool_invalidate (domain->mp);
+		mono_mempool_invalidate (domain->vt_mp);
 		mono_code_manager_invalidate (domain->code_mp);
 	} else {
 #ifndef DISABLE_PERFCOUNTERS
@@ -1249,6 +1251,8 @@ mono_domain_free (MonoDomain *domain, gboolean force)
 #endif
 		mono_mempool_destroy (domain->mp);
 		domain->mp = NULL;
+		mono_mempool_destroy (domain->vt_mp);
+		domain->vt_mp = NULL;
 		mono_code_manager_destroy (domain->code_mp);
 		domain->code_mp = NULL;
 	}
@@ -1346,8 +1350,8 @@ mono_domain_alloc (MonoDomain *domain, guint size)
  *
  * LOCKING: Acquires the domain lock.
  */
-gpointer
-mono_domain_alloc0 (MonoDomain *domain, guint size)
+static gpointer
+mono_domain_mp_alloc0 (MonoDomain *domain, MonoMemPool *mp, guint size)
 {
 	gpointer res;
 
@@ -1355,10 +1359,27 @@ mono_domain_alloc0 (MonoDomain *domain, guint size)
 #ifndef DISABLE_PERFCOUNTERS
 	mono_perfcounters->loader_bytes += size;
 #endif
-	res = mono_mempool_alloc0 (domain->mp, size);
+	res = mono_mempool_alloc0 (mp, size);
 	mono_domain_unlock (domain);
 
 	return res;
+}
+
+/*
+ * mono_domain_alloc0:
+ *
+ * LOCKING: Acquires the domain lock.
+ */
+gpointer
+mono_domain_alloc0 (MonoDomain *domain, guint size)
+{
+	return mono_domain_mp_alloc0 (domain, domain->mp, size);
+}
+
+gpointer
+mono_domain_vtable_alloc0 (MonoDomain *domain, guint size)
+{
+	return mono_domain_mp_alloc0 (domain, domain->vt_mp, size);
 }
 
 gpointer

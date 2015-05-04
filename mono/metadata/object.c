@@ -1880,7 +1880,7 @@ alloc_vtable (MonoDomain *domain, size_t vtable_size, size_t imt_table_bytes)
 		alloc_offset = 0;
 	}
 
-	return (gpointer*) ((char*)mono_domain_alloc0 (domain, vtable_size) + alloc_offset);
+	return (gpointer*) ((char*)mono_domain_vtable_alloc0 (domain, vtable_size) + alloc_offset);
 }
 
 static MonoVTable *

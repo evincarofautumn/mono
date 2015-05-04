@@ -586,7 +586,7 @@ mono_domain_owns_vtable_slot (MonoDomain *domain, gpointer vtable_slot)
 	gboolean res;
 
 	mono_domain_lock (domain);
-	res = mono_mempool_contains_addr (domain->mp, vtable_slot);
+	res = mono_mempool_contains_addr (domain->vt_mp, vtable_slot);
 	mono_domain_unlock (domain);
 	return res;
 }

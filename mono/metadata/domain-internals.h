@@ -312,6 +312,7 @@ struct _MonoDomain {
 	 */
 	mono_mutex_t    lock;
 	MonoMemPool        *mp;
+	MonoMemPool        *vt_mp; /* mempool for vtables */
 	MonoCodeManager    *code_mp;
 	/*
 	 * keep all the managed objects close to each other for the precise GC
@@ -522,6 +523,9 @@ mono_is_shadow_copy_enabled (MonoDomain *domain, const gchar *dir_name);
 
 gpointer
 mono_domain_alloc  (MonoDomain *domain, guint size);
+
+gpointer
+mono_domain_vtable_alloc0 (MonoDomain *domain, guint size);
 
 gpointer
 mono_domain_alloc0 (MonoDomain *domain, guint size);

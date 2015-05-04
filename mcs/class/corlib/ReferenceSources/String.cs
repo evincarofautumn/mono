@@ -53,21 +53,6 @@ namespace System
             get { return (m_taggedStringLength & 1) != 0; }
         }
 
-        [System.Runtime.CompilerServices.IndexerName("Chars")]
-		public unsafe char this[int index] {
-            get {
-                if (index < 0 || index >= Length)
-                    throw new IndexOutOfRangeException ();
-				if (IsCompact) {
-					fixed (byte* c = &m_firstByte)
-						return (char)c[index];
-				} else {
-					fixed (byte* c = &m_firstByte)
-						return ((char*)c)[index];
-				}
-            }
-        }
-
         // Joins an array of strings together as one string with a separator between each original string.
         //
         [System.Security.SecuritySafeCritical]  // auto-generated

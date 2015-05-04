@@ -39,7 +39,7 @@ typedef struct {
 	gpointer addr;
 } RgctxTrampInfo;
 
-static gint
+static gboolean
 rgctx_tramp_info_equal (gconstpointer ka, gconstpointer kb)
 {
 	const RgctxTrampInfo *i1 = ka;

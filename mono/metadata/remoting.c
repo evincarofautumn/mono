@@ -98,7 +98,7 @@ remoting_unlock (void)
  * Return the hash table pointed to by VAR, lazily creating it if neccesary.
  */
 static GHashTable*
-get_cache (GHashTable **var, GHashFunc hash_func, GCompareFunc equal_func)
+get_cache (GHashTable **var, GHashFunc hash_func, GEqualFunc equal_func)
 {
 	if (!(*var)) {
 		remoting_lock ();
@@ -114,7 +114,7 @@ get_cache (GHashTable **var, GHashFunc hash_func, GCompareFunc equal_func)
 }
 
 static GHashTable*
-get_cache_full (GHashTable **var, GHashFunc hash_func, GCompareFunc equal_func, GDestroyNotify key_destroy_func, GDestroyNotify value_destroy_func)
+get_cache_full (GHashTable **var, GHashFunc hash_func, GEqualFunc equal_func, GDestroyNotify key_destroy_func, GDestroyNotify value_destroy_func)
 {
 	if (!(*var)) {
 		remoting_lock ();

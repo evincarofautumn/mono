@@ -2163,7 +2163,7 @@ void      mono_add_patch_info_rel           (MonoCompile *cfg, int ip, MonoJumpI
 void      mono_remove_patch_info            (MonoCompile *cfg, int ip);
 MonoJumpInfo* mono_patch_info_dup_mp        (MonoMemPool *mp, MonoJumpInfo *patch_info);
 guint     mono_patch_info_hash (gconstpointer data);
-gint      mono_patch_info_equal (gconstpointer ka, gconstpointer kb);
+gboolean  mono_patch_info_equal (gconstpointer ka, gconstpointer kb);
 MonoJumpInfo *mono_patch_info_list_prepend  (MonoJumpInfo *list, int ip, MonoJumpInfoType type, gconstpointer target);
 gpointer  mono_resolve_patch_target         (MonoMethod *method, MonoDomain *domain, guint8 *code, MonoJumpInfo *patch_info, gboolean run_cctors) MONO_LLVM_INTERNAL;
 gpointer  mono_jit_find_compiled_method_with_jit_info (MonoDomain *domain, MonoMethod *method, MonoJitInfo **ji);

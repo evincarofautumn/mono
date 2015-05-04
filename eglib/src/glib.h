@@ -76,7 +76,7 @@ typedef __int64			gint64;
 typedef unsigned __int64	guint64;
 typedef float			gfloat;
 typedef double			gdouble;
-typedef int			gboolean;
+typedef __int8			gboolean;
 #else
 /* Types defined in terms of the stdint.h */
 typedef int8_t         gint8;
@@ -89,7 +89,7 @@ typedef int64_t        gint64;
 typedef uint64_t       guint64;
 typedef float          gfloat;
 typedef double         gdouble;
-typedef int32_t        gboolean;
+typedef int8_t         gboolean;
 #endif
 #endif
 

@@ -1239,7 +1239,7 @@ mono_patch_info_hash (gconstpointer data)
  * usable in those cases where this is not a problem, i.e. sharing GOT slots
  * in AOT.
  */
-gint
+gboolean
 mono_patch_info_equal (gconstpointer ka, gconstpointer kb)
 {
 	const MonoJumpInfo *ji1 = (MonoJumpInfo*)ka;
@@ -2820,7 +2820,7 @@ register_jit_stats (void)
 
 static void runtime_invoke_info_free (gpointer value);
 
-static gint
+static gboolean
 class_method_pair_equal (gconstpointer ka, gconstpointer kb)
 {
 	const MonoClassMethodPair *apair = ka;

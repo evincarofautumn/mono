@@ -28,7 +28,7 @@
  * all memory when the pool is destroyed.
  */
 
-#define MEM_ALIGN 8
+#define MEM_ALIGN 32
 #define ALIGN_SIZE(s)	(((s) + MEM_ALIGN - 1) & ~(MEM_ALIGN - 1))
 #define SIZEOF_MEM_POOL	(ALIGN_SIZE (sizeof (MonoMemPool)))
 
@@ -282,7 +282,7 @@ mono_mempool_alloc (MonoMemPool *pool, guint size)
 		rval = ((guint8*)c) + sizeof (Chunk);
 	}
 #else
-	rval = pool->pos;
+	rval = (guint8 *)ALIGN_SIZE ((size_t)pool->pos);
 	pool->pos = (guint8*)rval + size;
 
 #ifdef TRACE_ALLOCATIONS

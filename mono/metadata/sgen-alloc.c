@@ -248,6 +248,26 @@ forget_stuck_regions (void)
 	return forgotten;
 }
 
+static gpointer
+pointer_region (gpointer p)
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	char **begin;
+	char **end;
+	if ((char *)p < TLAB_START || (char *)p > TLAB_REAL_END)
+		return NULL;
+	begin = TLAB_REGIONS_BEGIN;
+	end = TLAB_REGIONS_END;
+	while (end > begin + 1) {
+		if (end [-1] >= (char *)p && end [-2] < (char *)p)
+			return end [-1];
+		--end;
+	}
+	return NULL;
+}
+
 /* Intercepts writes of 'src' into 'dst'. If they are not in the same
  * region, then this sticks the region of 'src'. If 'dst' is 'NULL',
  * the region is always stuck.

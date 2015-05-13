@@ -292,6 +292,10 @@ object_register_finalizer (MonoObject *obj, void (*callback)(void *, void*))
 	if (obj == NULL)
 		mono_raise_exception (mono_get_exception_argument_null ("obj"));
 
+	/* We cannot clear regions that contain objects with finalizers. */
+	/* mono_gc_stick_region_if_necessary (obj, NULL); */
+	mono_gc_region_bail ();
+
 	domain = obj->vtable->domain;
 
 #if HAVE_BOEHM_GC
@@ -654,6 +658,12 @@ alloc_handle (HandleData *handles, MonoObject *obj, gboolean track)
 	gint slot, i;
 	guint32 res;
 	lock_handles (handles);
+	/* We cannot clear a region containing an object referenced by a GC handle,
+	 * because if the region is cleared and new objects are allocated at the
+	 * same address, the handle will become invalid.
+	 */
+	/* mono_gc_stick_region_if_necessary (obj, NULL); */
+	mono_gc_region_bail ();
 	if (!handles->size) {
 		handles->size = 32;
 		if (handles->type > HANDLE_WEAK_TRACK) {

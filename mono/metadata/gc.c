@@ -662,8 +662,8 @@ alloc_handle (HandleData *handles, MonoObject *obj, gboolean track)
 	 * because if the region is cleared and new objects are allocated at the
 	 * same address, the handle will become invalid.
 	 */
-	/* mono_gc_stick_region_if_necessary (obj, NULL); */
-	mono_gc_region_bail ();
+	mono_gc_stick_region_if_necessary (obj, NULL);
+	/* mono_gc_region_bail (); */
 	if (!handles->size) {
 		handles->size = 32;
 		if (handles->type > HANDLE_WEAK_TRACK) {

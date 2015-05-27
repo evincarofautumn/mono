@@ -2116,8 +2116,8 @@ emit_instrumentation_call (MonoCompile *cfg, void *func)
 	}
 }
 
-static void
-emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
+void
+mono_emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
 {
 	MonoInst *iargs [1];
 	MonoWrapperType allowed_types[] = {
@@ -2630,7 +2630,7 @@ mono_emit_call_args (MonoCompile *cfg, MonoMethodSignature *sig,
 
 	if (tail) {
 		emit_instrumentation_call (cfg, mono_profiler_method_leave);
-		emit_region_call (cfg, mono_gc_region_exit, NULL);
+		mono_emit_region_call (cfg, mono_gc_region_exit, NULL);
 
 		MONO_INST_NEW_CALL (cfg, call, OP_TAILCALL);
 	} else
@@ -8570,7 +8570,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 			/* FIXME: Can this not be a jmp for a loop or conditional? */
 			emit_instrumentation_call (cfg, mono_profiler_method_leave);
-			emit_region_call (cfg, mono_gc_region_exit, NULL);
+			mono_emit_region_call (cfg, mono_gc_region_exit, NULL);
 
 			if (ARCH_HAVE_OP_TAIL_CALL) {
 				MonoMethodSignature *fsig = mono_method_signature (cmethod);
@@ -9424,7 +9424,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 					tail_call = TRUE;
 				} else {
 					emit_instrumentation_call (cfg, mono_profiler_method_leave);
-					emit_region_call (cfg, mono_gc_region_exit, NULL);
+					mono_emit_region_call (cfg, mono_gc_region_exit, NULL);
 
 					MONO_INST_NEW_CALL (cfg, call, OP_JMP);
 					call->tail_call = TRUE;
@@ -9543,7 +9543,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 					MonoInst *store;
 					CHECK_STACK (1);
-					emit_region_call (cfg, mono_gc_region_exit, sp [-1]->type == STACK_OBJ ? sp [-1] : NULL);
+					mono_emit_region_call (cfg, mono_gc_region_exit, sp [-1]->type == STACK_OBJ ? sp [-1] : NULL);
 					--sp;
 
 					if ((method->wrapper_type == MONO_WRAPPER_DYNAMIC_METHOD || method->wrapper_type == MONO_WRAPPER_NONE) && target_type_is_incompatible (cfg, ret_type, *sp))
@@ -9553,7 +9553,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 					EMIT_NEW_TEMPSTORE (cfg, store, return_var->inst_c0, *sp);
 					cfg->ret_var_set = TRUE;
 				} else {
-					emit_region_call (cfg, mono_gc_region_exit, NULL);
+					mono_emit_region_call (cfg, mono_gc_region_exit, NULL);
 				}
 			} else {
 				emit_instrumentation_call (cfg, mono_profiler_method_leave);
@@ -9578,7 +9578,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 					g_assert (!return_var);
 					CHECK_STACK (1);
-					emit_region_call (cfg, mono_gc_region_exit, sp [-1]->type == STACK_OBJ ? sp [-1] : NULL);
+					mono_emit_region_call (cfg, mono_gc_region_exit, sp [-1]->type == STACK_OBJ ? sp [-1] : NULL);
 					--sp;
 
 					if ((method->wrapper_type == MONO_WRAPPER_DYNAMIC_METHOD || method->wrapper_type == MONO_WRAPPER_NONE) && target_type_is_incompatible (cfg, ret_type, *sp))
@@ -9614,7 +9614,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 #endif
 					}
 				} else {
-					emit_region_call (cfg, mono_gc_region_exit, NULL);
+					mono_emit_region_call (cfg, mono_gc_region_exit, NULL);
 				}
 			}
 			if (sp != stack_start)
@@ -12980,7 +12980,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 	cfg->cbb = init_localsbb;
 	emit_instrumentation_call (cfg, mono_profiler_method_enter);
-	emit_region_call (cfg, mono_gc_region_enter, NULL);
+	mono_emit_region_call (cfg, mono_gc_region_enter, NULL);
 
 	if (seq_points) {
 		MonoBasicBlock *bb;

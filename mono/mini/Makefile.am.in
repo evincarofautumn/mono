@@ -389,6 +389,7 @@ common_sources = \
 	helpers.c		\
 	liveness.c		\
 	ssa.c			\
+	regions.c		\
 	abcremoval.c		\
 	abcremoval.h		\
 	local-propagation.c	\

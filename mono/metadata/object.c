@@ -4871,9 +4871,11 @@ mono_string_new_size (MonoDomain *domain, gint32 len, int32_t encoding)
 		max_len = (SIZE_MAX - G_STRUCT_OFFSET (MonoString, bytes) - 8) / sizeof (gunichar2);
 		break;
 	case MONO_ENCODING_ASCII:
+		g_printerr ("Why are we allocating an ASCII string?\n");
 		g_assert_not_reached ();
 		break;
 	default:
+		g_printerr ("Why are we allocating a string with the invalid encoding %d?\n", encoding);
 		g_assert_not_reached ();
 	}
 

@@ -1605,6 +1605,7 @@ mono_decompose_array_access_opts (MonoCompile *cfg)
 					}
 					break;
 				case OP_STRLEN:
+					g_print ("Decomposing strlen\n");
 					MONO_EMIT_NEW_LOAD_MEMBASE_OP_FLAGS (cfg, OP_LOADI4_MEMBASE, ins->dreg, ins->sreg1, MONO_STRUCT_OFFSET (MonoString, tagged_length), ins->flags | MONO_INST_INVARIANT_LOAD);
 					MONO_EMIT_NEW_BIALU_IMM (cfg, OP_SHR_UN_IMM, ins->dreg, ins->dreg, 1);
 					break;

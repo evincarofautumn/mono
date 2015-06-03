@@ -1232,7 +1232,7 @@ create_allocator (int atype, gboolean slowpath)
 		 * len <= (INT32_MAX - (SGEN_ALLOC_ALIGN - 1) - offsetof (MonoString, chars)) / 2 - 1
 		 */
 		mono_mb_emit_ldarg (mb, 1);
-		mono_mb_emit_icon (mb, (INT32_MAX - (SGEN_ALLOC_ALIGN - 1) - MONO_STRUCT_OFFSET (MonoString, chars)) / 2 - 1);
+		mono_mb_emit_icon (mb, (INT32_MAX - (SGEN_ALLOC_ALIGN - 1) - MONO_STRUCT_OFFSET (MonoString, bytes)) / 2 - 1);
 		pos = mono_mb_emit_short_branch (mb, MONO_CEE_BLE_UN_S);
 
 		mono_mb_emit_byte (mb, MONO_CUSTOM_PREFIX);
@@ -1244,7 +1244,7 @@ create_allocator (int atype, gboolean slowpath)
 		mono_mb_emit_icon (mb, 1);
 		mono_mb_emit_byte (mb, MONO_CEE_SHL);
 		//WE manually fold the above + 2 here
-		mono_mb_emit_icon (mb, MONO_STRUCT_OFFSET (MonoString, chars) + 2);
+		mono_mb_emit_icon (mb, MONO_STRUCT_OFFSET (MonoString, bytes) + 2);
 		mono_mb_emit_byte (mb, CEE_ADD);
 		mono_mb_emit_stloc (mb, size_var);
 	} else {
@@ -1353,7 +1353,7 @@ create_allocator (int atype, gboolean slowpath)
 #else
 		mono_mb_emit_byte (mb, CEE_STIND_I4);
 #endif
-	} else 	if (atype == ATYPE_STRING) {
+	} else if (atype == ATYPE_STRING) {
 		/* need to set length and clear the last char */
 		/* s->tagged_length = len << 1; */
 		mono_mb_emit_ldloc (mb, p_var);
@@ -1821,6 +1821,11 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalE
 
 	LOCK_GC;
 
+	if (encoding != MONO_ENCODING_UTF16) {
+		g_printerr ("Why are we allocating a compact string?\n");
+		g_assert_not_reached ();
+	}
+
 	str = sgen_alloc_obj_nolock ((GCVTable*)vtable, size);
 	if (G_UNLIKELY (!str)) {
 		UNLOCK_GC;
@@ -1845,8 +1850,12 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalE
 void
 mono_gc_set_string_length (MonoString *str, gint32 new_length)
 {
+	if (mono_string_is_compact (str)) {
+		g_printerr ("Why are we setting the length of a compact string?\n");
+		g_assert_not_reached ();
+	}
+
 	mono_unichar2 *new_end = mono_string_chars_fast (str) + new_length;
-	g_assert (!mono_string_is_compact (str));
 
 	/* zero the discarded string. This null-delimits the string and allows
 	 * the space to be reclaimed by SGen. */

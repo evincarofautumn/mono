@@ -6392,7 +6392,7 @@ get_bundled_app_config (void)
 
 	domain = mono_domain_get ();
 	file = domain->setup->configuration_file;
-	if (!file || file->length == 0)
+	if (!file || mono_string_length_fast (file, FALSE) == 0)
 		return NULL;
 
 	// Retrieve config file and remove the extension

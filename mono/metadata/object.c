@@ -4886,7 +4886,7 @@ mono_string_new_size (MonoDomain *domain, gint32 len, int32_t encoding)
 	vtable = mono_class_vtable (domain, mono_defaults.string_class);
 	g_assert (vtable);
 
-	s = mono_gc_alloc_string (vtable, size, len);
+	s = mono_gc_alloc_string (vtable, size, len, encoding);
 
 	return s;
 }
@@ -4950,6 +4950,7 @@ mono_string_new (MonoDomain *domain, const char *text)
 		g_free (ut);
 		break;
 	case MONO_ENCODING_ASCII:
+		g_assert_not_reached ();
 		o = mono_string_new_size (domain, l, MONO_ENCODING_ASCII);
 		memcpy (mono_string_bytes_fast (o), text, l);
 		break;

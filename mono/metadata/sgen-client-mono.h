@@ -46,7 +46,7 @@ sgen_client_slow_object_get_size (GCVTable *vtable, GCObject* o)
 	 * mono_array_length_fast not using the object's vtable.
 	 */
 	if (klass == mono_defaults.string_class) {
-		return G_STRUCT_OFFSET (MonoString, chars) + mono_string_size_fast ((MonoString*) o);
+		return G_STRUCT_OFFSET (MonoString, bytes) + mono_string_size_fast ((MonoString*) o);
 	} else if (klass->rank) {
 		MonoArray *array = (MonoArray*)o;
 		size_t size = sizeof (MonoArray) + klass->sizes.element_size * mono_array_length_fast (array);

@@ -42,9 +42,6 @@ namespace System
 {
 	partial class String
 	{
-        [NonSerialized]private int m_taggedStringLength;
-        [NonSerialized]private byte m_firstByte;
-
         public int Length {
             get { return (int)(m_taggedStringLength >> 1); }
         }
@@ -52,6 +49,8 @@ namespace System
         internal bool IsCompact {
             get { return (m_taggedStringLength & 1) != 0; }
         }
+
+#if false
 
         // Joins an array of strings together as one string with a separator between each original string.
         //
@@ -299,6 +298,8 @@ namespace System
 		internal unsafe static void InternalCopy(String src, IntPtr dest,int len) {
 			throw new NotImplementedException ("InternalCopy");
 		}
+
+#endif
 
 		internal static unsafe int CompareOrdinalUnchecked (String strA, int indexA, int lenA, String strB, int indexB, int lenB)
 		{

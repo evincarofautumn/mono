@@ -1827,7 +1827,7 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalE
 		return mono_gc_out_of_memory (size);
 	}
 
-	str->length = len;
+	mono_gc_set_string_length (str, len);
 
 	UNLOCK_GC;
 
@@ -1845,7 +1845,7 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalE
 void
 mono_gc_set_string_length (MonoString *str, gint32 new_length)
 {
-	mono_unichar2 *new_end = str->chars + new_length;
+	mono_unichar2 *new_end = mono_string_chars_fast (str) + new_length;
 	g_assert (!mono_string_is_compact (str));
 
 	/* zero the discarded string. This null-delimits the string and allows
@@ -1853,14 +1853,13 @@ mono_gc_set_string_length (MonoString *str, gint32 new_length)
 
 	if (nursery_canaries_enabled () && sgen_ptr_in_nursery (str)) {
 		CHECK_CANARY_FOR_OBJECT (str);
-		memset (new_end, 0, (str->length - new_length + 1) * sizeof (mono_unichar2) + CANARY_SIZE);
+		memset (new_end, 0, (mono_string_length_fast (str, FALSE) - new_length + 1) * sizeof (mono_unichar2) + CANARY_SIZE);
 		memcpy (new_end + 1 , CANARY_STRING, CANARY_SIZE);
 	} else {
-		memset (new_end, 0, (str->length - new_length + 1) * sizeof (mono_unichar2));
+		memset (new_end, 0, (mono_string_length_fast (str, FALSE) - new_length + 1) * sizeof (mono_unichar2));
 	}
 
 	mono_string_set_length (str, new_length, mono_string_is_compact (str) ? MONO_ENCODING_ASCII : MONO_ENCODING_UTF16);
-	str->length = new_length;
 }
 
 /*

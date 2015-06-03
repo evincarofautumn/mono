@@ -1368,6 +1368,7 @@ mono_gc_get_los_limit (void)
 void
 mono_gc_set_string_length (MonoString *str, gint32 new_length)
 {
+	g_assert (!mono_string_is_compact (str));
 	mono_unichar2 *new_end = mono_string_chars_fast (str) + new_length;
 	
 	/* zero the discarded string. This null-delimits the string and allows 

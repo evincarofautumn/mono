@@ -1856,6 +1856,7 @@ mono_gc_set_string_length (MonoString *str, gint32 new_length)
 	}
 
 	mono_unichar2 *new_end = mono_string_chars_fast (str) + new_length;
+	g_print ("set_string_length(%p, %d), chars == %p, new_end == %p\n", str, new_length, mono_string_chars_fast (str), new_end);
 
 	/* zero the discarded string. This null-delimits the string and allows
 	 * the space to be reclaimed by SGen. */

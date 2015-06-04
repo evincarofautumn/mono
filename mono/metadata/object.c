@@ -4812,7 +4812,8 @@ mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 
 	s = mono_string_new_size (domain, len, encoding);
 	g_assert (s != NULL);
-	memcpy (s->bytes, text, mono_string_size_fast (s));
+	/* Can't use mono_string_size_fast here because 'text' is not null-terminated. */
+	memcpy (s->bytes, text, len * (encoding == MONO_ENCODING_UTF16 ? sizeof (gunichar2) : sizeof (char)));
 
 	return s;
 }

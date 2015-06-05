@@ -1832,7 +1832,7 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalE
 		return mono_gc_out_of_memory (size);
 	}
 
-	mono_gc_set_string_length (str, len);
+	mono_string_set_length (str, len, encoding);
 
 	UNLOCK_GC;
 

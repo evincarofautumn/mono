@@ -1220,7 +1220,7 @@ create_allocator (int atype, gboolean slowpath)
 		/*
 		 * a string allocator method takes the args: (vtable, len)
 		 *
-		 * bytes = offsetof (MonoString, chars) + ((len + 1) * 2)
+		 * bytes = offsetof (MonoString, bytes) + ((len + 1) * 2)
 		 *
 		 * condition:
 		 *
@@ -1228,8 +1228,8 @@ create_allocator (int atype, gboolean slowpath)
 		 *
 		 * therefore:
 		 *
-		 * offsetof (MonoString, chars) + ((len + 1) * 2) <= INT32_MAX - (SGEN_ALLOC_ALIGN - 1)
-		 * len <= (INT32_MAX - (SGEN_ALLOC_ALIGN - 1) - offsetof (MonoString, chars)) / 2 - 1
+		 * offsetof (MonoString, bytes) + ((len + 1) * 2) <= INT32_MAX - (SGEN_ALLOC_ALIGN - 1)
+		 * len <= (INT32_MAX - (SGEN_ALLOC_ALIGN - 1) - offsetof (MonoString, bytes)) / 2 - 1
 		 */
 		mono_mb_emit_ldarg (mb, 1);
 		mono_mb_emit_icon (mb, (INT32_MAX - (SGEN_ALLOC_ALIGN - 1) - MONO_STRUCT_OFFSET (MonoString, bytes)) / 2 - 1);

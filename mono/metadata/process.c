@@ -585,8 +585,14 @@ MonoBoolean ves_icall_System_Diagnostics_Process_CreateProcess_internal (MonoPro
 	if (proc_start_info->create_no_window)
 		creation_flags |= CREATE_NO_WINDOW;
 	
-	shell_path = mono_string_chars (proc_start_info->filename);
+	/* FIXME: This allocation is redundant and silly. */
+	shell_path = mono_string_is_compact (proc_start_info->filename)
+		? mono_string_to_utf16 (proc_start_info->filename)
+		: mono_string_chars_fast (proc_start_info->filename);
 	complete_path (shell_path, &spath);
+	if (mono_string_is_compact (proc_start_info->filename))
+		g_free (shell_path);
+
 	if (spath == NULL) {
 		process_info->pid = -ERROR_FILE_NOT_FOUND;
 		return FALSE;
@@ -638,13 +644,14 @@ MonoBoolean ves_icall_System_Diagnostics_Process_CreateProcess_internal (MonoPro
 				continue;
 
 			key = mono_array_get (process_info->env_keys, MonoString *, i);
-			memcpy (ptr, mono_string_chars (key), mono_string_length (key) * sizeof (gunichar2));
+			
+			mono_string_copy_to_utf16 (key, ptr);
 			ptr += mono_string_length (key);
 
 			memcpy (ptr, equals16, sizeof (gunichar2));
 			ptr++;
 
-			memcpy (ptr, mono_string_chars (value), mono_string_length (value) * sizeof (gunichar2));
+			mono_string_copy_to_utf16 (value, ptr);
 			ptr += mono_string_length (value);
 			ptr++;
 		}
@@ -664,9 +671,20 @@ MonoBoolean ves_icall_System_Diagnostics_Process_CreateProcess_internal (MonoPro
 
 	if (process_info->username) {
 		logon_flags = process_info->load_user_profile ? LOGON_WITH_PROFILE : 0;
-		ret=CreateProcessWithLogonW (mono_string_chars (process_info->username), process_info->domain ? mono_string_chars (process_info->domain) : NULL, process_info->password, logon_flags, shell_path, cmd? mono_string_chars (cmd): NULL, creation_flags, env_vars, dir, &startinfo, &procinfo);
+		/* FIXME: Avoid copying these strings. */
+		mono_unichar2 *username = mono_string_to_utf16 (process_info->username);
+		mono_unichar2 *domain = process_info->domain ? mono_string_to_utf16 (process_info->domain) : NULL;
+		mono_unichar2 *password = mono_string_to_utf16 (process_info->password);
+		mono_unichar2 *cmd_chars = cmd ? mono_string_to_utf16 (cmd) : NULL;
+		ret = CreateProcessWithLogonW (username, domain, password, logon_flags, shell_path, cmd_chars, creation_flags, env_vars, dir, &startinfo, &procinfo);
+		g_free (username);
+		g_free (domain);
+		g_free (password);
+		g_free (cmd_chars);
 	} else {
-		ret=CreateProcess (shell_path, cmd? mono_string_chars (cmd): NULL, NULL, NULL, TRUE, creation_flags, env_vars, dir, &startinfo, &procinfo);
+		mono_unichar2 *cmd_chars = cmd ? mono_string_to_utf16 (cmd) : NULL;
+		ret = CreateProcess (shell_path, cmd_chars, NULL, NULL, TRUE, creation_flags, env_vars, dir, &startinfo, &procinfo);
+		g_free (cmd_chars);
 	}
 
 	g_free (env_vars);

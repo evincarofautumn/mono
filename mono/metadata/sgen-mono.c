@@ -1821,11 +1821,6 @@ mono_gc_alloc_string (MonoVTable *vtable, size_t size, gint32 len, MonoInternalE
 
 	LOCK_GC;
 
-	if (encoding != MONO_ENCODING_UTF16) {
-		g_printerr ("Why are we allocating a compact string?\n");
-		g_assert_not_reached ();
-	}
-
 	str = sgen_alloc_obj_nolock ((GCVTable*)vtable, size);
 	if (G_UNLIKELY (!str)) {
 		UNLOCK_GC;

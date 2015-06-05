@@ -4757,7 +4757,7 @@ mono_array_new_specific (MonoVTable *vtable, uintptr_t n)
 	return ao;
 }
 
-#define ENABLE_COMPACT_ENCODING 0
+#define ENABLE_COMPACT_ENCODING 1
 
 static MonoInternalEncoding
 mono_string_infer_encoding_utf8 (const char *text)
@@ -4872,11 +4872,10 @@ mono_string_new_size (MonoDomain *domain, gint32 len, int32_t encoding)
 		max_len = (SIZE_MAX - G_STRUCT_OFFSET (MonoString, bytes) - 8) / sizeof (gunichar2);
 		break;
 	case MONO_ENCODING_ASCII:
-		g_printerr ("Why are we allocating an ASCII string?\n");
-		g_assert_not_reached ();
+		size = G_STRUCT_OFFSET (MonoString, bytes) + (((size_t)len + 1) * sizeof (char));
+		max_len = (SIZE_MAX - G_STRUCT_OFFSET (MonoString, bytes) - 8);
 		break;
 	default:
-		g_printerr ("Why are we allocating a string with the invalid encoding %d?\n", encoding);
 		g_assert_not_reached ();
 	}
 
@@ -4953,7 +4952,6 @@ mono_string_new (MonoDomain *domain, const char *text)
 		g_free (ut);
 		break;
 	case MONO_ENCODING_ASCII:
-		g_assert_not_reached ();
 		o = mono_string_new_size (domain, l, MONO_ENCODING_ASCII);
 		memcpy (mono_string_bytes_fast (o), text, l);
 		break;
@@ -5569,6 +5567,18 @@ mono_string_to_utf8_mp_ignore (MonoMemPool *mp, MonoString *s)
 	return mono_string_to_utf8_internal (mp, NULL, s, TRUE, NULL);
 }
 
+void
+mono_string_copy_to_utf16 (MonoString *string, mono_unichar2 *buffer)
+{
+	if (mono_string_is_compact (string)) {
+		size_t i;
+		const char *const bytes = mono_string_bytes_fast (string);
+		for (i = 0; i < mono_string_length_fast (string, TRUE); ++i)
+			buffer [i] = (mono_unichar2)bytes [i];
+	} else {
+		memcpy (buffer, mono_string_chars_fast (string), mono_string_length_fast (string, TRUE) * sizeof (mono_unichar2));
+	}
+}
 
 /**
  * mono_string_to_utf16:

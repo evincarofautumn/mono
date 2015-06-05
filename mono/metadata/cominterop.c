@@ -2243,12 +2243,13 @@ cominterop_get_managed_wrapper_adjusted (MonoMethod *method)
  */
 static void
 cominterop_mono_string_to_guid (MonoString* string, guint8 *guid) {
-	gunichar2 * chars = mono_string_chars (string);
+	gunichar2 *chars = mono_string_is_compact (string) ? mono_string_to_utf16 (string) : mono_string_chars_fast (string);
 	int i = 0;
 	static guint8 indexes[16] = {7, 5, 3, 1, 12, 10, 17, 15, 20, 22, 25, 27, 29, 31, 33, 35};
-
 	for (i = 0; i < sizeof(indexes); i++)
 		guid [i] = g_unichar_xdigit_value (chars [indexes [i]]) + (g_unichar_xdigit_value (chars [indexes [i] - 1]) << 4);
+	if (mono_string_is_compact (string))
+		g_free (chars);
 }
 
 static gboolean

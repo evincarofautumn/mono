@@ -350,7 +350,6 @@ namespace System
 			int value_32 = (int)value;
 
 			if (IsCompact) {
-				throw new NotImplementedException ();
 				fixed (byte* startByte = &m_firstByte) {
 					/* FIXME: Unroll. */
 					for (int i = startIndex; i < startIndex + count; ++i)

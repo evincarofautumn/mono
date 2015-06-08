@@ -5853,7 +5853,7 @@ mini_emit_inst_for_method (MonoCompile *cfg, MonoMethod *cmethod, MonoMethodSign
 	} else if (cmethod->klass == runtime_helpers_class) {
 
 		if (strcmp (cmethod->name, "get_OffsetToStringData") == 0 && fsig->param_count == 0) {
-			fprintf (stderr, "%s:%s ist schlimm!\n", cfg->method->klass->name, cfg->method->name);
+			/* fprintf (stderr, "%s:%s ist schlimm!\n", cfg->method->klass->name, cfg->method->name); */
 			EMIT_NEW_ICONST (cfg, ins, MONO_STRUCT_OFFSET (MonoString, bytes));
 			return ins;
 		} else

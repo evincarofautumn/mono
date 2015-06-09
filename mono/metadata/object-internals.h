@@ -209,9 +209,26 @@ mono_string_chars_fast (MonoString *s)
 static inline int32_t
 mono_string_length_fast (MonoString *s, gboolean allow_compact)
 {
+	gboolean is_compact = mono_string_is_compact (s);
+	size_t length = s->tagged_length >> 1;
 	if (!allow_compact)
-		g_assert (!mono_string_is_compact (s));
-	return s->tagged_length >> 1;
+		g_assert (!is_compact);
+#if 0
+	{
+		size_t i;
+		for (i = 0; i < length; ++i) {
+			if (is_compact) {
+				if (!s->bytes [i]) {
+					g_printerr ("%p has embedded nulls at index %d of %d\n", s, i, length);
+					g_assert_not_reached ();
+				}
+			} else {
+				g_assert (((mono_unichar2 *)s->bytes) [i]);
+			}
+		}
+	}
+#endif
+	return length;
 }
 
 /* The size in bytes of a string's character data, including the null terminator. */

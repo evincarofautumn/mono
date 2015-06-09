@@ -1023,7 +1023,7 @@ mono_string_to_byvalwstr (gpointer dst, MonoString *src, int size)
 		memcpy (dst, mono_string_chars_fast (src), size * 2);
 	}
 
-	if (size <= mono_string_length (src))
+	if (size <= mono_string_length_fast (src, TRUE))
 		len--;
 	*((gunichar2 *) dst + len) = 0;
 }

@@ -4760,17 +4760,16 @@ mono_array_new_specific (MonoVTable *vtable, uintptr_t n)
 #define ENABLE_COMPACT_ENCODING 1
 
 static MonoInternalEncoding
-mono_string_infer_encoding_utf8 (const char *text)
+mono_string_infer_encoding_utf8 (const char *text, size_t length)
 {
 #if ENABLE_COMPACT_ENCODING
 	MonoInternalEncoding encoding = MONO_ENCODING_ASCII;
 	const char *p = text;
-	while (*p) {
-		if ((signed char)(*p) < 0) {
+	while (length--) {
+		if ((unsigned char)(*p++) & 0x80) {
 			encoding = MONO_ENCODING_UTF16;
 			break;
 		}			
-		++p;
 	}
 #else
 	MonoInternalEncoding encoding = MONO_ENCODING_UTF16;
@@ -4779,17 +4778,16 @@ mono_string_infer_encoding_utf8 (const char *text)
 }
 
 static MonoInternalEncoding
-mono_string_infer_encoding_utf16 (const guint16 *text)
+mono_string_infer_encoding_utf16 (const guint16 *text, size_t length)
 {
 #if ENABLE_COMPACT_ENCODING
 	MonoInternalEncoding encoding = MONO_ENCODING_ASCII;
 	const guint16 *p = text;
-	while (*p) {
-		if (*p > (guint16)0x7F) {
+	while (length--) {
+		if (*p++ > (guint16)0x7F) {
 			encoding = MONO_ENCODING_UTF16;
 			break;
 		}
-		++p;
 	}
 #else
 	MonoInternalEncoding encoding = MONO_ENCODING_UTF16;
@@ -4808,12 +4806,25 @@ MonoString *
 mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 {
 	MonoString *s;
-	MonoInternalEncoding encoding = mono_string_infer_encoding_utf16 (text);
+	MonoInternalEncoding encoding = mono_string_infer_encoding_utf16 (text, len);
 
 	s = mono_string_new_size (domain, len, encoding);
 	g_assert (s != NULL);
 	/* Can't use mono_string_size_fast here because 'text' is not null-terminated. */
-	memcpy (s->bytes, text, len * (encoding == MONO_ENCODING_UTF16 ? sizeof (gunichar2) : sizeof (char)));
+	switch (encoding) {
+	case MONO_ENCODING_UTF16:
+		memcpy (s->bytes, text, len * sizeof (gunichar2));
+		break;
+	case MONO_ENCODING_ASCII:
+		{
+			size_t i;
+			for (i = 0; i < len; ++i)
+				s->bytes [i] = (char)text [i];
+		}
+		break;
+	default:
+		g_assert_not_reached ();
+	}
 
 	return s;
 }
@@ -4934,13 +4945,14 @@ mono_string_new (MonoDomain *domain, const char *text)
     guint16 *ut;
     glong items_written;
     int l;
-	MonoInternalEncoding encoding = mono_string_infer_encoding_utf8 (text);;
+	MonoInternalEncoding encoding;
 
 #if 0
 	g_print ("mono_string_new(%p, \"%s\")\n", domain, text);
 #endif
 
     l = strlen (text);
+	encoding = mono_string_infer_encoding_utf8 (text, l);
 
 	switch (encoding) {
 	case MONO_ENCODING_UTF16: 
@@ -4955,6 +4967,8 @@ mono_string_new (MonoDomain *domain, const char *text)
 		o = mono_string_new_size (domain, l, MONO_ENCODING_ASCII);
 		memcpy (mono_string_bytes_fast (o), text, l);
 		break;
+	default:
+		g_assert_not_reached ();
 	}
 
 /*FIXME g_utf8_get_char, g_utf8_next_char and g_utf8_validate are not part of eglib.*/
@@ -5480,8 +5494,15 @@ mono_string_to_utf8_checked (MonoString *s, MonoError *error)
 		return g_strdup ("");
 
 	/* ASCII is a subset of UTF-8. Hooray! */
-	if (mono_string_is_compact (s))
-		return g_strdup (mono_string_bytes_fast (s));
+	if (mono_string_is_compact (s)) {
+		char *bytes = mono_string_bytes_fast (s);
+		char *result = g_malloc (length + 1);
+		size_t i;
+		for (i = 0; i < mono_string_length_fast(s, TRUE); ++i)
+			result [i] = bytes [i] ? bytes [i] : '.';
+		result [length] = '\0';
+		return result;
+	}
 
 	as = g_utf16_to_utf8 (mono_string_chars (s), length, NULL, &written, &gerror);
 	if (gerror) {

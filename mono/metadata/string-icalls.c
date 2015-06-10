@@ -34,10 +34,9 @@ ves_icall_System_String_ctor_RedirectToCreateString (void)
 }
 
 MonoString *
-ves_icall_System_String_InternalAllocateStr (gint32 length)
+ves_icall_System_String_InternalAllocateStr (gint32 length, gint32 encoding)
 {
-	/* FIXME: Accept encoding parameter from managed code. */
-	return mono_string_new_size(mono_domain_get (), length, MONO_ENCODING_UTF16);
+	return mono_string_new_size(mono_domain_get (), length, encoding);
 }
 
 MonoString  *

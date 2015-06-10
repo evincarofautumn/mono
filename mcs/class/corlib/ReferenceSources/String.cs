@@ -103,19 +103,35 @@ namespace System
                 return String.Empty;
             }
 
-            string jointString = FastAllocateString( jointLength );
-			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
+			bool compact = separator.IsCompact && value.All(s => s.IsCompact);
+            string jointString = FastAllocateString(jointLength, compact ? String.ENCODING_ASCII : String.ENCODING_UTF16);
             fixed (byte* pointerToJointStringByte = &jointString.m_firstByte) {
-				char* pointerToJointString = (char*)pointerToJointStringByte;
-                UnSafeCharBuffer charBuffer = new UnSafeCharBuffer( pointerToJointString, jointLength);                
+				if (compact) {
+					byte* dest = pointerToJointStringByte;
+					fixed (byte* src = &value[startIndex].m_firstByte)
+						memcpy(dest, src, value[startIndex].Length);
+					dest += value[startIndex].Length;
+					for (int i = startIndex + 1; i <= endIndex; ++i) {
+						fixed (byte* src = &separator.m_firstByte)
+							memcpy(dest, src, separator.Length);
+						dest += separator.Length;
+						fixed (byte* src = &value[i].m_firstByte)
+							memcpy(dest, src, value[i].Length);
+						dest += value[i].Length;
+					}
+					Contract.Assert(*dest == '\0', "String must be null-terminated!");
+				} else {
+					char* pointerToJointString = (char*)pointerToJointStringByte;
+					UnSafeCharBuffer charBuffer = new UnSafeCharBuffer( pointerToJointString, jointLength);                
                 
-                // Append the first string first and then append each following string prefixed by the separator.
-                charBuffer.AppendString( value[startIndex] );
-                for (int stringToJoinIndex = startIndex + 1; stringToJoinIndex <= endIndex; stringToJoinIndex++) {
-                    charBuffer.AppendString( separator );
-                    charBuffer.AppendString( value[stringToJoinIndex] );
-                }
-                Contract.Assert(*(pointerToJointString + charBuffer.Length) == '\0', "String must be null-terminated!");
+					// Append the first string first and then append each following string prefixed by the separator.
+					charBuffer.AppendString( value[startIndex] );
+					for (int stringToJoinIndex = startIndex + 1; stringToJoinIndex <= endIndex; stringToJoinIndex++) {
+						charBuffer.AppendString( separator );
+						charBuffer.AppendString( value[stringToJoinIndex] );
+					}
+					Contract.Assert(*(pointerToJointString + charBuffer.Length) == '\0', "String must be null-terminated!");
+				}
             }
 
             return jointString;
@@ -253,16 +269,13 @@ namespace System
 		unsafe string InternalSubString(int startIndex, int length) {
             Contract.Assert( startIndex >= 0 && startIndex <= this.Length, "StartIndex is out of range!");
             Contract.Assert( length >= 0 && startIndex <= this.Length - length, "length is out of range!");            
-            String result = FastAllocateString(length);
-			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
-            fixed (byte* destByte = &result.m_firstByte) {
-				char* dest = (char*)destByte;
-				if (IsCompact) {
-					throw new NotImplementedException ("InternalSubString");
-				} else {
-					fixed (byte* src = &this.m_firstByte)
-						CharCopy (dest, (char*)src + startIndex, length);
-				}
+            String result = FastAllocateString(length, IsCompact ? String.ENCODING_ASCII : String.ENCODING_UTF16);
+            fixed (byte* destByte = &result.m_firstByte)
+			fixed (byte* srcByte = &this.m_firstByte) {
+				if (IsCompact)
+					memcpy (destByte, srcByte + startIndex, length);
+				else
+					CharCopy ((char*)destByte, (char*)srcByte + startIndex, length);
 			}
             return result;
 		}
@@ -627,26 +640,41 @@ namespace System
 			if (start_pos < 4)
 				start_pos = 0;
 
-			string tmp = FastAllocateString (Length);
-			fixed (char* src = ToCharArray ())
-			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
-			fixed (byte* destByte = &tmp.m_firstByte) {
-				char* dest = (char*)destByte;
-				if (start_pos != 0)
-					CharCopy (dest, src, start_pos);
-
-				char* end_ptr = dest + Length;
-				char* dest_ptr = dest + start_pos;
-				char* src_ptr = src + start_pos;
-
-				while (dest_ptr != end_ptr) {
-					if (*src_ptr == oldChar)
-						*dest_ptr = newChar;
-					else
-						*dest_ptr = *src_ptr;
-
-					++src_ptr;
-					++dest_ptr;
+			bool compact = IsCompact && (int)newChar <= 0x7F;
+			string tmp = FastAllocateString (Length, compact ? String.ENCODING_ASCII : String.ENCODING_UTF16);
+			fixed (byte* srcByte = &m_firstByte) {
+				fixed (byte* destByte = &tmp.m_firstByte) {
+					if (compact) {
+						if (start_pos != 0)
+							memcpy(destByte, srcByte, start_pos);
+						byte* end_ptr = destByte + Length;
+						byte* dest_ptr = destByte + start_pos;
+						byte* src_ptr = srcByte + start_pos;
+						while (dest_ptr != end_ptr) {
+							if ((char)*src_ptr == oldChar)
+								*dest_ptr = (byte)newChar;
+							else
+								*dest_ptr = *src_ptr;
+							++src_ptr;
+							++dest_ptr;
+						}
+					} else {
+						char* dest = (char*)destByte;
+						char* src = (char*)srcByte;
+						if (start_pos != 0)
+							CharCopy (dest, src, start_pos);
+						char* end_ptr = dest + Length;
+						char* dest_ptr = dest + start_pos;
+						char* src_ptr = src + start_pos;
+						while (dest_ptr != end_ptr) {
+							if (*src_ptr == oldChar)
+								*dest_ptr = newChar;
+							else
+								*dest_ptr = *src_ptr;
+							++src_ptr;
+							++dest_ptr;
+						}
+					}
 				}
 			}
 			return tmp;
@@ -721,7 +749,8 @@ namespace System
 						throw new OutOfMemoryException ();
 					}
 				}
-				String tmp = FastAllocateString (nlen);
+				/* FIXME: Use String.ENCODING_ASCII when possible. */
+				String tmp = FastAllocateString (nlen, String.ENCODING_UTF16);
 
 				int curPos = 0, lastReadPos = 0;
 				fixed (char* dest = tmp) {
@@ -767,11 +796,11 @@ namespace System
 #else			
 				return this;
 #endif
-			string result = FastAllocateString (totalWidth);
+			/* FIXME: Use String.ENCODING_ASCII when possible. */
+			string result = FastAllocateString (totalWidth, String.ENCODING_UTF16);
 
 			/* FIXME: Avoid ToCharArray. */
 			fixed (char* src = ToCharArray ())
-			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
 			fixed (byte *destByte = result) {
 				char* dest = (char*)destByte;
 				if (isRightPadded) {
@@ -998,15 +1027,25 @@ namespace System
 				throw new ArgumentOutOfRangeException ("count");
 			if (count == 0)
 				return Empty;
-			string result = FastAllocateString (count);
-			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
+			bool compact = (int)c <= 0x7F;
+			string result = FastAllocateString (count, compact ? String.ENCODING_ASCII : String.ENCODING_UTF16);
 			fixed (byte* destByte = &result.m_firstByte) {
-				char* dest = (char*)destByte;
-				char *p = dest;
-				char *end = p + count;
-				while (p < end) {
-					*p = c;
-					p++;
+				if (compact) {
+					byte* dest = destByte;
+					byte* p = dest;
+					byte* end = p + count;
+					while (p < end) {
+						*p = (byte)c;
+						p++;
+					}
+				} else {
+					char* dest = (char*)destByte;
+					char *p = dest;
+					char *end = p + count;
+					while (p < end) {
+						*p = c;
+						p++;
+					}
 				}
 			}
 			return result;

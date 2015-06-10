@@ -31,10 +31,9 @@ namespace System.Globalization
 			if (str.Length == 0)
 				return String.Empty;
 
-			string tmp = String.FastAllocateString (str.Length);
+			string tmp = String.FastAllocateString (str.Length, String.ENCODING_UTF16);
 			/* FIXME: Avoid ToCharArray. */
 			fixed (char* source = str.ToCharArray ())
-			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
 			fixed (char* destByte = tmp) {
 				char* destPtr = (char*)destByte;
 				char* sourcePtr = (char*)source;
@@ -53,10 +52,9 @@ namespace System.Globalization
 			if (str.Length == 0)
 				return String.Empty;
 
-			string tmp = String.FastAllocateString (str.Length);
+			string tmp = String.FastAllocateString (str.Length, String.ENCODING_UTF16);
 			/* FIXME: Avoid ToCharArray. */
 			fixed (char* source = str.ToCharArray ())
-			/* ASSUMES FastAllocateString returns a UTF-16 buffer. */
 			fixed (char* destByte = tmp) {
 
 				char* destPtr = (char*)destByte;

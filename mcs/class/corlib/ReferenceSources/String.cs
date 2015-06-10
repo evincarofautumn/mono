@@ -315,7 +315,8 @@ namespace System
 			if (lengthA == lengthB && indexA == indexB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			fixed (char* aptr = strA, bptr = strB) {
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char* aptr = strA.ToCharArray (), bptr = strB.ToCharArray ()) {
 				char* ap = aptr + indexA;
 				char* end = ap + Math.Min (lengthA, lengthB);
 				char* bp = bptr + indexB;

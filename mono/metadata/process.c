@@ -435,11 +435,11 @@ MonoArray *ves_icall_System_Diagnostics_Process_GetModules_internal (MonoObject 
 void ves_icall_System_Diagnostics_FileVersionInfo_GetVersionInfo_internal (MonoObject *this, MonoString *filename)
 {
 	STASH_SYS_ASS (this);
-	
-	process_get_fileversion (this, mono_string_chars (filename));
-	process_set_field_string (this, "filename",
-				  mono_string_chars (filename),
-				  mono_string_length (filename));
+	/* FIXME: Avoid allocation. */
+	gunichar2 *const filename_chars = mono_string_to_utf16 (filename);
+	process_get_fileversion (this, filename_chars);
+	process_set_field_string (this, "filename", filename_chars, mono_string_length_fast (filename, TRUE));
+	g_free(filename_chars);
 }
 
 /* Only used when UseShellExecute is false */

@@ -43,6 +43,7 @@
 #include <mono/utils/mono-counters.h>
 #include <mono/utils/mono-error-internals.h>
 #include <mono/utils/mono-memory-model.h>
+#include <mono/sgen/sgen-conf.h>
 #include "cominterop.h"
 
 #if defined(HAVE_BOEHM_GC)
@@ -52,6 +53,16 @@
 #else
 #define GC_NO_DESCRIPTOR (NULL)
 #endif
+
+/* #ifdef HEAVY_STATISTICS */
+static guint64 stat_strings_allocated_compact = 0;
+static guint64 stat_strings_allocated_non_compact = 0;
+static guint64 stat_string_chars_allocated_compact = 0;
+static guint64 stat_string_bytes_allocated_compact = 0;
+static guint64 stat_string_chars_allocated_non_compact = 0;
+static guint64 stat_string_bytes_allocated_non_compact = 0;
+static gboolean string_counters_inited = FALSE;
+/* #endif */
 
 static void
 get_default_field_value (MonoDomain* domain, MonoClassField *field, void *value);
@@ -4759,6 +4770,20 @@ mono_array_new_specific (MonoVTable *vtable, uintptr_t n)
 
 #define ENABLE_COMPACT_ENCODING 1
 
+/* #ifdef HEAVY_STATISTICS */
+static void
+init_string_counters ()
+{
+	mono_counters_register ("Strings allocated compact", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_strings_allocated_compact);
+	mono_counters_register ("Strings allocated non-compact ", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_strings_allocated_non_compact);
+	mono_counters_register ("String chars allocated compact", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_string_chars_allocated_compact);
+	mono_counters_register ("String bytes allocated compact", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_string_bytes_allocated_compact);
+	mono_counters_register ("String chars allocated non-compact", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_string_chars_allocated_non_compact);
+	mono_counters_register ("String bytes allocated non-compact", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_string_bytes_allocated_non_compact);
+	string_counters_inited = TRUE;
+}
+/* #endif */
+
 static MonoInternalEncoding
 mono_string_infer_encoding_utf8 (const char *text, size_t length)
 {
@@ -4877,14 +4902,31 @@ mono_string_new_size (MonoDomain *domain, gint32 len, int32_t encoding)
 	size_t size;
 	size_t max_len;
 
+/* #ifdef HEAVY_STATISTICS */
+	if (!string_counters_inited)
+		init_string_counters ();
+	switch (encoding) {
+	case MONO_ENCODING_ASCII:
+		++stat_strings_allocated_compact;
+		break;
+	case MONO_ENCODING_UTF16:
+		++stat_strings_allocated_non_compact;
+		break;
+	}
+/* #endif */
+
 	switch (encoding) {
 	case MONO_ENCODING_UTF16:
 		size = G_STRUCT_OFFSET (MonoString, bytes) + (((size_t)len + 1) * sizeof (gunichar2));
 		max_len = (SIZE_MAX - G_STRUCT_OFFSET (MonoString, bytes) - 8) / sizeof (gunichar2);
+		stat_string_chars_allocated_non_compact += len;
+		stat_string_bytes_allocated_non_compact += size;
 		break;
 	case MONO_ENCODING_ASCII:
 		size = G_STRUCT_OFFSET (MonoString, bytes) + (((size_t)len + 1) * sizeof (char));
 		max_len = (SIZE_MAX - G_STRUCT_OFFSET (MonoString, bytes) - 8);
+		stat_string_chars_allocated_compact += len;
+		stat_string_bytes_allocated_compact += size;
 		break;
 	default:
 		g_assert_not_reached ();

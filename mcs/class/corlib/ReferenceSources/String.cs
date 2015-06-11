@@ -65,17 +65,55 @@ namespace System
 				return 0;
 
 			/* FIXME: Avoid ToCharArray. */
-			fixed (char* aptr = strA.ToCharArray (), bptr = strB.ToCharArray ()) {
-				char* ap = aptr + indexA;
-				char* end = ap + Math.Min (lengthA, lengthB);
-				char* bp = bptr + indexB;
-				while (ap < end) {
-					if (*ap != *bp)
-						return *ap - *bp;
-					ap++;
-					bp++;
+			fixed (byte* aptr = &strA.m_firstByte, bptr = &strB.m_firstByte) {
+				if (strA.IsCompact && strB.IsCompact) {
+					byte* ap = aptr + indexA;
+					byte* end = ap + Math.Min (lengthA, lengthB);
+					byte* bp = bptr + indexB;
+					while (ap < end) {
+						if (*ap != *bp)
+							return *ap - *bp;
+						ap++;
+						bp++;
+					}
+					return lengthA - lengthB;
 				}
-				return lengthA - lengthB;
+				if (strA.IsCompact) {
+					byte* ap = aptr + indexA;
+					byte* end = ap + Math.Min (lengthA, lengthB);
+					char* bp = (char*)bptr + indexB;
+					while (ap < end) {
+						if ((char)*ap != *bp)
+							return *ap - *bp;
+						ap++;
+						bp++;
+					}
+					return lengthA - lengthB;
+				}
+				if (strB.IsCompact) {
+					char* ap = (char*)aptr + indexA;
+					char* end = ap + Math.Min (lengthA, lengthB);
+					byte* bp = bptr + indexB;
+					while (ap < end) {
+						if (*ap != (char)*bp)
+							return *ap - *bp;
+						ap++;
+						bp++;
+					}
+					return lengthA - lengthB;
+				}
+				{
+					char* ap = (char*)aptr + indexA;
+					char* end = ap + Math.Min (lengthA, lengthB);
+					char* bp = (char*)bptr + indexB;
+					while (ap < end) {
+						if (*ap != *bp)
+							return *ap - *bp;
+						ap++;
+						bp++;
+					}
+					return lengthA - lengthB;
+				}
 			}
 		}
 

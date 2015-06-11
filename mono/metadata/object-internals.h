@@ -205,6 +205,14 @@ mono_string_chars_fast (MonoString *s)
 
 #endif
 
+static inline mono_unichar2
+mono_string_char_at(MonoString *s, size_t i)
+{
+	return mono_string_is_compact (s)
+		? (mono_unichar2)mono_string_bytes_fast (s) [i]
+		: mono_string_chars_fast (s) [i];
+}
+
 /* The number of code points in the string, excluding the null terminator. */
 static inline int32_t
 mono_string_length_fast (MonoString *s, gboolean allow_compact)

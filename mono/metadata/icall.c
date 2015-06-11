@@ -5936,7 +5936,7 @@ ves_icall_System_Environment_InternalSetEnvironmentVariable (MonoString *name, M
 
 #ifdef HOST_WIN32
 	utf16_name = mono_string_to_utf16 (name);
-	if ((value == NULL) || (mono_string_length (value) == 0) || (mono_string_chars (value)[0] == 0)) {
+	if (value == NULL || mono_string_length_fast (value, TRUE) == 0 || mono_string_char_at (value, 0) == 0) {
 		SetEnvironmentVariable (utf16_name, NULL);
 		g_free (utf16_name);
 		return;
@@ -5951,7 +5951,7 @@ ves_icall_System_Environment_InternalSetEnvironmentVariable (MonoString *name, M
 #else
 	utf8_name = mono_string_to_utf8 (name);	/* FIXME: this should be ascii */
 
-	if ((value == NULL) || (mono_string_length (value) == 0) || (mono_string_chars (value)[0] == 0)) {
+	if (value == NULL || mono_string_length_fast (value, TRUE) == 0 || mono_string_char_at (value, 0) == 0) {
 		g_unsetenv (utf8_name);
 		g_free (utf8_name);
 		return;

@@ -645,9 +645,9 @@ ves_icall_System_IO_MonoIO_ReplaceFile (MonoString *sourceFileName, MonoString *
 	ret = ReplaceFile (utf16_destinationFileName, utf16_sourceFileName, utf16_destinationBackupFileName,
 			 replaceFlags, NULL, NULL);
 
-	g_free (destinationBackupFileName);
-	g_free (destinationFileName);
-	g_free (sourceFileName);
+	g_free (utf16_destinationBackupFileName);
+	g_free (utf16_destinationFileName);
+	g_free (utf16_sourceFileName);
 
 	if (ret == FALSE)
 		*error = GetLastError ();

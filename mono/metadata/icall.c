@@ -1066,22 +1066,11 @@ ves_icall_System_ValueType_Equals (MonoObject *this, MonoObject *that, MonoArray
 
 
 		case MONO_TYPE_STRING: {
-			MonoString *s1, *s2;
-			guint32 s1len, s2len;
-			s1 = *(MonoString**)((guint8*)this + field->offset);
-			s2 = *(MonoString**)((guint8*)that + field->offset);
-			if (s1 == s2)
-				break;
-			if ((s1 == NULL) || (s2 == NULL))
+			MonoString *s1 = *(MonoString**)((guint8*)this + field->offset);
+			MonoString *s2 = *(MonoString**)((guint8*)that + field->offset);
+			if (!s1 || !s2)
 				return FALSE;
-			s1len = mono_string_length (s1);
-			s2len = mono_string_length (s2);
-			if (s1len != s2len)
-				return FALSE;
-
-			if (memcmp (mono_string_chars (s1), mono_string_chars (s2), s1len * sizeof (gunichar2)) != 0)
-				return FALSE;
-			break;
+			return mono_string_equal (s1, s2);
 		}
 		default:
 			if (!values)

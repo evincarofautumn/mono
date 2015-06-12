@@ -5821,6 +5821,13 @@ mono_string_to_utf8_mp (MonoMemPool *mp, MonoString *s, MonoError *error)
 	return mono_string_to_utf8_internal (mp, NULL, s, FALSE, error);
 }
 
+char *
+mono_string_to_external (MonoString *string)
+{
+	return mono_string_is_compact (string)
+		? mono_utf8_to_external (mono_string_bytes_fast (string))
+		: mono_utf16_to_external (mono_string_chars_fast (string));
+}
 
 static MonoRuntimeExceptionHandlingCallbacks eh_callbacks;
 

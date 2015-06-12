@@ -1557,6 +1557,8 @@ mono_string_to_utf8_mp	(MonoMemPool *mp, MonoString *s, MonoError *error);
 char *
 mono_string_to_utf8_image (MonoImage *image, MonoString *s, MonoError *error);
 
+char *
+mono_string_to_external (MonoString *string);
 
 MonoArray*
 mono_array_clone_in_domain (MonoDomain *domain, MonoArray *array);

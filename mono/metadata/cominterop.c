@@ -2443,7 +2443,7 @@ cominterop_ccw_get_ids_of_names (MonoCCWInterface* ccwe, gpointer riid,
 		 mono_thread_attach (mono_get_root_domain ());
 
 	for (i=0; i < cNames; i++) {
-		methodname = mono_unicode_to_external (rgszNames[i]);
+		methodname = mono_utf16_to_external (rgszNames[i]);
 
 		method = mono_class_get_method_from_name(klass, methodname, -1);
 		if (method) {

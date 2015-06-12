@@ -1068,6 +1068,8 @@ ves_icall_System_ValueType_Equals (MonoObject *this, MonoObject *that, MonoArray
 		case MONO_TYPE_STRING: {
 			MonoString *s1 = *(MonoString**)((guint8*)this + field->offset);
 			MonoString *s2 = *(MonoString**)((guint8*)that + field->offset);
+			if (s1 == s2)
+				break;
 			if (!s1 || !s2)
 				return FALSE;
 			return mono_string_equal (s1, s2);

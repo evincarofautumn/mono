@@ -10325,13 +10325,13 @@ ves_icall_System_Runtime_InteropServices_Marshal_StringToHGlobalUni (MonoString 
 		return NULL;
 	else {
 #ifdef TARGET_WIN32
-		gunichar2 *res = ves_icall_System_Runtime_InteropServices_Marshal_AllocHGlobal 
-			((mono_string_length (string) + 1) * 2);
+		gunichar2 *res = ves_icall_System_Runtime_InteropServices_Marshal_AllocHGlobal
+			((mono_string_length_fast (string, TRUE) + 1) * sizeof (gunichar2));
 #else
-		gunichar2 *res = g_malloc ((mono_string_length (string) + 1) * 2);		
+		gunichar2 *res = g_malloc ((mono_string_length_fast (string, TRUE) + 1) * sizeof (gunichar2));
 #endif
-		memcpy (res, mono_string_chars (string), mono_string_length (string) * 2);
-		res [mono_string_length (string)] = 0;
+		mono_string_copy_to_utf16 (string, res);
+		res [mono_string_length_fast (string, TRUE)] = 0;
 		return res;
 	}
 }

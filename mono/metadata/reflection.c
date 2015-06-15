@@ -1870,7 +1870,7 @@ handle_enum:
 		if (mono_string_is_compact (str)) {
 			/* FIXME: Avoid allocation. */
 			const gunichar2 *p = mono_string_to_utf16 (str);
-			mono_image_add_stream_data (&assembly->us, (const char *)p, len);
+			idx = add_to_blob_cached (assembly, blob_size, b-blob_size, (char*)p, len);
 			g_free ((void *)p);
 		} else {
 			idx = add_to_blob_cached (assembly, blob_size, b-blob_size, (char*)mono_string_chars_fast (str), len);

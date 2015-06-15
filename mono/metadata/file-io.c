@@ -608,7 +608,7 @@ ves_icall_System_IO_MonoIO_MoveFile (MonoString *path, MonoString *dest,
 	*error=ERROR_SUCCESS;
 
 	gunichar2 *path_chars = mono_string_to_utf16 (path);
-	gunichar2 *dest_chars = mono_string_to_utf16 (path);
+	gunichar2 *dest_chars = mono_string_to_utf16 (dest);
 	ret=MoveFile (path_chars, dest_chars);
 	g_free (path_chars);
 	g_free (dest_chars);

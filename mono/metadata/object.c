@@ -5537,16 +5537,13 @@ mono_string_to_utf8_checked (MonoString *s, MonoError *error)
 
 	/* ASCII is a subset of UTF-8. Hooray! */
 	if (mono_string_is_compact (s)) {
-		char *bytes = mono_string_bytes_fast (s);
 		char *result = g_malloc (length + 1);
-		size_t i;
-		for (i = 0; i < mono_string_length_fast(s, TRUE); ++i)
-			result [i] = bytes [i] ? bytes [i] : '.';
+		memcpy (result, mono_string_bytes_fast (s), length);
 		result [length] = '\0';
 		return result;
 	}
 
-	as = g_utf16_to_utf8 (mono_string_chars (s), length, NULL, &written, &gerror);
+	as = g_utf16_to_utf8 (mono_string_chars_fast (s), length, NULL, &written, &gerror);
 	if (gerror) {
 		mono_error_set_argument (error, "string", "%s", gerror->message);
 		g_error_free (gerror);

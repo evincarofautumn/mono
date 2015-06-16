@@ -31,17 +31,20 @@ namespace System.Globalization
 			if (str.Length == 0)
 				return String.Empty;
 
+			// UTF-16 because 'ToUpper' may not return ASCII given ASCII input.
 			string tmp = String.FastAllocateString (str.Length, String.ENCODING_UTF16);
-			/* FIXME: Avoid ToCharArray. */
-			fixed (char* source = str.ToCharArray ())
-			fixed (char* destByte = tmp) {
-				char* destPtr = (char*)destByte;
-				char* sourcePtr = (char*)source;
-
-				for (int n = 0; n < str.Length; n++) {
-					*destPtr = ToUpper (*sourcePtr);
-					sourcePtr++;
-					destPtr++;
+			fixed (char* source = str)
+			fixed (char* dest = tmp) {
+				if (str.IsCompact) {
+					char* destPtr = dest;
+					byte* sourcePtr = (byte*)source;
+					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
+						*destPtr = ToUpper((char)*sourcePtr);
+				} else {
+					char* destPtr = dest;
+					char* sourcePtr = source;
+					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
+						*destPtr = ToUpper(*sourcePtr);
 				}
 			}
 			return tmp;
@@ -52,18 +55,20 @@ namespace System.Globalization
 			if (str.Length == 0)
 				return String.Empty;
 
+			// UTF-16 because 'ToUpper' may not return ASCII given ASCII input.
 			string tmp = String.FastAllocateString (str.Length, String.ENCODING_UTF16);
-			/* FIXME: Avoid ToCharArray. */
-			fixed (char* source = str.ToCharArray ())
+			fixed (char* source = str)
 			fixed (char* destByte = tmp) {
-
-				char* destPtr = (char*)destByte;
-				char* sourcePtr = (char*)source;
-
-				for (int n = 0; n < str.Length; n++) {
-					*destPtr = ToLower (*sourcePtr);
-					sourcePtr++;
-					destPtr++;
+				if (str.IsCompact) {
+					char* destPtr = destByte;
+					byte* sourcePtr = (byte*)source;
+					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
+						*destPtr = ToLower((char)*sourcePtr);
+				} else {
+					char* destPtr = destByte;
+					char* sourcePtr = source;
+					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
+						*destPtr = ToLower(*sourcePtr);
 				}
 			}
 			return tmp;

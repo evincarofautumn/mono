@@ -64,7 +64,6 @@ namespace System
 			if (lengthA == lengthB && indexA == indexB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			/* FIXME: Avoid ToCharArray. */
 			fixed (byte* aptr = &strA.m_firstByte, bptr = &strB.m_firstByte) {
 				if (strA.IsCompact && strB.IsCompact) {
 					byte* ap = aptr + indexA;
@@ -196,20 +195,59 @@ namespace System
 				return startIndex;
 			}
 
-			/* FIXME: Avoid ToCharArray. */
-			fixed (char* thisptr = ToCharArray (), valueptr = value.ToCharArray ()) {
-				char* ap = thisptr + startIndex;
-				char* thisEnd = ap + count - valueLen + 1;
-				while (ap != thisEnd) {
-					if (*ap == *valueptr) {
-						for (int i = 1; i < valueLen; i++) {
-							if (ap[i] != valueptr[i])
-								goto NextVal;
+			fixed (char* thisPtr = this, valuePtr = value) {
+				if (IsCompact && value.IsCompact) {
+					byte* ap = (byte*)thisPtr + startIndex;
+					byte* thisEnd = ap + count - valueLen + 1;
+					while (ap != thisEnd) {
+						if (*ap == *(byte*)valuePtr) {
+							for (int i = 1; i < valueLen; i++)
+								if (ap[i] != ((byte*)valuePtr)[i])
+									goto NextVal;
+							return (int)(ap - thisPtr);
 						}
-						return (int)(ap - thisptr);
+						NextVal:
+						ap++;
 					}
-					NextVal:
-					ap++;
+				} else if (IsCompact) {
+					byte* ap = (byte*)thisPtr + startIndex;
+					byte* thisEnd = ap + count - valueLen + 1;
+					while (ap != thisEnd) {
+						if ((char)*ap == *valuePtr) {
+							for (int i = 1; i < valueLen; i++)
+								if ((char)ap[i] != valuePtr[i])
+									goto NextVal;
+							return (int)(ap - thisPtr);
+						}
+						NextVal:
+						ap++;
+					}
+				} else if (value.IsCompact) {
+					char* ap = thisPtr + startIndex;
+					char* thisEnd = ap + count - valueLen + 1;
+					while (ap != thisEnd) {
+						if (*ap == (char)*(byte*)valuePtr) {
+							for (int i = 1; i < valueLen; i++)
+								if (ap[i] != (char)((byte*)valuePtr)[i])
+									goto NextVal;
+							return (int)(ap - thisPtr);
+						}
+						NextVal:
+						ap++;
+					}
+				} else {
+					char* ap = thisPtr + startIndex;
+					char* thisEnd = ap + count - valueLen + 1;
+					while (ap != thisEnd) {
+						if (*ap == *valuePtr) {
+							for (int i = 1; i < valueLen; i++)
+								if (ap[i] != valuePtr[i])
+									goto NextVal;
+							return (int)(ap - thisPtr);
+						}
+						NextVal:
+						ap++;
+					}
 				}
 			}
 			return -1;
@@ -251,27 +289,41 @@ namespace System
 						lowest = *any_ptr;
 				}
 
-				/* FIXME: Avoid ToCharArray. */
-				fixed (char* start = ToCharArray ()) {
-					char* ptr = start + startIndex;
-					char* end_ptr = ptr + count;
-
-					while (ptr != end_ptr) {
-						if (*ptr > highest || *ptr < lowest) {
+				fixed (char* start = this) {
+					if (IsCompact) {
+						byte* ptr = (byte*)start + startIndex;
+						byte* end_ptr = ptr + count;
+						while (ptr != end_ptr) {
+							if (*ptr > highest || *ptr < lowest) {
+								ptr++;
+								continue;
+							}
+							if ((char)*ptr == *any)
+								return (int)(ptr - (byte*)start);
+							any_ptr = any;
+							while (++any_ptr != end_any_ptr) {
+								if ((char)*ptr == *any_ptr)
+									return (int)(ptr - (byte*)start);
+							}
 							ptr++;
-							continue;
 						}
-
-						if (*ptr == *any)
-							return (int)(ptr - start);
-
-						any_ptr = any;
-						while (++any_ptr != end_any_ptr) {
-							if (*ptr == *any_ptr)
+					} else {
+						char* ptr = start + startIndex;
+						char* end_ptr = ptr + count;
+						while (ptr != end_ptr) {
+							if (*ptr > highest || *ptr < lowest) {
+								ptr++;
+								continue;
+							}
+							if (*ptr == *any)
 								return (int)(ptr - start);
+							any_ptr = any;
+							while (++any_ptr != end_any_ptr) {
+								if (*ptr == *any_ptr)
+									return (int)(ptr - start);
+							}
+							ptr++;
 						}
-
-						ptr++;
 					}
 				}
 			}
@@ -299,38 +351,63 @@ namespace System
 			// It helps JIT compiler to optimize comparison
 			int value_32 = (int)value;
 
-			/* FIXME: Avoid ToCharArray. */
-			fixed (char* start = ToCharArray ()) {
-				char* ptr = start + startIndex;
-				char* end_ptr = ptr - (count >> 3 << 3);
-
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-					if (ptr[-1] == value_32)
-						return (int)(ptr - start) - 1;
-					if (ptr[-2] == value_32)
-						return (int)(ptr - start) - 2;
-					if (ptr[-3] == value_32)
-						return (int)(ptr - start) - 3;
-					if (ptr[-4] == value_32)
-						return (int)(ptr - start) - 4;
-					if (ptr[-5] == value_32)
-						return (int)(ptr - start) - 5;
-					if (ptr[-6] == value_32)
-						return (int)(ptr - start) - 6;
-					if (ptr[-7] == value_32)
-						return (int)(ptr - start) - 7;
-
-					ptr -= 8;
-				}
-
-				end_ptr -= count & 0x07;
-				while (ptr != end_ptr) {
-					if (*ptr == value_32)
-						return (int)(ptr - start);
-
-					ptr--;
+			fixed (char* start = this) {
+				if (IsCompact) {
+					byte* ptr = (byte*)start + startIndex;
+					byte* end_ptr = (byte*)ptr - (count & ~7);
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - (byte*)start);
+						if (ptr[-1] == value_32)
+							return (int)(ptr - (byte*)start) - 1;
+						if (ptr[-2] == value_32)
+							return (int)(ptr - (byte*)start) - 2;
+						if (ptr[-3] == value_32)
+							return (int)(ptr - (byte*)start) - 3;
+						if (ptr[-4] == value_32)
+							return (int)(ptr - (byte*)start) - 4;
+						if (ptr[-5] == value_32)
+							return (int)(ptr - (byte*)start) - 5;
+						if (ptr[-6] == value_32)
+							return (int)(ptr - (byte*)start) - 6;
+						if (ptr[-7] == value_32)
+							return (int)(ptr - (byte*)start) - 7;
+						ptr -= 8;
+					}
+					end_ptr -= count & 7;
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - (byte*)start);
+						ptr--;
+					}
+				} else {
+					char* ptr = start + startIndex;
+					char* end_ptr = ptr - (count & ~7);
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+						if (ptr[-1] == value_32)
+							return (int)(ptr - start) - 1;
+						if (ptr[-2] == value_32)
+							return (int)(ptr - start) - 2;
+						if (ptr[-3] == value_32)
+							return (int)(ptr - start) - 3;
+						if (ptr[-4] == value_32)
+							return (int)(ptr - start) - 4;
+						if (ptr[-5] == value_32)
+							return (int)(ptr - start) - 5;
+						if (ptr[-6] == value_32)
+							return (int)(ptr - start) - 6;
+						if (ptr[-7] == value_32)
+							return (int)(ptr - start) - 7;
+						ptr -= 8;
+					}
+					end_ptr -= count & 7;
+					while (ptr != end_ptr) {
+						if (*ptr == value_32)
+							return (int)(ptr - start);
+						ptr--;
+					}
 				}
 				return -1;
 			}
@@ -361,21 +438,33 @@ namespace System
 			if (anyOf.Length == 1)
 				return LastIndexOfUnchecked (anyOf[0], startIndex, count);
 
-			/* FIXME: Avoid ToCharArray. */
-			fixed (char* start = ToCharArray (), testStart = anyOf) {
-				char* ptr = start + startIndex;
-				char* ptrEnd = ptr - count;
+			fixed (char* start = this, testStart = anyOf) {
 				char* test;
 				char* testEnd = testStart + anyOf.Length;
-
-				while (ptr != ptrEnd) {
-					test = testStart;
-					while (test != testEnd) {
-						if (*test == *ptr)
-							return (int)(ptr - start);
-						test++;
+				if (IsCompact) {
+					byte* ptr = (byte*)start + startIndex;
+					byte* ptrEnd = ptr - count;
+					while (ptr != ptrEnd) {
+						test = testStart;
+						while (test != testEnd) {
+							if (*test == (char)*ptr)
+								return (int)(ptr - (byte*)start);
+							test++;
+						}
+						ptr--;
 					}
-					ptr--;
+				} else {
+					char* ptr = start + startIndex;
+					char* ptrEnd = ptr - count;
+					while (ptr != ptrEnd) {
+						test = testStart;
+						while (test != testEnd) {
+							if (*test == *ptr)
+								return (int)(ptr - start);
+							test++;
+						}
+						ptr--;
+					}
 				}
 				return -1;
 			}

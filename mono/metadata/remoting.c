@@ -2012,10 +2012,9 @@ mono_marshal_xdomain_copy_value (MonoObject *val)
 	}
 	case MONO_TYPE_STRING: {
 		MonoString *str = (MonoString *) val;
-		MonoObject *res = NULL;
-		res = (MonoObject *) mono_string_new_utf16_checked (domain, mono_string_chars (str), mono_string_length (str), &error);
-		mono_error_raise_exception (&error); /* FIXME don't raise here */
-		return res;
+		if (mono_string_is_compact (str))
+			return (MonoObject *)mono_string_new (domain, mono_string_bytes_fast (str));
+		return (MonoObject *)mono_string_new_utf16_checked (domain, mono_string_chars_fast (str), mono_string_length (str), &error);
 	}
 	case MONO_TYPE_ARRAY:
 	case MONO_TYPE_SZARRAY: {

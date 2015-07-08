@@ -273,7 +273,9 @@ ves_icall_System_IO_MonoIO_CreateDirectory (MonoString *path, gint32 *error)
 	
 	*error=ERROR_SUCCESS;
 	
-	ret=CreateDirectory (mono_string_chars (path), NULL);
+	gunichar2 *chars = mono_string_to_utf16 (path);
+	ret=CreateDirectory (chars, NULL);
+	g_free (chars);
 	if(ret==FALSE) {
 		*error=GetLastError ();
 	}
@@ -289,8 +291,10 @@ ves_icall_System_IO_MonoIO_RemoveDirectory (MonoString *path, gint32 *error)
 	MONO_PREPARE_BLOCKING;
 	
 	*error=ERROR_SUCCESS;
-	
-	ret=RemoveDirectory (mono_string_chars (path));
+
+	gunichar2 *chars = mono_string_to_utf16 (path);
+	ret=RemoveDirectory (chars);
+	g_free (chars);
 	if(ret==FALSE) {
 		*error=GetLastError ();
 	}
@@ -463,7 +467,9 @@ ves_icall_System_IO_MonoIO_FindFirst (MonoString *path,
 	
 	*error = ERROR_SUCCESS;
 	
-	find_handle = FindFirstFile (mono_string_chars (path_with_pattern), &data);
+	gunichar2 *chars_with_pattern = mono_string_to_utf16 (path_with_pattern);
+	find_handle = FindFirstFile (chars_with_pattern, &data);
+	g_free (chars_with_pattern);
 	
 	if (find_handle == INVALID_HANDLE_VALUE) {
 		gint32 find_error = GetLastError ();
@@ -581,7 +587,9 @@ ves_icall_System_IO_MonoIO_SetCurrentDirectory (MonoString *path,
 	
 	*error=ERROR_SUCCESS;
 	
-	ret=SetCurrentDirectory (mono_string_chars (path));
+	gunichar2 *chars = mono_string_to_utf16 (path);
+	ret=SetCurrentDirectory (chars);
+	g_free (chars);
 	if(ret==FALSE) {
 		*error=GetLastError ();
 	}
@@ -598,7 +606,11 @@ ves_icall_System_IO_MonoIO_MoveFile (MonoString *path, MonoString *dest,
 	
 	*error=ERROR_SUCCESS;
 
-	ret=MoveFile (mono_string_chars (path), mono_string_chars (dest));
+	gunichar2 *path_chars = mono_string_to_utf16 (path);
+	gunichar2 *dest_chars = mono_string_to_utf16 (dest);
+	ret=MoveFile (path_chars, dest_chars);
+	g_free (path_chars);
+	g_free (dest_chars);
 	if(ret==FALSE) {
 		*error=GetLastError ();
 	}
@@ -618,11 +630,11 @@ ves_icall_System_IO_MonoIO_ReplaceFile (MonoString *sourceFileName, MonoString *
 	MONO_PREPARE_BLOCKING;
 
 	if (sourceFileName)
-		utf16_sourceFileName = mono_string_chars (sourceFileName);
+		utf16_sourceFileName = mono_string_to_utf16 (sourceFileName);
 	if (destinationFileName)
-		utf16_destinationFileName = mono_string_chars (destinationFileName);
+		utf16_destinationFileName = mono_string_to_utf16 (destinationFileName);
 	if (destinationBackupFileName)
-		utf16_destinationBackupFileName = mono_string_chars (destinationBackupFileName);
+		utf16_destinationBackupFileName = mono_string_to_utf16 (destinationBackupFileName);
 
 	*error = ERROR_SUCCESS;
 	if (ignoreMetadataErrors)
@@ -631,6 +643,11 @@ ves_icall_System_IO_MonoIO_ReplaceFile (MonoString *sourceFileName, MonoString *
 	/* FIXME: source and destination file names must not be NULL, but apparently they might be! */
 	ret = ReplaceFile (utf16_destinationFileName, utf16_sourceFileName, utf16_destinationBackupFileName,
 			 replaceFlags, NULL, NULL);
+
+	g_free (utf16_destinationBackupFileName);
+	g_free (utf16_destinationFileName);
+	g_free (utf16_sourceFileName);
+
 	if (ret == FALSE)
 		*error = GetLastError ();
 
@@ -647,7 +664,11 @@ ves_icall_System_IO_MonoIO_CopyFile (MonoString *path, MonoString *dest,
 	
 	*error=ERROR_SUCCESS;
 	
-	ret=CopyFile (mono_string_chars (path), mono_string_chars (dest), !overwrite);
+	gunichar2 *path_chars = mono_string_to_utf16 (path);
+	gunichar2 *dest_chars = mono_string_to_utf16 (dest);
+	ret=CopyFile (path_chars, dest_chars, !overwrite);
+	g_free (dest_chars);
+	g_free (path_chars);
 	if(ret==FALSE) {
 		*error=GetLastError ();
 	}
@@ -664,7 +685,9 @@ ves_icall_System_IO_MonoIO_DeleteFile (MonoString *path, gint32 *error)
 	
 	*error=ERROR_SUCCESS;
 	
-	ret=DeleteFile (mono_string_chars (path));
+	gunichar2 *path_chars = mono_string_to_utf16 (path);
+	ret=DeleteFile (path_chars);
+	g_free (path_chars);
 	if(ret==FALSE) {
 		*error=GetLastError ();
 	}
@@ -681,7 +704,9 @@ ves_icall_System_IO_MonoIO_GetFileAttributes (MonoString *path, gint32 *error)
 
 	*error=ERROR_SUCCESS;
 	
-	ret=get_file_attributes (mono_string_chars (path));
+	gunichar2 *path_chars = mono_string_to_utf16 (path);
+	ret=get_file_attributes (path_chars);
+	g_free (path_chars);
 
 	/* 
 	 * The definition of INVALID_FILE_ATTRIBUTES in the cygwin win32
@@ -707,8 +732,10 @@ ves_icall_System_IO_MonoIO_SetFileAttributes (MonoString *path, gint32 attrs,
 	
 	*error=ERROR_SUCCESS;
 	
-	ret=SetFileAttributes (mono_string_chars (path),
-		convert_attrs ((MonoFileAttributes)attrs));
+	gunichar2 *path_chars = mono_string_to_utf16 (path);
+	ret=SetFileAttributes (path_chars, convert_attrs (attrs));
+	g_free (path_chars);
+
 	if(ret==FALSE) {
 		*error=GetLastError ();
 	}
@@ -747,7 +774,9 @@ ves_icall_System_IO_MonoIO_GetFileStat (MonoString *path, MonoIOStat *stat,
 
 	*error=ERROR_SUCCESS;
 	
-	result = get_file_attributes_ex (mono_string_chars (path), &data);
+	gunichar2 *path_chars = mono_string_to_utf16 (path);
+	result = get_file_attributes_ex (path_chars, &data);
+	g_free (path_chars);
 
 	if (result) {
 		convert_win32_file_attribute_data (&data, stat);
@@ -770,7 +799,7 @@ ves_icall_System_IO_MonoIO_Open (MonoString *filename, gint32 mode,
 	gunichar2 *chars;
 	MONO_PREPARE_BLOCKING;
 
-	chars = mono_string_chars (filename);	
+	chars = mono_string_to_utf16 (filename);	
 	*error=ERROR_SUCCESS;
 
 	if (options != 0){
@@ -809,6 +838,8 @@ ves_icall_System_IO_MonoIO_Open (MonoString *filename, gint32 mode,
 	ret=CreateFile (chars, convert_access ((MonoFileAccess)access_mode),
 			convert_share ((MonoFileShare)share), NULL, convert_mode ((MonoFileMode)mode),
 			attributes, NULL);
+	g_free (chars);
+
 	if(ret==INVALID_HANDLE_VALUE) {
 		*error=GetLastError ();
 	} 

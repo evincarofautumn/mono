@@ -1528,7 +1528,7 @@ gpointer CreateFile(const gunichar2 *name, guint32 fileaccess,
 		return(INVALID_HANDLE_VALUE);
 	}
 
-	filename = mono_unicode_to_external (name);
+	filename = mono_utf16_to_external (name);
 	if (filename == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -1688,7 +1688,7 @@ gboolean DeleteFile(const gunichar2 *name)
 		return(FALSE);
 	}
 
-	filename=mono_unicode_to_external(name);
+	filename=mono_utf16_to_external(name);
 	if(filename==NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -1769,7 +1769,7 @@ gboolean MoveFile (const gunichar2 *name, const gunichar2 *dest_name)
 		return(FALSE);
 	}
 
-	utf8_name = mono_unicode_to_external (name);
+	utf8_name = mono_utf16_to_external (name);
 	if (utf8_name == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 		
@@ -1785,7 +1785,7 @@ gboolean MoveFile (const gunichar2 *name, const gunichar2 *dest_name)
 		return(FALSE);
 	}
 
-	utf8_dest_name = mono_unicode_to_external (dest_name);
+	utf8_dest_name = mono_utf16_to_external (dest_name);
 	if (utf8_dest_name == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -1951,7 +1951,7 @@ gboolean CopyFile (const gunichar2 *name, const gunichar2 *dest_name,
 		return(FALSE);
 	}
 	
-	utf8_src = mono_unicode_to_external (name);
+	utf8_src = mono_utf16_to_external (name);
 	if (utf8_src == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion of source returned NULL",
 			   __func__);
@@ -1968,7 +1968,7 @@ gboolean CopyFile (const gunichar2 *name, const gunichar2 *dest_name,
 		return(FALSE);
 	}
 	
-	utf8_dest = mono_unicode_to_external (dest_name);
+	utf8_dest = mono_utf16_to_external (dest_name);
 	if (utf8_dest == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion of dest returned NULL",
 			   __func__);
@@ -2070,7 +2070,7 @@ convert_arg_to_utf8 (const gunichar2 *arg, const gchar *arg_name)
 		return NULL;
 	}
 
-	utf8_ret = mono_unicode_to_external (arg);
+	utf8_ret = mono_utf16_to_external (arg);
 	if (utf8_ret == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion of %s returned NULL",
 			   __func__, arg_name);
@@ -2667,7 +2667,7 @@ gpointer FindFirstFile (const gunichar2 *pattern, WapiFindData *find_data)
 		return(INVALID_HANDLE_VALUE);
 	}
 
-	utf8_pattern = mono_unicode_to_external (pattern);
+	utf8_pattern = mono_utf16_to_external (pattern);
 	if (utf8_pattern == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 		
@@ -2970,7 +2970,7 @@ gboolean CreateDirectory (const gunichar2 *name,
 		return(FALSE);
 	}
 	
-	utf8_name = mono_unicode_to_external (name);
+	utf8_name = mono_utf16_to_external (name);
 	if (utf8_name == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 	
@@ -3011,7 +3011,7 @@ gboolean RemoveDirectory (const gunichar2 *name)
 		return(FALSE);
 	}
 
-	utf8_name = mono_unicode_to_external (name);
+	utf8_name = mono_utf16_to_external (name);
 	if (utf8_name == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 		
@@ -3053,7 +3053,7 @@ guint32 GetFileAttributes (const gunichar2 *name)
 		return(FALSE);
 	}
 	
-	utf8_name = mono_unicode_to_external (name);
+	utf8_name = mono_utf16_to_external (name);
 	if (utf8_name == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -3127,7 +3127,7 @@ gboolean GetFileAttributesEx (const gunichar2 *name, WapiGetFileExInfoLevels lev
 		return(FALSE);
 	}
 
-	utf8_name = mono_unicode_to_external (name);
+	utf8_name = mono_utf16_to_external (name);
 	if (utf8_name == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -3213,7 +3213,7 @@ extern gboolean SetFileAttributes (const gunichar2 *name, guint32 attrs)
 		return(FALSE);
 	}
 
-	utf8_name = mono_unicode_to_external (name);
+	utf8_name = mono_utf16_to_external (name);
 	if (utf8_name == NULL) {
 		MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -3335,7 +3335,7 @@ extern gboolean SetCurrentDirectory (const gunichar2 *path)
 		return(FALSE);
 	}
 	
-	utf8_path = mono_unicode_to_external (path);
+	utf8_path = mono_utf16_to_external (path);
 	if (_wapi_chdir (utf8_path) != 0) {
 		_wapi_set_last_error_from_errno ();
 		result = FALSE;
@@ -3885,7 +3885,7 @@ gboolean GetDiskFreeSpaceEx(const gunichar2 *path_name, WapiULargeInteger *free_
 		}
 	}
 	else {
-		utf8_path_name = mono_unicode_to_external (path_name);
+		utf8_path_name = mono_utf16_to_external (path_name);
 		if (utf8_path_name == NULL) {
 			MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 
@@ -4205,7 +4205,7 @@ guint32 GetDriveType(const gunichar2 *root_path_name)
 		}
 	}
 	else {
-		utf8_root_path_name = mono_unicode_to_external (root_path_name);
+		utf8_root_path_name = mono_utf16_to_external (root_path_name);
 		if (utf8_root_path_name == NULL) {
 			MONO_TRACE (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER, "%s: unicode conversion returned NULL", __func__);
 			return(DRIVE_NO_ROOT_DIR);
@@ -4262,7 +4262,7 @@ GetVolumeInformation (const gunichar2 *path, gunichar2 *volumename, int volumesi
 	if (fsbuffer == NULL)
 		return 0;
 	
-	utfpath = mono_unicode_to_external (path);
+	utfpath = mono_utf16_to_external (path);
 	if ((fstypename = get_fstypename (utfpath)) != NULL){
 		gunichar2 *ret = g_utf8_to_utf16 (fstypename, -1, NULL, &len, NULL);
 		if (ret != NULL && len < fsbuffersize){

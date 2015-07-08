@@ -2305,7 +2305,7 @@ ves_icall_System_AppDomain_InternalGetProcessGuid (MonoString* newguid)
 		mono_error_raise_exception (&error);
 		return res;
 	}
-	memcpy (process_guid, mono_string_chars(newguid), sizeof(process_guid));
+	mono_string_copy_to_utf16 (newguid, process_guid);
 	process_guid_set = TRUE;
 	mono_domain_unlock (mono_root_domain);
 	return newguid;

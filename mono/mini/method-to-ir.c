@@ -6851,7 +6851,6 @@ inline static MonoInst*
 mini_redirect_call (MonoCompile *cfg, MonoMethod *method,  
 					MonoMethodSignature *signature, MonoInst **args, MonoInst *this_ins)
 {
-#if 0
 	if (method->klass == mono_defaults.string_class) {
 		/* managed string allocation support */
 		if (strcmp (method->name, "InternalAllocateStr") == 0 && !(mono_profiler_events & MONO_PROFILE_ALLOCATIONS) && !(cfg->opt & MONO_OPT_SHARED)) {
@@ -6870,9 +6869,7 @@ mini_redirect_call (MonoCompile *cfg, MonoMethod *method,
 			return mono_emit_method_call (cfg, managed_alloc, iargs, this_ins);
 		}
 	}
-#else
 	return NULL;
-#endif
 }
 
 static void

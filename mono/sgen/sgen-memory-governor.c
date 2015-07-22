@@ -66,7 +66,6 @@ static mword last_collection_los_memory_usage = 0;
 
 static mword sgen_memgov_available_free_space (void);
 
-
 /* GC trigger heuristics. */
 
 static void
@@ -82,11 +81,30 @@ sgen_memgov_calculate_minor_collection_allowance (void)
 	new_major = major_collector.get_bytes_survived_last_sweep ();
 	new_heap_size = new_major + last_collection_los_memory_usage;
 
+	double predicted_efficiency = (double)sgen_probably_dead_block_count / (double)sgen_block_count;
+	if (predicted_efficiency != predicted_efficiency)
+		predicted_efficiency = 0.0;
+/*
+	g_printerr (
+		"new heap size: %lu; predicted efficiency: %.2f%%; actual efficiency: %.2f%% (%lu/%lu)\n",
+		new_heap_size,
+		predicted_efficiency * 100.0,
+		(double)sgen_bytes_swept / (double)sgen_last_heap_size * 100.0,
+		sgen_bytes_swept,
+		sgen_last_heap_size);
+*/
+	g_print (
+		"fnord\t%.2f\t%.2f\n",
+		predicted_efficiency * 100.0,
+		(double)sgen_bytes_swept / (double)sgen_last_heap_size * 100.0);
+
 	/*
-	 * We allow the heap to grow by one third its current size before we start the next
-	 * major collection.
+	 * We normally allow the heap to grow by one third of its current size
+	 * before we start the next major collection. As the predicted efficiency of
+	 * the GC increases, we allow the heap to grow less, so that we are more
+	 * likely to do a GC when we predict it will be more effective.
 	 */
-	allowance_target = new_heap_size / 3;
+	allowance_target = new_heap_size / (3.0 + 2.0 * predicted_efficiency);
 
 	allowance = MAX (allowance_target, MIN_MINOR_COLLECTION_ALLOWANCE);
 

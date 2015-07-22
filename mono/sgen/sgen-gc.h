@@ -839,6 +839,18 @@ gboolean sgen_is_world_stopped (void);
 
 gboolean sgen_set_allow_synchronous_major (gboolean flag);
 
+/* Yield Prediction */
+
+void sgen_predict_yield (void);
+void sgen_note_live_block (GCObject *);
+
+extern guint32 sgen_probably_dead_block_count;
+extern guint32 sgen_block_count;
+extern guint32 sgen_mispredicted_dead;
+extern SGEN_TV_DECLARE (sgen_last_gc_timestamp);
+extern guint64 sgen_bytes_swept;
+extern guint64 sgen_last_heap_size;
+
 /* LOS */
 
 typedef struct _LOSObject LOSObject;

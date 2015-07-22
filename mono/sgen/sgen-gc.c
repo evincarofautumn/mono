@@ -309,6 +309,14 @@ static SGEN_TV_DECLARE (last_minor_collection_end_tv);
 int gc_debug_level = 0;
 FILE* gc_debug_file;
 
+/* Yield Prediction */
+guint32 sgen_probably_dead_block_count;
+guint32 sgen_block_count;
+guint32 sgen_mispredicted_dead;
+SGEN_TV_DECLARE (sgen_last_gc_timestamp);
+guint64 sgen_bytes_swept;
+guint64 sgen_last_heap_size;
+
 /*
 void
 mono_gc_flush_info (void)
@@ -2318,6 +2326,9 @@ sgen_perform_collection (size_t requested_size, int generation_to_collect, const
 	TV_GETTIME (gc_start);
 
 	sgen_stop_world (generation_to_collect);
+
+	sgen_bytes_swept = 0;
+	sgen_last_heap_size = major_collector.get_num_major_sections () * major_collector.section_size + los_memory_usage;
 
 	TV_GETTIME (gc_total_start);
 

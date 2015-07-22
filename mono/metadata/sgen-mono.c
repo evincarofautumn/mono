@@ -907,6 +907,7 @@ mono_gc_clear_domain (MonoDomain * domain)
 		sgen_object_layout_dump (stdout);
 	}
 
+	sgen_predict_yield ();
 	sgen_restart_world (0, NULL);
 
 	binary_protocol_domain_unload_end (domain);

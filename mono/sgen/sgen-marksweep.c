@@ -113,10 +113,14 @@ struct _MSBlockInfo {
 	unsigned int has_references : 1;
 	unsigned int has_pinned : 1;	/* means cannot evacuate */
 	unsigned int is_to_space : 1;
+	unsigned int predicted_dead : 1;
+	unsigned int mispredicted_dead : 1;
+	unsigned int has_live : 1;
 	void ** volatile free_list;
 	MSBlockInfo * volatile next_free;
 	guint8 * volatile cardtable_mod_union;
 	mword mark_words [MS_NUM_MARK_WORDS];
+	SGEN_TV_DECLARE (access);
 };
 
 #define MS_BLOCK_FOR_BLOCK_INFO(b)	((char*)(b))
@@ -1284,6 +1288,7 @@ sweep_block_for_size (MSBlockInfo *block, int count, int obj_size)
 		} else {
 			/* an unmarked object */
 			if (MS_OBJ_ALLOCED (obj, block)) {
+				sgen_bytes_swept += block->obj_size;
 				/*
 				 * FIXME: Merge consecutive
 				 * slots for lower reporting
@@ -1564,6 +1569,14 @@ ensure_block_is_checked_for_sweeping (int block_index, gboolean wait, gboolean *
 		SGEN_ASSERT (6, block_index < allocated_blocks.next_slot, "How did the number of blocks shrink?");
 		SGEN_ASSERT (6, allocated_blocks.data [block_index] == BLOCK_TAG_CHECKING (tagged_block), "How did the block move?");
 
+		for (int i = 0; i < MS_BLOCK_FREE / block->obj_size; ++i) {
+			int word, bit;
+			void *obj = MS_BLOCK_OBJ_FOR_SIZE (block, i, block->obj_size);
+			MS_CALC_MARK_BIT (word, bit, obj);
+			if (!MS_MARK_BIT (block, word, bit) && MS_OBJ_ALLOCED (obj, block))
+				sgen_bytes_swept += block->obj_size;
+		}
+
 		binary_protocol_empty (MS_BLOCK_OBJ (block, 0), (char*)MS_BLOCK_OBJ (block, count) - (char*)MS_BLOCK_OBJ (block, 0));
 		ms_free_block (block);
 
@@ -1825,6 +1838,24 @@ major_start_major_collection (void)
 		binary_protocol_sweep_end (GENERATION_OLD, TRUE);
 
 	set_sweep_state (SWEEP_STATE_NEED_SWEEPING, SWEEP_STATE_SWEPT);
+}
+
+void
+sgen_predict_yield (void)
+{
+	MSBlockInfo *block;
+	SGEN_TV_DECLARE (now);
+	SGEN_TV_GETTIME (now);
+	const gint64 delta = SGEN_TV_ELAPSED (sgen_last_gc_timestamp, now);
+	sgen_mispredicted_dead = 0;
+	FOREACH_BLOCK_NO_LOCK (block) {
+		block->access += delta;
+		block->mispredicted_dead = block->has_live && (block->predicted_dead || block->mispredicted_dead);
+		if (block->mispredicted_dead)
+			++sgen_mispredicted_dead;
+	} END_FOREACH_BLOCK_NO_LOCK;
+	SGEN_TV_GETTIME (sgen_last_gc_timestamp);
+	sgen_probably_dead_block_count = 0;
 }
 
 static void
@@ -2196,6 +2227,8 @@ scan_card_table_for_block (MSBlockInfo *block, gboolean mod_union, ScanCopyConte
 	guint8 *card_data, *card_base;
 	guint8 *card_data_end;
 	char *scan_front = NULL;
+	gboolean found_marked_card = FALSE;
+	SGEN_TV_DECLARE (now);
 
 	block_obj_size = block->obj_size;
 	small_objects = block_obj_size < CARD_SIZE_IN_BYTES;
@@ -2243,6 +2276,8 @@ scan_card_table_for_block (MSBlockInfo *block, gboolean mod_union, ScanCopyConte
 			++card_data;
 			continue;
 		}
+
+		found_marked_card = TRUE;
 
 		card_index = card_data - card_base;
 		start = (char*)(block_start + card_index * CARD_SIZE_IN_BYTES);
@@ -2305,16 +2340,26 @@ scan_card_table_for_block (MSBlockInfo *block, gboolean mod_union, ScanCopyConte
 		else
 			card_data = card_base + sgen_card_table_get_card_offset (obj, block_start);
 	}
+	if (found_marked_card) {
+		SGEN_TV_GETTIME (now);
+		block->access = now;
+		block->has_live = TRUE;
+	}
 }
+
+#define SGEN_YIELD_PREDICTION_YOUNG_OLD_RATIO (0.05)
 
 static void
 major_scan_card_table (gboolean mod_union, ScanCopyContext ctx)
 {
 	MSBlockInfo *block;
 	gboolean has_references;
+	SGEN_TV_DECLARE (now);
 
 	if (!concurrent_mark)
 		g_assert (!mod_union);
+
+	SGEN_TV_GETTIME (now);
 
 	major_finish_sweep_checking ();
 	FOREACH_BLOCK_HAS_REFERENCES_NO_LOCK (block, has_references) {
@@ -2329,10 +2374,26 @@ major_scan_card_table (gboolean mod_union, ScanCopyContext ctx)
                 }
 #endif
 
+		block->has_live = FALSE;
+		++sgen_block_count;
+
 		if (!has_references)
 			continue;
 
 		scan_card_table_for_block (block, mod_union, ctx);
+
+		{
+			gint64 block_age = SGEN_TV_ELAPSED (block->access, now);
+			gint64 gc_time = SGEN_TV_ELAPSED (sgen_last_gc_timestamp, now);
+			gint64 limit = SGEN_YIELD_PREDICTION_YOUNG_OLD_RATIO * gc_time;
+			if (block_age >= limit && !block->mispredicted_dead) {
+				block->predicted_dead = TRUE;
+				++sgen_probably_dead_block_count;
+			} else {
+				block->predicted_dead = FALSE;
+			}
+		}
+
 	} END_FOREACH_BLOCK_NO_LOCK;
 }
 

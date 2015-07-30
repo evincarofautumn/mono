@@ -4,6 +4,10 @@
 #include <mono/metadata/class.h>
 #include <mono/utils/mono-error.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 MONO_BEGIN_DECLS
 
 typedef mono_byte MonoBoolean;
@@ -356,6 +360,10 @@ MONO_API void mono_gc_wbarrier_value_copy    (void* dest, void* src, int count, 
 MONO_API void mono_gc_wbarrier_object_copy   (MonoObject* obj, MonoObject *src);
 
 MONO_END_DECLS
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

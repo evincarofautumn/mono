@@ -10,6 +10,10 @@
 #ifndef _WAPI_ERROR_H_
 #define _WAPI_ERROR_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	ERROR_SUCCESS = 0,
 	NO_ERROR = 0,
@@ -1805,5 +1809,9 @@ gint _wapi_get_win32_file_error (gint err);
 void _wapi_error_cleanup (void);
 
 G_END_DECLS
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_ERROR_H_ */

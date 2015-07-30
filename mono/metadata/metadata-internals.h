@@ -15,6 +15,10 @@
 #include <mono/utils/mono-error.h>
 #include "mono/utils/mono-conc-hashtable.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct _MonoType {
 	union {
 		MonoClass *klass; /* for VALUETYPE and CLASS */
@@ -160,7 +164,7 @@ struct _MonoTableInfo {
 	guint32   size_bitfield;
 };
 
-#define REFERENCE_MISSING ((gpointer) -1)
+#define REFERENCE_MISSING ((MonoAssembly *)-1)
 
 typedef struct _MonoDllMap MonoDllMap;
 
@@ -862,5 +866,8 @@ mono_method_get_wrapper_cache (MonoMethod *method);
 MonoWrapperCaches*
 mono_method_get_wrapper_cache (MonoMethod *method);
 
-#endif /* __MONO_METADATA_INTERNALS_H__ */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* __MONO_METADATA_INTERNALS_H__ */

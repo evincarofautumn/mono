@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Poping */
 /* 1 bit */
 #define Pop0    1
@@ -263,3 +267,7 @@ disassemble_cil (MonoMetadata *m, const unsigned char *start, int size)
 		fprintf (output, "\n");
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif

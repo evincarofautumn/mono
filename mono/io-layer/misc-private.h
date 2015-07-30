@@ -14,6 +14,14 @@
 #include <sys/time.h>
 #include <time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void _wapi_calc_timeout(struct timespec *timeout, guint32 ms);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_MISC_PRIVATE_H_ */

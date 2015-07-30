@@ -13,6 +13,10 @@
 #include <mono/metadata/object-internals.h>
 #include <mono/metadata/class-internals.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void mono_remoting_init (void);
 
 #ifndef DISABLE_REMOTING
@@ -47,6 +51,10 @@ mono_marshal_get_stfld_remote_wrapper (MonoClass *klass);
 MonoMethod *
 mono_marshal_get_proxy_cancast (MonoClass *klass);
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

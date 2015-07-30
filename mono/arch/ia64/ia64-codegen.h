@@ -16,6 +16,10 @@
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	IA64_INS_TYPE_A,
 	IA64_INS_TYPE_I,
@@ -3179,5 +3183,8 @@ typedef enum {
 
 #define ia64_break_f(code, imm) ia64_break_f_pred ((code), 0, imm)
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

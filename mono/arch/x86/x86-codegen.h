@@ -16,6 +16,10 @@
 #define X86_H
 #include <assert.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef __native_client_codegen__
 extern gint8 nacl_align_byte;
 #endif /* __native_client_codegen__ */
@@ -2651,6 +2655,9 @@ typedef enum {
 	} while (0)
 
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // X86_H
 

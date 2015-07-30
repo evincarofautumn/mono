@@ -12,62 +12,62 @@ mono-dtrace.h: $(top_srcdir)/data/mono.d
 endif
 
 monoutils_sources = \
-	mono-md5.c		\
-	mono-sha1.c		\
-	mono-logger.c		\
+	mono-md5.cpp		\
+	mono-sha1.cpp		\
+	mono-logger.cpp		\
 	mono-logger-internal.h	\
-	mono-codeman.c		\
+	mono-codeman.cpp		\
 	dlmalloc.h      	\
-	dlmalloc.c      	\
-	mono-counters.c		\
+	dlmalloc.cpp      	\
+	mono-counters.cpp		\
 	mono-compiler.h		\
 	mono-complex.h		\
-	mono-dl.c		\
-	mono-dl-windows.c	\
-	mono-dl-darwin.c	\
-	mono-dl-posix.c		\
+	mono-dl.cpp		\
+	mono-dl-windows.cpp	\
+	mono-dl-darwin.cpp	\
+	mono-dl-posix.cpp		\
 	mono-dl.h		\
-	mono-internal-hash.c	\
+	mono-internal-hash.cpp	\
 	mono-internal-hash.h	\
-	mono-io-portability.c 	\
+	mono-io-portability.cpp 	\
 	mono-io-portability.h	\
-	monobitset.c		\
-	mono-filemap.c		\
-	mono-math.c  		\
-	mono-mmap.c  		\
+	monobitset.cpp		\
+	mono-filemap.cpp		\
+	mono-math.cpp  		\
+	mono-mmap.cpp  		\
 	mono-mmap.h  		\
 	mono-mmap-internal.h	\
-	mono-mutex.c  		\
+	mono-mutex.cpp  		\
 	mono-mutex.h  		\
 	mono-lazy-init.h		\
-	mono-networkinterfaces.c		\
+	mono-networkinterfaces.cpp		\
 	mono-networkinterfaces.h		\
-	mono-proclib.c		\
+	mono-proclib.cpp		\
 	mono-proclib.h		\
-	mono-publib.c		\
+	mono-publib.cpp		\
 	mono-string.h		\
-	mono-time.c  		\
+	mono-time.cpp  		\
 	mono-time.h  		\
 	strenc.h		\
-	strenc.c		\
-	mono-uri.c		\
-	mono-poll.c		\
-	mono-path.c		\
-	mono-semaphore.c	\
+	strenc.cpp		\
+	mono-uri.cpp		\
+	mono-poll.cpp		\
+	mono-path.cpp		\
+	mono-semaphore.cpp	\
 	mono-semaphore.h	\
 	mono-sigcontext.h	\
-	mono-stdlib.c 		\
+	mono-stdlib.cpp 		\
 	mono-property-hash.h 	\
-	mono-property-hash.c 	\
+	mono-property-hash.cpp 	\
 	mono-value-hash.h 	\
-	mono-value-hash.c 	\
+	mono-value-hash.cpp 	\
 	freebsd-elf_common.h 	\
 	freebsd-elf32.h		\
 	freebsd-elf64.h		\
 	freebsd-dwarf.h 	\
 	dtrace.h			\
 	gc_wrapper.h		\
-	mono-error.c	\
+	mono-error.cpp	\
 	mono-error-internals.h	\
 	monobitset.h	\
 	mono-codeman.h	\
@@ -82,71 +82,71 @@ monoutils_sources = \
 	mono-uri.h	\
 	mono-stdlib.h	\
 	valgrind.h	\
-	mach-support.c	\
+	mach-support.cpp	\
 	mach-support.h  \
 	memcheck.h	\
-	mono-context.c	\
+	mono-context.cpp	\
 	mono-context.h	\
 	mono-stack-unwinding.h	\
-	hazard-pointer.c	\
+	hazard-pointer.cpp	\
 	hazard-pointer.h	\
-	lock-free-queue.c	\
+	lock-free-queue.cpp	\
 	lock-free-queue.h	\
-	lock-free-alloc.c	\
+	lock-free-alloc.cpppp	\
 	lock-free-alloc.h	\
-	lock-free-array-queue.c	\
+	lock-free-array-queue.cpp	\
 	lock-free-array-queue.h	\
-	mono-linked-list-set.c	\
+	mono-linked-list-set.cpp	\
 	mono-linked-list-set.h	\
-	mono-threads.c	\
-	mono-threads-state-machine.c	\
-	mono-threads-posix.c	\
-	mono-threads-posix-signals.c	\
+	mono-threads.cpp	\
+	mono-threads-state-machine.cpp	\
+	mono-threads-posix.cpp	\
+	mono-threads-posix-signals.cpp	\
 	mono-threads-posix-signals.h	\
-	mono-threads-mach.c	\
+	mono-threads-mach.cpp	\
 	mono-threads-mach-helper.c	\
-	mono-threads-windows.c	\
-	mono-threads-linux.c	\
-	mono-threads-freebsd.c	\
-	mono-threads-openbsd.c	\
-	mono-threads-android.c	\
+	mono-threads-windows.cpp	\
+	mono-threads-linux.cpp	\
+	mono-threads-freebsd.cpp	\
+	mono-threads-openbsd.cpp	\
+	mono-threads-android.cpp	\
 	mono-threads.h	\
 	mono-threads-api.h	\
-	mono-threads-coop.c	\
+	mono-threads-coop.cpp	\
 	mono-threads-coop.h	\
-	mono-threads-mach-abort-syscall.c	\
-	mono-threads-posix-abort-syscall.c	\
-	mono-threads-windows-abort-syscall.c	\
+	mono-threads-mach-abort-syscall.cpp	\
+	mono-threads-posix-abort-syscall.cpp	\
+	mono-threads-windows-abort-syscall.cpp	\
 	mono-tls.h	\
-	mono-tls.c	\
+	mono-tls.cpp	\
 	linux_magic.h	\
 	mono-memory-model.h	\
 	atomic.h	\
-	atomic.c	\
+	atomic.cpp	\
 	mono-hwcap.h	\
-	mono-hwcap.c	\
+	mono-hwcap.cpp	\
 	bsearch.h	\
-	bsearch.c	\
+	bsearch.cpp	\
 	mono-signal-handler.h	\
 	mono-conc-hashtable.h	\
-	mono-conc-hashtable.c	\
+	mono-conc-hashtable.cpp	\
 	sha1.h		\
-	sha1.c	\
+	sha1.cpp	\
 	json.h	\
-	json.c	\
-	networking.c	\
-	networking-posix.c	\
-	networking-fallback.c	\
-	networking-missing.c	\
-	networking-windows.c	\
+	json.cpp	\
+	networking.cpp	\
+	networking-posix.cpp	\
+	networking-fallback.cpp	\
+	networking-missing.cpp	\
+	networking-windows.cpp	\
 	networking.h	\
-	mono-rand.c	\
+	mono-rand.cpp	\
 	mono-rand.h \
-	memfuncs.c \
+	memfuncs.cpp \
 	memfuncs.h \
-	parse.c \
+	parse.cpp \
 	parse.h	\
-	checked-build.c \
+	checked-build.cpp \
 	checked-build.h
 
 arch_sources = 
@@ -154,69 +154,69 @@ arch_sources =
 if !CROSS_COMPILE
 
 if X86
-arch_sources += mach-support-x86.c
+arch_sources += mach-support-x86.cpp
 endif
 
 if AMD64
-arch_sources += mach-support-amd64.c
+arch_sources += mach-support-amd64.cpp
 endif
 
 if ARM
-arch_sources += mach-support-arm.c
+arch_sources += mach-support-arm.cpp
 endif
 
 if ARM64
-arch_sources += mach-support-arm64.c
+arch_sources += mach-support-arm64.cpp
 endif
 
 else
 
-arch_sources += mach-support-unknown.c
+arch_sources += mach-support-unknown.cpp
 
 endif
 
 if X86
-arch_sources += mono-hwcap-x86.c mono-hwcap-x86.h
+arch_sources += mono-hwcap-x86.cpp mono-hwcap-x86.h
 endif
 
 if AMD64
-arch_sources += mono-hwcap-x86.c mono-hwcap-x86.h
+arch_sources += mono-hwcap-x86.cpp mono-hwcap-x86.h
 endif
 
 if ARM
-arch_sources += mono-hwcap-arm.c mono-hwcap-arm.h
+arch_sources += mono-hwcap-arm.cpp mono-hwcap-arm.h
 endif
 
 if ARM64
-arch_sources += mono-hwcap-arm64.c mono-hwcap-arm64.h
+arch_sources += mono-hwcap-arm64.cpp mono-hwcap-arm64.h
 endif
 
 if MIPS
-arch_sources += mono-hwcap-mips.c mono-hwcap-mips.h
+arch_sources += mono-hwcap-mips.cpp mono-hwcap-mips.h
 endif
 
 if POWERPC
-arch_sources += mono-hwcap-ppc.c mono-hwcap-ppc.h
+arch_sources += mono-hwcap-ppc.cpp mono-hwcap-ppc.h
 endif
 
 if POWERPC64
-arch_sources += mono-hwcap-ppc.c mono-hwcap-ppc.h
+arch_sources += mono-hwcap-ppc.cpp mono-hwcap-ppc.h
 endif
 
 if SPARC
-arch_sources += mono-hwcap-sparc.c mono-hwcap-sparc.h
+arch_sources += mono-hwcap-sparc.cpp mono-hwcap-sparc.h
 endif
 
 if SPARC64
-arch_sources += mono-hwcap-sparc.c mono-hwcap-sparc.h
+arch_sources += mono-hwcap-sparc.cpp mono-hwcap-sparc.h
 endif
 
 if IA64
-arch_sources += mono-hwcap-ia64.c mono-hwcap-ia64.h
+arch_sources += mono-hwcap-ia64.cpp mono-hwcap-ia64.h
 endif
 
 if S390X
-arch_sources += mono-hwcap-s390x.c mono-hwcap-s390x.h
+arch_sources += mono-hwcap-s390x.cpp mono-hwcap-s390x.h
 endif
 
 libmonoutils_la_SOURCES = $(monoutils_sources) $(arch_sources)
@@ -229,4 +229,4 @@ libmonoutilsinclude_HEADERS = 	\
 	mono-dl-fallback.h	\
 	mono-counters.h
 
-EXTRA_DIST = ChangeLog mono-embed.h mono-embed.c
+EXTRA_DIST = ChangeLog mono-embed.h mono-embed.cpp

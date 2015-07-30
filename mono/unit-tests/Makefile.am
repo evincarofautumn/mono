@@ -20,17 +20,17 @@ test_sgen_qsort_CFLAGS = $(test_cflags)
 test_sgen_qsort_LDADD = $(test_ldadd)
 test_sgen_qsort_LDFLAGS = $(test_ldflags)
 
-test_memfuncs_SOURCES = test-memfuncs.c
+test_memfuncs_SOURCES = test-memfuncs.cpp
 test_memfuncs_CFLAGS = $(test_cflags)
 test_memfuncs_LDADD = $(test_ldadd)
 test_memfuncs_LDFLAGS = $(test_ldflags)
 
-test_mono_linked_list_set_SOURCES = test-mono-linked-list-set.c
+test_mono_linked_list_set_SOURCES = test-mono-linked-list-set.cpp
 test_mono_linked_list_set_CFLAGS = $(test_cflags)
 test_mono_linked_list_set_LDADD = $(test_ldadd)
 test_mono_linked_list_set_LDFLAGS = $(test_ldflags)
 
-test_conc_hashtable_SOURCES = test-conc-hashtable.c
+test_conc_hashtable_SOURCES = test-conc-hashtable.cpp
 test_conc_hashtable_CFLAGS = $(test_cflags)
 test_conc_hashtable_LDADD = $(test_ldadd)
 test_conc_hashtable_LDFLAGS = $(test_ldflags)

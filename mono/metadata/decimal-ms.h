@@ -1,6 +1,10 @@
 #ifndef __MONO_DECIMAL_MS_H__
 #define __MONO_DECIMAL_MS_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     // Decimal.cs treats the first two shorts as one long
     // And they seriable the data so we need to little endian
@@ -58,5 +62,9 @@ void    mono_decimal_truncate      (MonoDecimal *d);
 void    mono_decimal_addsub        (MonoDecimal *left, MonoDecimal *right, uint8_t sign);
 void    mono_decimal_divide        (MonoDecimal *left, MonoDecimal *right);
 int     mono_decimal_from_number   (void *from, MonoDecimal *target);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

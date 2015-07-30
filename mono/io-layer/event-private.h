@@ -16,6 +16,10 @@
 
 #include <mono/utils/mono-mutex.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern struct _WapiHandleOps _wapi_event_ops;
 extern struct _WapiHandleOps _wapi_namedevent_ops;
 
@@ -33,5 +37,9 @@ struct _WapiHandle_namedevent
 	gboolean manual;
 	guint32 set_count;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_EVENT_PRIVATE_H_ */

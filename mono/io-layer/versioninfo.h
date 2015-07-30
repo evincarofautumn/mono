@@ -12,6 +12,10 @@
 
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * VS_VERSIONINFO:
  *
@@ -448,5 +452,9 @@ extern gboolean VerQueryValue (gconstpointer datablock,
 			       guint32 *len);
 extern guint32 VerLanguageName (guint32 lang, gunichar2 *lang_out,
 				guint32 lang_len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_VERSIONINFO_H_ */

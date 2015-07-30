@@ -1,3 +1,6 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * These return allocated strings
@@ -85,3 +88,7 @@ void init_key_table (void);
 
 extern gboolean show_method_tokens;
 extern gboolean show_tokens;
+
+#ifdef __cplusplus
+}
+#endif

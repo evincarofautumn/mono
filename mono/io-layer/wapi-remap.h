@@ -7,6 +7,10 @@
 #ifndef __WAPI_REMAP_H__
 #define __WAPI_REMAP_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * The windows function names used by the io-layer can collide with symbols in system and 3rd party libs, esp. on osx/ios. So remap them to
  * wapi_<funcname>.
@@ -105,5 +109,9 @@
 #define WaitForMultipleObjects wapi_WaitForMultipleObjects
 #define WaitForMultipleObjectsEx wapi_WaitForMultipleObjectsEx
 #define WaitForInputIdle wapi_WaitForInputIdle
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __WAPI_REMAP_H__ */

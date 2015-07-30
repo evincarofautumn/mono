@@ -16,6 +16,10 @@
 #include <mono/metadata/nacl-stub.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MAKEWORD(low, high) ((guint16)(((guint8)(low)) | \
 				       ((guint16)((guint8)(high))) << 8))
 #define MAKELONG(low, high) ((guint32)(((guint16)(low)) | \
@@ -24,5 +28,9 @@
 #define HIWORD(i32) ((guint16)(((guint32)(i32) >> 16) & 0xFFFF))
 #define LOBYTE(i16) ((guint8)((i16) & 0xFF))
 #define HIBYTE(i16) ((guint8)(((guint16)(i16) >> 8) & 0xFF))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_MACROS_H_ */

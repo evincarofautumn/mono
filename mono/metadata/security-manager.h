@@ -22,6 +22,9 @@
 #include "reflection.h"
 #include "tabledefs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Definitions */
 
@@ -66,6 +69,10 @@ void ves_icall_System_Security_SecurityManager_set_SecurityEnabled (MonoBoolean 
 #define mono_security_core_clr_enabled() (mono_security_get_mode () == MONO_SECURITY_MODE_CORE_CLR)
 #else
 #define mono_security_core_clr_enabled() (FALSE)
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* _MONO_METADATA_SECURITY_MANAGER_H_ */

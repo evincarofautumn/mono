@@ -11,6 +11,10 @@
 #include <mono/metadata/debug-mono-symfile.h>
 #include <mono/utils/mono-compiler.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void            mono_debugger_lock                          (void);
 void            mono_debugger_unlock                        (void);
 
@@ -19,5 +23,9 @@ mono_debug_get_seq_points (MonoDebugMethodInfo *minfo, char **source_file, GPtrA
 
 MONO_API void
 mono_debug_free_locals (MonoDebugLocalsInfo *info);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONO_DEBUG_DEBUGGER_H__ */

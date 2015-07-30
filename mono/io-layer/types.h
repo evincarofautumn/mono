@@ -12,6 +12,10 @@
 
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef union {
 	struct {
 		guint32 LowPart;
@@ -27,5 +31,9 @@ typedef union {
 	} u;
 	guint64 QuadPart;
 } WapiULargeInteger;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_TYPES_H_ */

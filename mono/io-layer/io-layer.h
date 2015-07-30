@@ -11,6 +11,10 @@
 #ifndef _MONO_IOLAYER_IOLAYER_H_
 #define _MONO_IOLAYER_IOLAYER_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if defined(__WIN32__) || defined(_WIN32)
 /* Native win32 */
 #define __USE_W32_SOCKETS
@@ -45,6 +49,10 @@ typedef struct pollfd {
 
 #ifdef __native_client__
 #include "mono/metadata/nacl-stub.h"
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* _MONO_IOLAYER_IOLAYER_H_ */

@@ -7,6 +7,10 @@
 #ifndef __WMMX_H__
 #define __WMMX_H__ 1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if 0
 #include <arm-codegen.h>
 #endif
@@ -173,5 +177,8 @@ enum {
 #define ARM_WM_TBCSTH(_p, _wrd, _rn) _WM_TBCST(_p, WM_H)
 #define ARM_WM_TBCSTD(_p, _wrd, _rn) _WM_TBCST(_p, WM_D)
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __WMMX_H__ */

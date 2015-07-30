@@ -16,6 +16,12 @@
 #include <mono/io-layer/io-layer.h>
 #include <mono/metadata/mempool-internals.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern mono_mutex_t mono_delegate_section;
+
 /*
  * If this is set, the memory belonging to appdomains is not freed when a domain is
  * unloaded, and assemblies loaded by the appdomain are not unloaded either. This
@@ -676,5 +682,9 @@ void mono_assembly_cleanup_domain_bindings (guint32 domain_id);
 MonoJitInfo* mono_jit_info_table_find_internal (MonoDomain *domain, char *addr, gboolean try_aot, gboolean allow_trampolines);
 
 void mono_enable_debug_domain_unload (gboolean enable);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONO_METADATA_DOMAIN_INTERNALS_H__ */

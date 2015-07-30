@@ -15,6 +15,10 @@
 #include <pthread.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern struct _WapiHandleOps _wapi_mutex_ops;
 extern struct _WapiHandleOps _wapi_namedmutex_ops;
 
@@ -36,5 +40,9 @@ struct _WapiHandle_namedmutex
 };
 
 extern void _wapi_mutex_abandon (gpointer data, pid_t pid, pthread_t tid);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_MUTEX_PRIVATE_H_ */

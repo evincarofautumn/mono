@@ -12,6 +12,10 @@
 #include <mono/metadata/method-builder.h>
 #include <mono/metadata/marshal.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void
 mono_cominterop_init (void);
 
@@ -52,5 +56,9 @@ mono_string_from_bstr (gpointer bstr);
 
 MONO_API void 
 mono_free_bstr (gpointer bstr);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONO_COMINTEROP_H__ */

@@ -7,6 +7,10 @@
 #include <mono/metadata/object-internals.h>
 #include <mono/metadata/socket-io.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _MonoIOSelectorJob MonoIOSelectorJob;
 
 void
@@ -21,5 +25,9 @@ void
 mono_threadpool_ms_io_remove_domain_jobs (MonoDomain *domain);
 void
 mono_threadpool_ms_io_cleanup (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MONO_THREADPOOL_MS_IO_H_ */

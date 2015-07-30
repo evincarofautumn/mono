@@ -17,6 +17,10 @@
 #include <mono/io-layer/handles.h>
 #include <mono/io-layer/io.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Increment this whenever an incompatible change is made to the
  * shared handle structure.
  */
@@ -199,5 +203,9 @@ struct _WapiFileShareLayout
 
 
 #define _WAPI_HANDLE_INVALID (gpointer)-1
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_PRIVATE_H_ */

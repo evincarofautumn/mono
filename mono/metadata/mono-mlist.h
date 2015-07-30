@@ -7,6 +7,10 @@
 
 #include <mono/metadata/object.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _MonoMList MonoMList;
 MONO_API MonoMList*  mono_mlist_alloc       (MonoObject *data);
 MONO_API MonoObject* mono_mlist_get_data    (MonoMList* list);
@@ -19,5 +23,8 @@ MONO_API MonoMList*  mono_mlist_prepend     (MonoMList* list, MonoObject *data);
 MONO_API MonoMList*  mono_mlist_append      (MonoMList* list, MonoObject *data);
 MONO_API MonoMList*  mono_mlist_remove_item (MonoMList* list, MonoMList *item);
 
-#endif /* __MONO_METADATA_MONO_MLIST_H__ */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* __MONO_METADATA_MONO_MLIST_H__ */

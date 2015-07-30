@@ -15,6 +15,10 @@
 #ifndef _MONO_METADATA_ATTRDEFS_H_
 #define	_MONO_METADATA_ATTRDEFS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * 23.1.1  Values for AssemblyHashAlgorithm 
  */
@@ -269,5 +273,9 @@ enum {
 	MONO_TYPE_ATTR_RT_SPECIAL_NAME       = 0x00000800,
 	MONO_TYPE_ATTR_HAS_SECURITY          = 0x00040000
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

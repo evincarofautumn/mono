@@ -6,6 +6,10 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* registers */
 enum {
 	mips_zero,
@@ -430,6 +434,10 @@ enum {
 #define mips_sdxc1(c,src,base,idx) mips_format_r(c,19,base,idx,src,0,9)
 #define mips_swc1(c,src,base,offset) mips_swc(c,1,src,base,offset)
 #define mips_swxc1(c,src,base,idx) mips_format_r(c,19,base,idx,src,0,8)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MIPS_CODEGEN_H__ */
 

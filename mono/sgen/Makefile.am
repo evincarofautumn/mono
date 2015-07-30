@@ -19,54 +19,54 @@ endif
 
 monosgen_sources = \
 	gc-internal-agnostic.h \
-	sgen-alloc.c \
+	sgen-alloc.cpp \
 	sgen-archdep.h \
-	sgen-cardtable.c \
+	sgen-cardtable.cpp \
 	sgen-cardtable.h \
 	sgen-client.h \
 	sgen-conf.h \
 	sgen-copy-object.h \
-	sgen-debug.c \
-	sgen-descriptor.c \
+	sgen-debug.cpp \
+	sgen-descriptor.cpp \
 	sgen-descriptor.h \
-	sgen-fin-weak-hash.c \
-	sgen-gc.c \
+	sgen-fin-weak-hash.cpp \
+	sgen-gc.cpp \
 	sgen-gc.h \
-	sgen-gchandles.c \
-	sgen-gray.c \
+	sgen-gchandles.cpp \
+	sgen-gray.cpp \
 	sgen-gray.h \
-	sgen-hash-table.c \
+	sgen-hash-table.cpp \
 	sgen-hash-table.h \
-	sgen-internal.c \
-	sgen-layout-stats.c \
+	sgen-internal.cpp \
+	sgen-layout-stats.cpp \
 	sgen-layout-stats.h \
-	sgen-los.c \
+	sgen-los.cpp \
 	sgen-major-copy-object.h \
 	sgen-marksweep-drain-gray-stack.h \
 	sgen-marksweep-scan-object-concurrent.h \
-	sgen-marksweep.c \
-	sgen-memory-governor.c \
+	sgen-marksweep.cpp \
+	sgen-memory-governor.cpp \
 	sgen-memory-governor.h \
 	sgen-minor-copy-object.h \
 	sgen-minor-scan-object.h \
-	sgen-nursery-allocator.c \
-	sgen-pinning-stats.c \
-	sgen-pinning.c \
+	sgen-nursery-allocator.cpp \
+	sgen-pinning-stats.cpp \
+	sgen-pinning.cpp \
 	sgen-pinning.h \
-	sgen-pointer-queue.c \
+	sgen-pointer-queue.cpp \
 	sgen-pointer-queue.h \
 	sgen-protocol-def.h \
-	sgen-protocol.c \
+	sgen-protocol.cpp \
 	sgen-protocol.h \
-	sgen-qsort.c \
+	sgen-qsort.cpp \
 	sgen-qsort.h \
 	sgen-scan-object.h \
-	sgen-simple-nursery.c \
-	sgen-split-nursery.c \
+	sgen-simple-nursery.cpp \
+	sgen-split-nursery.cpp \
 	sgen-tagged-pointer.h \
-	sgen-thread-pool.c \
+	sgen-thread-pool.cpp \
 	sgen-thread-pool.h \
-	sgen-workers.c \
+	sgen-workers.cpp \
 	sgen-workers.h
 
 libmonosgen_la_SOURCES = $(monosgen_sources)

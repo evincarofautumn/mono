@@ -16,6 +16,10 @@
 #ifndef AMD64_H
 #define AMD64_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <glib.h>
 
 typedef enum {
@@ -1839,5 +1843,9 @@ typedef union {
 #define amd64_padding(inst,size) amd64_padding_size(inst,size)
 #define amd64_prolog(inst,frame,reg_mask) amd64_prolog_size(inst,frame,reg_mask,8)
 #define amd64_epilog(inst,reg_mask) amd64_epilog_size(inst,reg_mask,8)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // AMD64_H

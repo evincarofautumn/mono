@@ -5,6 +5,10 @@
 #include <glib.h>
 #include <mono/metadata/object.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define NUM_DAYS 7
 #define NUM_MONTHS 13
 #define GROUP_SIZE 2
@@ -127,6 +131,10 @@ typedef struct {
 	const stridx_t name;
 	const gint16 region_entry_index;
 } RegionInfoNameEntry;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

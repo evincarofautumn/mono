@@ -12,6 +12,10 @@
 
 #include <mono/io-layer/wapi-private.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	WAPI_SHM_DATA,
 	WAPI_SHM_FILESHARE
@@ -35,5 +39,9 @@ _wapi_shm_enabled (void)
 	return _wapi_shm_enabled_internal ();
 #endif
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_SHARED_H_ */

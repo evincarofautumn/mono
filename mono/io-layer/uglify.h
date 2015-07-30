@@ -16,6 +16,10 @@
 
 #include "mono/io-layer/wapi.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef const gunichar2 *LPCTSTR;
 typedef gunichar2 *LPTSTR;
 typedef const char *LPCSTR;
@@ -119,5 +123,9 @@ typedef WapiGuid *LPGUID;
 #define IN
 #define OUT
 #define WINAPI
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_UGLIFY_H_ */

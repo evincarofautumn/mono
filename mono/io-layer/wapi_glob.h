@@ -40,6 +40,10 @@
 
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct stat;
 typedef struct {
 	int gl_pathc;		/* Count of total paths so far. */
@@ -64,5 +68,9 @@ G_BEGIN_DECLS
 int	_wapi_glob(GDir *dir, const char *, int, wapi_glob_t *);
 void	_wapi_globfree(wapi_glob_t *);
 G_END_DECLS
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_WAPI_GLOB_H_ */

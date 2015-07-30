@@ -20,6 +20,10 @@
 #include "mono/utils/mono-membar.h"
 #include "mono/utils/mono-threads.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* This is a copy of System.Threading.ThreadState */
 typedef enum {
 	ThreadState_Running = 0x00000000,
@@ -257,5 +261,9 @@ void mono_threads_join_threads (void);
 void mono_thread_join (gpointer tid);
 
 void mono_thread_detach_internal (MonoInternalThread *thread);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MONO_METADATA_THREADS_TYPES_H_ */

@@ -5,6 +5,10 @@
 #include <mono/metadata/metadata.h>
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * 25.2.1: Method header type values
  */
@@ -328,5 +332,9 @@ typedef struct {
 } MonoCLIImageInfo;
 
 MONO_API guint32       mono_cli_rva_image_map (MonoImage *image, guint32 rva);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONO_CIL_COFF_H__ */

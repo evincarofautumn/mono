@@ -11,6 +11,10 @@
 #ifndef __MONODIS_DECLSEC_H__
 #define __MONODIS_DECLSEC_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MONO_DECLSEC_FORMAT_20		0x2E
 
 #define MONO_DECLSEC_FIELD		0x53
@@ -20,5 +24,9 @@
 #define MONO_TYPE_SYSTEM_TYPE		0x50
 
 char* dump_declsec_entry20 (MonoImage *m, const char* p, const char *indent);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONODIS_DECLSEC_H__ */

@@ -13,6 +13,10 @@
 #include <glib.h>
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	FORMAT_MESSAGE_MAX_WIDTH_MASK	= 0x000000FF,
 	FORMAT_MESSAGE_ALLOCATE_BUFFER	= 0x00000100,
@@ -27,5 +31,9 @@ typedef enum {
 extern guint32 FormatMessage (guint32 flags, gconstpointer source,
 			      guint32 messageid, guint32 languageid,
 			      gunichar2 *buf, guint32 size, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_MESSAGES_H_ */

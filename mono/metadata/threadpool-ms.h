@@ -7,6 +7,10 @@
 #include <mono/metadata/exception.h>
 #include <mono/metadata/object-internals.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SMALL_STACK (sizeof (gpointer) * 32 * 1024)
 
 typedef struct _MonoNativeOverlapped MonoNativeOverlapped;
@@ -61,5 +65,9 @@ ves_icall_System_Threading_ThreadPool_IsThreadPoolHosted (void);
 
 void
 mono_threadpool_ms_enqueue_work_item (MonoDomain *domain, MonoObject *work_item);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _MONO_THREADPOOL_MICROSOFT_H_

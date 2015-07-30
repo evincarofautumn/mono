@@ -32,19 +32,19 @@ endif
 noinst_LIBRARIES = libmonodis.a
 
 libmonodis_a_SOURCES =	\
-	get.c		\
+	get.cpp		\
 	get.h		\
-	dis-cil.c	\
+	dis-cil.cpp	\
 	dis-cil.h	\
-	util.c		\
+	util.cpp		\
 	util.h
 
 monodis_SOURCES =	\
-	dump.c		\
+	dump.cpp		\
 	dump.h		\
-	main.c		\
+	main.cpp		\
 	meta.h		\
-	declsec.c	\
+	declsec.cpp	\
 	declsec.h
 
 monodis_LDADD = 			\

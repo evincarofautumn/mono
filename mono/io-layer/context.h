@@ -14,6 +14,10 @@
 
 #include "mono/io-layer/wapi.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* This part is x86-specific.  MSDN states that CONTEXT is defined
  * also for MIPS, Alpha and PPC processors.
  */
@@ -86,5 +90,9 @@ G_BEGIN_DECLS
 extern gboolean GetThreadContext(gpointer handle, WapiContext *context);
 
 G_END_DECLS
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_COMPEX_H_ */

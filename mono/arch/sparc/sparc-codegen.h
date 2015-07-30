@@ -1,6 +1,10 @@
 #ifndef __SPARC_CODEGEN_H__
 #define __SPARC_CODEGEN_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if SIZEOF_VOID_P == 8
 #define SPARCV9 1
 #else
@@ -949,6 +953,10 @@ typedef struct {
 #define sparc_ldi_imm sparc_ld_imm
 #define sparc_sti sparc_st
 #define sparc_ldi sparc_ld
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* __SPARC_CODEGEN_H__ */

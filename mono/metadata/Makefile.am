@@ -1,6 +1,6 @@
 if HOST_WIN32
 win32_sources = \
-	console-win32.c
+	console-win32.cpp
 
 platform_sources = $(win32_sources)
 
@@ -23,13 +23,13 @@ else
 assembliesdir = $(exec_prefix)/lib
 confdir = $(sysconfdir)
 unix_sources = \
-	console-unix.c
+	console-unix.cpp
 
 platform_sources = $(unix_sources)
 endif
 
 if PLATFORM_ANDROID
-platform_sources += ../../support/libm/complex.c
+platform_sources += ../../support/libm/complex.cpp
 endif
 
 if SHARED_MONO
@@ -87,164 +87,164 @@ mono-config-dirs.lo: Makefile
 #
 libmonoruntime_config_la_SOURCES = \
 	mono-config-dirs.h		\
-	mono-config-dirs.c
+	mono-config-dirs.cpp
 libmonoruntime_config_la_CPPFLAGS = $(AM_CPPFLAGS) -DMONO_BINDIR=\"$(bindir)/\" -DMONO_ASSEMBLIES=\"$(assembliesdir)\" -DMONO_CFG_DIR=\"$(confdir)\"
 
 CLEANFILES = mono-bundle.stamp
 
 null_sources = \
-	console-null.c
+	console-null.cpp
 
 null_gc_sources = \
-	null-gc.c
+	null-gc.cpp
 
 common_sources = \
 	$(platform_sources)	\
-	assembly.c		\
+	assembly.cpp		\
 	attach.h		\
-	attach.c		\
+	attach.cpp		\
 	cil-coff.h		\
-	class.c			\
+	class.cpp			\
 	class-internals.h	\
-	cominterop.c		\
+	cominterop.cpp		\
 	cominterop.h		\
 	console-io.h		\
-	coree.c 		\
+	coree.cpp 		\
 	coree.h 		\
 	culture-info.h  	\
 	culture-info-tables.h	\
-	debug-helpers.c		\
+	debug-helpers.cpp		\
 	debug-mono-symfile.h	\
-	debug-mono-symfile.c	\
+	debug-mono-symfile.cpp	\
 	debug-mono-ppdb.h	\
-	debug-mono-ppdb.c	\
-	decimal-ms.c		\
+	debug-mono-ppdb.cpp	\
+	decimal-ms.cpp		\
 	decimal-ms.h		\
 	domain-internals.h	\
-	environment.c		\
+	environment.cpp		\
 	environment.h		\
-	exception.c		\
+	exception.cpp		\
 	exception.h		\
-	file-io.c		\
+	file-io.cpp		\
 	file-io.h		\
-	filewatcher.c		\
+	filewatcher.cpp		\
 	filewatcher.h		\
 	gc-internal.h		\
-	icall.c			\
+	icall.cpp			\
 	icall-def.h		\
-	image.c			\
-	jit-info.c		\
-	loader.c		\
-	locales.c		\
+	image.cpp			\
+	jit-info.cpp		\
+	loader.cpp		\
+	locales.cpp		\
 	locales.h		\
-	lock-tracer.c		\
+	lock-tracer.cpp		\
 	lock-tracer.h		\
-	marshal.c		\
+	marshal.cpp		\
 	marshal.h		\
-	mempool.c		\
+	mempool.cpp		\
 	mempool.h		\
 	mempool-internals.h	\
-	metadata.c		\
-	metadata-verify.c	\
+	metadata.cpp		\
+	metadata-verify.cpp	\
 	metadata-internals.h	\
 	method-builder.h 	\
-	method-builder.c 	\
-	mono-basic-block.c	\
+	method-builder.cpp 	\
+	mono-basic-block.cpp	\
 	mono-basic-block.h	\
-	mono-config.c		\
+	mono-config.cpp		\
 	mono-debug.h		\
-	mono-debug.c		\
+	mono-debug.cpp		\
 	mono-debug-debugger.h	\
-	mono-endian.c		\
+	mono-endian.cpp		\
 	mono-endian.h		\
 	mono-hash.h		\
-	mono-mlist.c		\
+	mono-mlist.cpp		\
 	mono-mlist.h		\
-	mono-perfcounters.c	\
+	mono-perfcounters.cpp	\
 	mono-perfcounters.h	\
 	mono-perfcounters-def.h	\
 	mono-ptr-array.h	\
-	mono-route.c		\
+	mono-route.cpp		\
 	mono-route.h		\
 	monitor.h		\
-	nacl-stub.c		\
+	nacl-stub.cpp		\
 	normalization-tables.h	\
 	number-formatter.h	\
-	number-ms.c		\
+	number-ms.cpp		\
 	number-ms.h		\
 	object-internals.h	\
-	opcodes.c		\
-	socket-io.c		\
+	opcodes.cpp		\
+	socket-io.cpp		\
 	socket-io.h		\
-	process.c		\
+	process.cpp		\
 	process.h		\
-	profiler.c		\
+	profiler.cpp		\
 	profiler-private.h	\
 	rand.h			\
-	rand.c			\
+	rand.cpp			\
 	remoting.h		\
-	remoting.c		\
-	runtime.c		\
-	mono-security.c		\
+	remoting.cpp		\
+	runtime.cpp		\
+	mono-security.cpp		\
 	security.h		\
-	security-core-clr.c	\
+	security-core-clr.cpp	\
 	security-core-clr.h	\
-	security-manager.c	\
+	security-manager.cpp	\
 	security-manager.h	\
-	string-icalls.c 	\
+	string-icalls.cpp 	\
 	string-icalls.h 	\
 	sysmath.h		\
-	sysmath.c		\
+	sysmath.cpp		\
 	tabledefs.h 		\
-	threads.c		\
+	threads.cpp		\
 	threads-types.h		\
-	threadpool-ms.c	\
+	threadpool-ms.cpp	\
 	threadpool-ms.h	\
-	threadpool-ms-io.c	\
+	threadpool-ms-io.cpp	\
 	threadpool-ms-io.h	\
-	verify.c		\
+	verify.cpp		\
 	verify-internals.h	\
 	wrapper-types.h	\
 	reflection-internals.h	\
-	file-mmap-posix.c	\
-	file-mmap-windows.c	\
+	file-mmap-posix.cpp	\
+	file-mmap-windows.cpp	\
 	file-mmap.h	\
 	object-offsets.h	\
 	abi-details.h	\
-	metadata-cross-helpers.c	\
+	metadata-cross-helpers.cpp	\
 	seq-points-data.h	\
-	seq-points-data.c
+	seq-points-data.cpp
 
 
 # These source files have compile time dependencies on GC code
 gc_dependent_sources = \
-	appdomain.c	\
-	domain.c	\
-	gc-stats.c	\
-	gc.c		\
-	monitor.c	\
-	mono-hash.c	\
-	object.c	\
-	reflection.c
+	appdomain.cpp	\
+	domain.cpp	\
+	gc-stats.cpp	\
+	gc.cpp		\
+	monitor.cpp	\
+	mono-hash.cpp	\
+	object.cpp	\
+	reflection.cpp
 
 boehm_sources = \
-	boehm-gc.c
+	boehm-gc.cpp
 
 sgen_sources = \
-	sgen-os-posix.c		\
-	sgen-os-mach.c		\
-	sgen-os-win32.c		\
-	sgen-os-coop.c		\
-	sgen-bridge.c		\
+	sgen-os-posix.cpp		\
+	sgen-os-mach.cpp		\
+	sgen-os-win32.cpp		\
+	sgen-os-coop.cpp		\
+	sgen-bridge.cpp		\
 	sgen-bridge.h		\
 	sgen-bridge-internal.h	\
-	sgen-old-bridge.c		\
-	sgen-new-bridge.c		\
-	sgen-tarjan-bridge.c		\
-	sgen-toggleref.c		\
+	sgen-old-bridge.cpp		\
+	sgen-new-bridge.cpp		\
+	sgen-tarjan-bridge.cpp		\
+	sgen-toggleref.cpp		\
 	sgen-toggleref.h		\
-	sgen-stw.c				\
-	sgen-mono.c		\
+	sgen-stw.cpp				\
+	sgen-mono.cpp		\
 	sgen-client-mono.h
 
 libmonoruntime_la_SOURCES = $(common_sources) $(gc_dependent_sources) $(null_gc_sources) $(boehm_sources)
@@ -308,7 +308,7 @@ endif
 if SHARED_MONO
 if SUPPORT_BOEHM
 pedump_SOURCES =		\
-	pedump.c
+	pedump.cpp
 
 pedump_LDADD = libmonoruntime.la ../io-layer/libwapi.la ../utils/libmonoutils.la \
 	$(LIBGC_LIBS) $(GLIB_LIBS) -lm $(LIBICONV) $(PEDUMP_DTRACE_OBJECT)
@@ -320,4 +320,4 @@ endif
 endif
 
 EXTRA_DIST = $(win32_sources) $(unix_sources) $(null_sources) runtime.h \
-		threadpool-ms-io-poll.c threadpool-ms-io-epoll.c threadpool-ms-io-kqueue.c
+		threadpool-ms-io-poll.cpp threadpool-ms-io-epoll.cpp threadpool-ms-io-kqueue.cpp

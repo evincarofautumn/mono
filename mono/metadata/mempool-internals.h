@@ -6,6 +6,10 @@
 #include "mono/utils/mono-compiler.h"
 #include "mono/metadata/mempool.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static inline GList*
 g_list_prepend_mempool (MonoMemPool *mp, GList *list, gpointer data)
 {
@@ -59,5 +63,9 @@ g_slist_append_mempool (MonoMemPool *mp, GSList *list, gpointer data)
 
 long
 mono_mempool_get_bytes_allocated (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

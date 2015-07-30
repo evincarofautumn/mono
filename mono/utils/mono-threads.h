@@ -20,6 +20,7 @@
 
 #include <glib.h>
 #include <config.h>
+
 #ifdef HOST_WIN32
 
 #include <windows.h>
@@ -57,6 +58,10 @@ typedef void* mono_native_thread_return_t;
 #define MONO_UINT_TO_NATIVE_THREAD_ID(tid) (MonoNativeThreadId)(gsize)(tid)
 
 #endif /* #ifdef HOST_WIN32 */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
 THREAD_INFO_TYPE is a way to make the mono-threads module parametric - or sort of.
@@ -481,7 +486,6 @@ mono_threads_consume_async_jobs (void);
 MONO_API void
 mono_threads_attach_tools_thread (void);
 
-
 #if !defined(HOST_WIN32)
 
 /*Use this instead of pthread_kill */
@@ -646,5 +650,9 @@ void mono_threads_add_to_pending_operation_set (THREAD_INFO_TYPE* info); //XXX r
 gboolean mono_threads_wait_pending_operations (void);
 void mono_threads_begin_global_suspend (void);
 void mono_threads_end_global_suspend (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONO_THREADS_H__ */

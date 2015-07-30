@@ -39,65 +39,65 @@ OTHER_H = \
 
 OTHER_SRC = \
 	access.h		\
-	collection.c		\
+	collection.cpp		\
 	collection.h		\
-	context.c		\
+	context.cpp		\
 	context.h		\
-	error.c			\
+	error.cpp			\
 	error.h			\
-	events.c		\
+	events.cpp		\
 	events.h		\
 	event-private.h		\
-	handles.c		\
+	handles.cpp		\
 	handles.h		\
 	handles-private.h	\
-	io.c			\
+	io.cpp			\
 	io.h			\
-	io-portability.c	\
+	io-portability.cpp	\
 	io-portability.h	\
 	io-private.h		\
 	io-layer.h		\
-	locking.c		\
+	locking.cpp		\
 	macros.h		\
-	messages.c		\
+	messages.cpp		\
 	messages.h		\
-	misc.c			\
+	misc.cpp			\
 	misc-private.h		\
-	mutexes.c		\
+	mutexes.cpp		\
 	mutexes.h		\
 	mutex-private.h		\
-	posix.c			\
-	processes.c		\
+	posix.cpp			\
+	processes.cpp		\
 	processes.h		\
 	process-private.h	\
-	security.c		\
+	security.cpp		\
 	security.h		\
-	semaphores.c		\
+	semaphores.cpp		\
 	semaphores.h		\
 	semaphore-private.h	\
-	shared.c		\
+	shared.cpp		\
 	shared.h		\
-	sockets.c		\
+	sockets.cpp		\
 	sockets.h		\
 	socket-private.h	\
 	socket-wrappers.h	\
 	status.h		\
 	threads.h		\
 	thread-private.h	\
-	timefuncs.c		\
+	timefuncs.cpp		\
 	timefuncs.h		\
 	timefuncs-private.h	\
 	types.h			\
 	uglify.h		\
-	versioninfo.c		\
+	versioninfo.cpp		\
 	versioninfo.h		\
-	wait.c			\
+	wait.cpp			\
 	wait.h			\
 	wapi_glob.h		\
-	wapi_glob.c		\
+	wapi_glob.cpp		\
 	wapi.h			\
 	wapi-private.h		\
-	wthreads.c
+	wthreads.cpp
 
 
 WINDOWS_H = \
@@ -105,7 +105,7 @@ WINDOWS_H = \
 
 WINDOWS_SRC = \
 	io-layer.h		\
-	io-layer-dummy.c
+	io-layer-dummy.cpp
 
 if HOST_WIN32
 libwapi_la_SOURCES = $(WINDOWS_SRC) $(WINDOWS_H)

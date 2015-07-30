@@ -15,6 +15,10 @@
 #include <mono/metadata/object.h>
 #include "mono/utils/mono-compiler.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void
 ves_icall_System_String_ctor_RedirectToCreateString (void);
 
@@ -29,5 +33,9 @@ ves_icall_System_String_InternalIsInterned (MonoString *str);
 
 int
 ves_icall_System_String_GetLOSLimit (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MONO_CLI_STRING_ICALLS_H_ */

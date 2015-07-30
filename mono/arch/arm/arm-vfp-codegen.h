@@ -5,6 +5,10 @@
 #ifndef __MONO_ARM_VFP_CODEGEN_H__
 #define __MONO_ARM_VFP_CODEGEN_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "arm-codegen.h"
 
 enum {
@@ -242,6 +246,10 @@ enum {
 
 #define ARM_FSITOD(p,dreg,sreg) \
 	ARM_EMIT((p), ARM_DEF_FSITOD (ARMCOND_AL, (dreg) >> 1, (dreg) & 1, (sreg) >> 1, (sreg) & 1))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONO_ARM_VFP_CODEGEN_H__ */
 

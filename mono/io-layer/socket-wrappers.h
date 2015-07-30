@@ -16,6 +16,10 @@
 #  include <sys/socket.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef HAVE_SOCKLEN_T
 #define socklen_t int
 #endif
@@ -87,5 +91,10 @@ extern void _wapi_FD_SET(guint32 handle, fd_set *set);
 #endif
 
 extern void _wapi_cleanup_networking (void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* HOST_WIN32 */
 

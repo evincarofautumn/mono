@@ -14,9 +14,17 @@
 #include <glib.h>
 #include <sys/time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void _wapi_time_t_to_filetime (time_t timeval, WapiFileTime *filetime);
 extern void _wapi_timeval_to_filetime (struct timeval *tv,
 				       WapiFileTime *filetime);
 extern void _wapi_guint64_to_filetime (guint64 ticks, WapiFileTime *filetime);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_TIMEFUNCS_PRIVATE_H_ */

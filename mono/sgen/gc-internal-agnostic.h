@@ -31,6 +31,10 @@
 #include "mono/sgen/sgen-conf.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* h indicates whether to hide or just tag.
  * (-!!h ^ p) is used instead of (h ? ~p : p) to avoid multiple mentions of p.
  */
@@ -120,5 +124,9 @@ void mono_gc_memmove_atomic (void *dest, const void *src, size_t size);
 void mono_gc_memmove_aligned (void *dest, const void *src, size_t size);
 
 FILE *mono_gc_get_logfile (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

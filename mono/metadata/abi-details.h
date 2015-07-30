@@ -7,8 +7,16 @@
 #include <config.h>
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MONO_ABI_ALIGNOF(type) MONO_ALIGN_ ## type
+#ifdef __cplusplus
+#define MONO_CURRENT_ABI_ALIGNOF(type) ((int)alignof (type))
+#else
 #define MONO_CURRENT_ABI_ALIGNOF(type) ((int)G_STRUCT_OFFSET(struct { char c; type x; }, x))
+#endif
 
 
 #undef DECL_OFFSET
@@ -30,6 +38,10 @@ enum {
 #else
 #define MONO_STRUCT_OFFSET(struct,field) G_STRUCT_OFFSET (struct,field)
 #endif
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

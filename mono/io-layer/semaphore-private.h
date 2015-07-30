@@ -13,6 +13,10 @@
 #include <config.h>
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern struct _WapiHandleOps _wapi_sem_ops;
 extern struct _WapiHandleOps _wapi_namedsem_ops;
 
@@ -31,5 +35,9 @@ struct _WapiHandle_namedsem
 	guint32 val;
 	gint32 max;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_SEMAPHORE_PRIVATE_H_ */

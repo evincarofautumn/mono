@@ -13,6 +13,10 @@
 #include "mono/utils/mono-stack-unwinding.h"
 #include "mono/utils/mono-tls.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if 1
 #ifdef __GNUC__
 #define mono_assert(expr)		   G_STMT_START{		  \
@@ -1643,6 +1647,8 @@ mono_error_set_pending_exception (MonoError *error);
 MonoArray *
 mono_glist_to_array (GList *list, MonoClass *eclass);
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* __MONO_OBJECT_INTERNALS_H__ */
-
-

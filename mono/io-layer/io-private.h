@@ -20,6 +20,10 @@
 #include <mono/io-layer/io.h>
 #include <mono/io-layer/wapi-private.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern struct _WapiHandleOps _wapi_file_ops;
 extern struct _WapiHandleOps _wapi_console_ops;
 extern struct _WapiHandleOps _wapi_find_ops;
@@ -53,5 +57,9 @@ struct _WapiHandle_find
 	int num;
 	size_t count;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_IO_PRIVATE_H_ */

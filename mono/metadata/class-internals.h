@@ -13,6 +13,10 @@
 #include "mono/utils/mono-error.h"
 #include "mono/sgen/gc-internal-agnostic.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MONO_CLASS_IS_ARRAY(c) ((c)->rank)
 
 #define MONO_CLASS_HAS_STATIC_METADATA(klass) ((klass)->type_token && !(klass)->image->dynamic && !(klass)->generic_class)
@@ -1135,14 +1139,14 @@ MonoClass*	\
 mono_class_get_##shortname##_class (void)	\
 {	\
 	static MonoClass *tmp_class;	\
-	MonoClass *class = tmp_class;	\
-	if (!class) {	\
-		class = mono_class_from_name (mono_defaults.corlib, #namespace, #name);	\
-		g_assert (class);	\
+	MonoClass *klass = tmp_class;	\
+	if (!klass) {	\
+		klass = mono_class_from_name (mono_defaults.corlib, #namespace, #name);	\
+		g_assert (klass);	\
 		mono_memory_barrier ();	\
-		tmp_class = class;	\
+		tmp_class = klass;	\
 	}	\
-	return class;	\
+	return klass;	\
 }
 
 #define GENERATE_STATIC_GET_CLASS_WITH_CACHE(shortname,namespace,name) \
@@ -1410,5 +1414,9 @@ mono_field_from_token_checked (MonoImage *image, uint32_t token, MonoClass **ret
 
 gpointer
 mono_ldtoken_checked (MonoImage *image, guint32 token, MonoClass **handle_class, MonoGenericContext *context, MonoError *error);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONO_METADATA_CLASS_INTERBALS_H__ */

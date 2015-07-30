@@ -13,6 +13,10 @@
 #include <config.h>
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* There doesn't seem to be a defined symbol for this */
 #define _WAPI_PROCESS_CURRENT (gpointer)0xFFFFFFFF
 
@@ -75,5 +79,9 @@ struct _WapiHandle_process
 };
 
 typedef struct _WapiHandle_process WapiHandle_process;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_PROCESS_PRIVATE_H_ */

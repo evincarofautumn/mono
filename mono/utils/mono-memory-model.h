@@ -163,7 +163,7 @@ Acquire/release semantics macros.
 #define mono_atomic_load_acquire(var,_type,target) do {	\
 	_type __tmp = *target;	\
 	LOAD_ACQUIRE_FENCE;	\
-	(var) = __tmp; \
+	var = __tmp; \
 } while (0)
 
 #define mono_atomic_store_acquire(target,value) {	\

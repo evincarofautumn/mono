@@ -13,6 +13,10 @@
 #include <config.h>
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern struct _WapiHandleOps _wapi_socket_ops;
 
 struct _WapiHandle_socket
@@ -23,5 +27,9 @@ struct _WapiHandle_socket
 	int saved_error;
 	int still_readable;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_SOCKET_PRIVATE_H_ */

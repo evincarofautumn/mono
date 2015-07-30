@@ -16,6 +16,10 @@
 #include <mono/metadata/object-internals.h>
 #include <mono/io-layer/io-layer.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* This is a copy of System.Net.Sockets.SocketType */
 typedef enum {
 	SocketType_Stream=1,
@@ -193,5 +197,9 @@ extern gboolean ves_icall_System_Net_Sockets_Socket_SupportPortReuse (void);
 
 extern void mono_network_init(void);
 extern void mono_network_cleanup(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MONO_METADATA_SOCKET_H_ */

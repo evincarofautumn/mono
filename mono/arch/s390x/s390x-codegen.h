@@ -8,6 +8,10 @@
 #include <assert.h>
 #include <limits.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define FLOAT_REGS 	2	/* No. float registers for parms    */
 #define GENERAL_REGS 	5	/* No. general registers for parms  */
 
@@ -1027,4 +1031,9 @@ typedef struct {
 #define s390_xgr(c, r1, r2)		S390_RRE(c, 0xb982, r1, r2)
 #define s390_xr(c, r1, r2)		S390_RR(c, 0x17, r1, r2)
 #define s390_xy(c, r, x, b, d)		S390_RXY(c, 0xe357, r, x, b, d)
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

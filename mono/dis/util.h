@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
 	int code;
 	const char *str;
@@ -10,3 +14,7 @@ char*       data_dump (const char *data, int len, const char* prefix);
 
 extern int dis_isinf (double num);
 extern int dis_isnan (double num);
+
+#ifdef __cplusplus
+}
+#endif

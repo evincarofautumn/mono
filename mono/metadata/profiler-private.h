@@ -6,6 +6,10 @@
 #include "mono/utils/mono-compiler.h"
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern MonoProfileFlags mono_profiler_events;
 
 enum {
@@ -83,6 +87,10 @@ void mono_profiler_runtime_initialized (void);
 
 int64_t mono_profiler_get_sampling_rate (void);
 MonoProfileSamplingMode mono_profiler_get_sampling_mode (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MONO_PROFILER_PRIVATE_H__ */
 

@@ -10,6 +10,10 @@
 #ifndef _WAPI_STATUS_H_
 #define _WAPI_STATUS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	STATUS_WAIT_0 			= (int) 0x00000000,
 	STATUS_ABANDONED_WAIT_0 	= (int) 0x00000080,
@@ -41,5 +45,9 @@ typedef enum {
 	STATUS_STACK_OVERFLOW		= (int) 0xC00000FD,
 	STATUS_CONTROL_C_EXIT		= (int) 0xC000013A
 } WapiStatus;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_STATUS_H_ */

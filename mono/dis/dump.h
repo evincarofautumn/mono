@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern FILE *output;
 
 void dump_table_assembly     (MonoImage *m);
@@ -40,3 +44,7 @@ void dump_table_propertyptr  (MonoImage *m);
 void dump_stream_blob        (MonoImage *m);
 void dump_stream_strings     (MonoImage *m);
 void dump_stream_us          (MonoImage *m);
+
+#ifdef __cplusplus
+}
+#endif

@@ -736,7 +736,7 @@ test-eglib-remap:
 endif
 
 #
-# Tests that the internals in mono/io-layer/messages.c are ok by triggering the 
+# Tests that the internals in mono/io-layer/messages.cpp are ok by triggering the 
 # code that checks that the table is properly sorted
 #
 if NACL_CODEGEN

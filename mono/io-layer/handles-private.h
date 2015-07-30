@@ -22,6 +22,10 @@
 #include <mono/io-layer/shared.h>
 #include <mono/utils/atomic.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _WAPI_PRIVATE_MAX_SLOTS		(1024 * 16)
 #define _WAPI_PRIVATE_HANDLES(x) (_wapi_private_handles [x / _WAPI_HANDLE_INITIAL_COUNT][x % _WAPI_HANDLE_INITIAL_COUNT])
 #define _WAPI_PRIVATE_HAVE_SLOT(x) ((GPOINTER_TO_UINT (x) / _WAPI_PRIVATE_MAX_SLOTS) < _WAPI_PRIVATE_MAX_SLOTS && \
@@ -367,5 +371,9 @@ static inline void _wapi_handle_share_release (struct _WapiFileShare *info)
 
 	thr_ret = _wapi_shm_sem_unlock (_WAPI_SHARED_SEM_FILESHARE);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WAPI_HANDLES_PRIVATE_H_ */

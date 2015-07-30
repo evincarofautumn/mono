@@ -15,6 +15,10 @@
 #include <glib.h>
 #include <assert.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	ppc_r0 = 0,
 	ppc_r1,
@@ -952,6 +956,10 @@ my and Ximian's copyright to this code. ;)
 #else
 /* Always true for 32-bit */
 #define ppc_is_imm32(val) (1)
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

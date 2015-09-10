@@ -164,6 +164,9 @@ sgen_thread_pool_init (int num_threads, SgenThreadPoolThreadInitFunc init_func, 
 	continue_idle_job_func = continue_idle_func;
 
 	mono_native_thread_create (&thread, thread_func, thread_datas ? thread_datas [0] : NULL);
+	/* Pin the GC thread to the first capability. */
+	/* FIXME: Do this more intelligently (or don't do it at all) for >1 worker thread. */
+	mono_native_thread_set_affinity (thread, 0);
 }
 
 void

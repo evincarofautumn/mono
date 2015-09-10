@@ -189,4 +189,11 @@ mono_threads_platform_get_stack_bounds (guint8 **staddr, size_t *stsize)
 	*staddr -= *stsize;
 }
 
+gboolean
+mono_native_thread_set_affinity (MonoNativeThreadId *tid, int affinity)
+{
+	/* We can't set thread affinity on Mach, because we can't call into the kernel without IOKit. */
+	return FALSE;
+}
+
 #endif

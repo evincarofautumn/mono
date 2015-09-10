@@ -966,6 +966,9 @@ mono_gc_init_finalizer_thread (void)
 	MonoError error;
 	gc_thread = mono_thread_create_internal (mono_domain_get (), finalizer_thread, NULL, FALSE, 0, &error);
 	mono_error_assert_ok (&error);
+	/* Pin finalizer thread to second capability, if possible. */
+	mono_native_thread_set_affinity (gc_thread, 1);
+	ves_icall_System_Threading_Thread_SetName_internal (gc_thread, mono_string_new (mono_domain_get (), "Finalizer"));
 }
 
 void

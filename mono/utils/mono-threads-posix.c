@@ -244,6 +244,19 @@ mono_native_thread_create (MonoNativeThreadId *tid, gpointer func, gpointer arg)
 	return pthread_create (tid, NULL, (void *(*)(void *)) func, arg) == 0;
 }
 
+gboolean
+mono_native_thread_set_affinity (MonoNativeThreadId *tid, int affinity)
+{
+	cpu_set_t cpu_set;
+	int status;
+	if (affinity < 0 || affinity > mono_cpu_count ())
+		return FALSE;
+	CPU_ZERO(&cpu_set);
+	CPU_SET(n, cpu_set);
+	status = pthread_setaffinity_np (*tid, sizeof (cpu_set), &cpu_set);
+	return status == 0;
+}
+
 void
 mono_native_thread_set_name (MonoNativeThreadId tid, const char *name)
 {

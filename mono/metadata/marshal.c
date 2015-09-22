@@ -714,10 +714,11 @@ mono_string_builder_new (int starting_string_length)
 {
 	static MonoClass *string_builder_class;
 	static MonoMethod *sb_ctor;
-	static void *args [1];
-
+	static void *args [3];
 	MonoError error;
 	int initial_len = starting_string_length;
+	int max_capacity = INT_MAX;
+	MonoBoolean is_compact = FALSE;
 
 	if (initial_len < 0)
 		initial_len = 0;
@@ -728,7 +729,7 @@ mono_string_builder_new (int starting_string_length)
 
 		string_builder_class = mono_class_get_string_builder_class ();
 		g_assert (string_builder_class);
-		desc = mono_method_desc_new (":.ctor(int)", FALSE);
+		desc = mono_method_desc_new (":.ctor(int,int,bool)", FALSE);
 		m = mono_method_desc_search_in_class (desc, string_builder_class);
 		g_assert (m);
 		mono_method_desc_free (desc);
@@ -739,6 +740,8 @@ mono_string_builder_new (int starting_string_length)
 	// We make a new array in the _to_builder function, so this
 	// array will always be garbage collected.
 	args [0] = &initial_len;
+	args [1] = &max_capacity;
+	args [2] = &is_compact;
 
 	MonoStringBuilder *sb = (MonoStringBuilder*)mono_object_new_checked (mono_domain_get (), string_builder_class, &error);
 	mono_error_assert_ok (&error);
@@ -746,17 +749,15 @@ mono_string_builder_new (int starting_string_length)
 	MonoObject *exc;
 	mono_runtime_try_invoke (sb_ctor, sb, args, &exc, &error);
 	g_assert (exc == NULL);
-	mono_error_assert_ok (&error);
-
-	g_assert (sb->chunkChars->max_length >= initial_len);
-
+	g_assert (sb->chunkBytes->max_length >= initial_len);
 	return sb;
 }
 
 static void
 mono_string_utf16_to_builder_copy (MonoStringBuilder *sb, gunichar2 *text, size_t string_len)
 {
-	gunichar2 *charDst = (gunichar2 *)sb->chunkChars->vector;
+	
+	gunichar2 *charDst = (gunichar2 *)sb->chunkBytes->vector;
 	gunichar2 *charSrc = (gunichar2 *)text;
 	memcpy (charDst, charSrc, sizeof (gunichar2) * string_len);
 
@@ -900,7 +901,7 @@ mono_string_builder_to_utf16 (MonoStringBuilder *sb)
 	if (!sb)
 		return NULL;
 
-	g_assert (sb->chunkChars);
+	g_assert (sb->chunkBytes);
 
 	guint len = mono_string_builder_capacity (sb);
 
@@ -919,15 +920,24 @@ mono_string_builder_to_utf16 (MonoStringBuilder *sb)
 	do {
 		if (chunk->chunkLength > 0) {
 			// Check that we will not overrun our boundaries.
-			gunichar2 *source = (gunichar2 *)chunk->chunkChars->vector;
-
-			if (chunk->chunkLength <= len) {
-				memcpy (str + chunk->chunkOffset, source, chunk->chunkLength * sizeof(gunichar2));
+			if (chunk->isCompact) {
+				char *source = (char *)chunk->chunkBytes->vector;
+				if (chunk->chunkLength <= len) {
+					for (int i = 0; i < chunk->chunkLength; ++i)
+						(str + chunk->chunkOffset) [i] = (gunichar2)source [i];
+				} else {
+					g_error ("A compact chunk in the StringBuilder had a length (%d) longer than expected (%d) from the offset.", chunk->chunkLength, len);
+				}
+				len -= chunk->chunkLength;
 			} else {
-				g_error ("A chunk in the StringBuilder had a length longer than expected from the offset.");
+				gunichar2 *source = (gunichar2 *)chunk->chunkBytes->vector;
+				if (chunk->chunkLength <= len) {
+					memcpy (str + chunk->chunkOffset, source, chunk->chunkLength * sizeof(gunichar2));
+				} else {
+					g_error ("A non-compact chunk in the StringBuilder had a length (%d) longer than expected (%d) from the offset.", chunk->chunkLength, len);
+				}
+				len -= chunk->chunkLength;
 			}
-
-			len -= chunk->chunkLength;
 		}
 		chunk = chunk->chunkPrevious;
 	} while (chunk != NULL);

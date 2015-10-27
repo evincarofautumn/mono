@@ -2481,7 +2481,7 @@ g_slist_append_image (MonoImage *image, GSList *list, gpointer data)
 }
 
 void
-mono_image_lock (MonoImage *image)
+mono_image_lock_impl (MonoImage *image)
 {
 	mono_locks_os_acquire (&image->lock, ImageDataLock);
 }

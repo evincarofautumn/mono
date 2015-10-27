@@ -17,6 +17,13 @@
 
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef HAVE_PTHREAD_H
+#include <pthread.h>
+#include <errno.h>
+#include <unistd.h>
+#endif
+
 #include <time.h>
 
 #if !defined(HOST_WIN32)
@@ -65,15 +72,18 @@ mono_os_mutex_destroy (mono_mutex_t *mutex)
 }
 
 static inline int
-mono_os_mutex_lock (mono_mutex_t *mutex)
+mono_mutex_lock_impl (mono_mutex_t *mutex, const char *name, const char *file, int line)
 {
-	int res;
-
-	res = pthread_mutex_lock (mutex);
-	g_assert (res != EINVAL);
-
-	return res;
+	int status;
+	do {
+		status = pthread_mutex_trylock (mutex);
+		g_printerr ("%s (%s)\n", status == 0 ? "uncontended" : "contended", name);
+	} while (status == EBUSY);
+	g_assert (status != EINVAL);
+	return status;
 }
+
+#define mono_os_mutex_lock (mutex) mono_mutex_lock_impl ((mutex), (#mutex), __FILE__, __LINE__)
 
 static inline int
 mono_os_mutex_trylock (mono_mutex_t *mutex)

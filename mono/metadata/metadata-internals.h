@@ -644,7 +644,13 @@ GSList*
 g_slist_append_image (MonoImage *image, GSList *list, gpointer data);
 
 void
-mono_image_lock (MonoImage *image);
+mono_image_lock_impl (MonoImage *image);
+
+#define mono_image_lock(image) \
+	do { \
+		g_printerr ("%s: ", __func__); \
+		mono_image_lock_impl (image); \
+	} while (0)
 
 void
 mono_image_unlock (MonoImage *image);

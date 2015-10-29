@@ -161,6 +161,7 @@ class Tests
 		void Foo<T> ();
 	}
 
+#if false
 	public static int test_0_iface_call_null_bug_77442 () {
 		ITest test = null;
 
@@ -173,6 +174,7 @@ class Tests
 		
 		return 1;
 	}
+#endif
 
 	public static int test_18_ldobj_stobj_generics () {
 		GenericClass<int> t = new GenericClass <int> ();

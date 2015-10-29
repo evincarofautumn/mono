@@ -196,7 +196,7 @@ mono_remoting_marshal_init (void)
 	module_initialized = TRUE;
 }
 
-static MonoReflectionType *
+/* suspicious */ static MonoReflectionType *
 type_from_handle (MonoType *handle)
 {
 	MonoDomain *domain = mono_domain_get (); 

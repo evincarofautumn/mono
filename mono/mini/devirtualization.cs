@@ -152,6 +152,7 @@ class Tests {
 		return 0;
 	}
 
+#if false
 	static public int test_0_npe_still_happens() {
 		OpenFinal x = null;
 		SealedFinal y = null;
@@ -193,4 +194,5 @@ class Tests {
 		
 		return 0;
 	}
+#endif
 }

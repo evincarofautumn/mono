@@ -38,6 +38,7 @@
 #include "mono/metadata/mono-debug-debugger.h"
 #include <mono/metadata/gc-internal.h>
 #include <mono/metadata/verify-internals.h>
+#include <mono/utils/atomic.h>
 #include <mono/utils/strenc.h>
 #include <mono/utils/mono-counters.h>
 #include <mono/utils/mono-error-internals.h>
@@ -2160,21 +2161,6 @@ mono_class_create_runtime_vtable (MonoDomain *domain, MonoClass *class, gboolean
 				interface_offsets [i] = callbacks.get_imt_trampoline (i);
 	}
 
-	/*
-	 * FIXME: Is it ok to allocate while holding the domain/loader locks ? If not, we can release them, allocate, then
-	 * re-acquire them and check if another thread has created the vtable in the meantime.
-	 */
-	/* Special case System.MonoType to avoid infinite recursion */
-	if (class != mono_defaults.monotype_class) {
-		/*FIXME check for OOM*/
-		vt->type = mono_type_get_object (domain, &class->byval_arg);
-		if (mono_object_get_class (vt->type) != mono_defaults.monotype_class)
-			/* This is unregistered in
-			   unregister_vtable_reflection_type() in
-			   domain.c. */
-			MONO_GC_REGISTER_ROOT_IF_MOVING(vt->type, MONO_ROOT_SOURCE_REFLECTION, "vtable reflection type");
-	}
-
 	mono_vtable_set_is_remote (vt, mono_class_is_contextbound (class));
 
 	/*  class_vtable_array keeps an array of created vtables
@@ -2217,16 +2203,6 @@ mono_class_create_runtime_vtable (MonoDomain *domain, MonoClass *class, gboolean
 		/* keep this last*/
 		mono_memory_barrier ();
 		class->runtime_info = runtime_info;
-	}
-
-	if (class == mono_defaults.monotype_class) {
-		/*FIXME check for OOM*/
-		vt->type = mono_type_get_object (domain, &class->byval_arg);
-		if (mono_object_get_class (vt->type) != mono_defaults.monotype_class)
-			/* This is unregistered in
-			   unregister_vtable_reflection_type() in
-			   domain.c. */
-			MONO_GC_REGISTER_ROOT_IF_MOVING(vt->type, MONO_ROOT_SOURCE_REFLECTION, "vtable reflection type");
 	}
 
 	mono_domain_unlock (domain);
@@ -3132,6 +3108,26 @@ mono_vtable_get_static_field_data (MonoVTable *vt)
 	if (!vt->has_static_fields)
 		return NULL;
 	return vt->vtable [vt->klass->vtable_size];
+}
+
+MonoReflectionType *
+mono_vtable_get_reflection_type (MonoVTable *vt)
+{
+	MonoReflectionType *type;
+	if (vt->type)
+		return vt->type;
+	type = mono_type_get_object (vt->domain, &vt->klass->byval_arg);
+	if (InterlockedCompareExchangePointer ((gpointer *)&vt->type, type, NULL) != NULL)
+		return vt->type;
+	if (vt->klass != mono_defaults.monotype_class
+		/* && mono_object_get_class (vt->type) != mono_defaults.monotype_class */) {
+		/* This is unregistered in
+		   unregister_vtable_reflection_type() in
+		   domain.c. */
+		MONO_GC_REGISTER_ROOT_IF_MOVING(vt->type, MONO_ROOT_SOURCE_REFLECTION, "vtable reflection type");
+	}
+	mono_memory_barrier ();
+	return type;
 }
 
 static guint8*

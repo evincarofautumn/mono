@@ -5886,12 +5886,43 @@ mini_emit_inst_for_method (MonoCompile *cfg, MonoMethod *cmethod, MonoMethodSign
 	} else if (cmethod->klass == mono_defaults.object_class) {
 
 		if (strcmp (cmethod->name, "GetType") == 0 && fsig->param_count + fsig->hasthis == 1) {
-			int dreg = alloc_ireg_ref (cfg);
-			int vt_reg = alloc_preg (cfg);
-			MONO_EMIT_NEW_LOAD_MEMBASE_FAULT (cfg, vt_reg, args [0]->dreg, MONO_STRUCT_OFFSET (MonoObject, vtable));
-			EMIT_NEW_LOAD_MEMBASE (cfg, ins, OP_LOAD_MEMBASE, dreg, vt_reg, MONO_STRUCT_OFFSET (MonoVTable, type));
-			type_from_op (cfg, ins, NULL, NULL);
+			MonoBasicBlock *must_init_bb, *inited_bb, *next_bb;
+			MonoInst *vtable_ins, *type_ins;
+			int type_reg = alloc_preg (cfg);
+			int vtable_reg = alloc_preg (cfg);
+			int dreg = alloc_preg (cfg);
 
+			NEW_BBLOCK (cfg, must_init_bb);
+			NEW_BBLOCK (cfg, inited_bb);
+			NEW_BBLOCK (cfg, next_bb);
+
+			/* Load the vtable. */
+			EMIT_NEW_LOAD_MEMBASE_FAULT (cfg, vtable_ins, OP_LOAD_MEMBASE, vtable_reg, args [0]->dreg, MONO_STRUCT_OFFSET (MonoObject, vtable));
+
+			/* Load the MonoReflectionType reference. */
+			EMIT_NEW_LOAD_MEMBASE_FAULT (cfg, type_ins, OP_LOAD_MEMBASE, type_reg, vtable_reg, MONO_STRUCT_OFFSET (MonoVTable, type));
+
+			/* If the handle is zero, we must initialize it. Otherwise, it's already initialized. */
+			MONO_EMIT_NEW_BIALU_IMM (cfg, OP_COMPARE_IMM, -1, type_reg, 0);
+			MONO_EMIT_NEW_BRANCH_BLOCK2 (cfg, OP_PBEQ, must_init_bb, inited_bb);
+
+			/* To initialize it, we call mono_vtable_get_reflection_type on the vtable. */
+			MONO_START_BB (cfg, must_init_bb);
+			{
+				MonoInst *iargs [1];
+				iargs [0] = vtable_ins;
+				ins = mono_emit_jit_icall (cfg, mono_vtable_get_reflection_type, iargs);
+				MONO_EMIT_NEW_UNALU (cfg, OP_MOVE, dreg, ins->dreg);
+			}
+			MONO_EMIT_NEW_BRANCH_BLOCK (cfg, OP_BR, next_bb);
+
+			/* If it's already initialized, we just return it. */
+			MONO_START_BB (cfg, inited_bb);
+			MONO_EMIT_NEW_UNALU (cfg, OP_MOVE, dreg, type_ins->dreg);
+			MONO_EMIT_NEW_BRANCH_BLOCK (cfg, OP_BR, next_bb);
+
+			MONO_START_BB (cfg, next_bb);
+			EMIT_NEW_UNALU (cfg, ins, OP_MOVE, dreg, dreg);
 			return ins;
 		} else if (!cfg->backend->emulate_mul_div && strcmp (cmethod->name, "InternalGetHashCode") == 0 && fsig->param_count == 1 && !mono_gc_is_moving ()) {
 			int dreg = alloc_ireg (cfg);

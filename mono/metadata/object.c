@@ -3120,7 +3120,7 @@ mono_vtable_get_reflection_type (MonoVTable *vt)
 	if (InterlockedCompareExchangePointer ((gpointer *)&vt->type, type, NULL) != NULL)
 		return vt->type;
 	if (vt->klass != mono_defaults.monotype_class
-		/* && mono_object_get_class (vt->type) != mono_defaults.monotype_class */) {
+		&& mono_object_get_class (vt->type) != mono_defaults.monotype_class) {
 		/* This is unregistered in
 		   unregister_vtable_reflection_type() in
 		   domain.c. */

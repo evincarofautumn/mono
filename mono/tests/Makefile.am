@@ -1477,12 +1477,12 @@ AM_CPPFLAGS = $(GLIB_CFLAGS)
 if HOST_WIN32
 # gcc-3.4.4 emits incorrect code when making indirect calls to stdcall functions using a tail call
 # This shows up when compiling mono_test_marshal_delegate ()
-libtest_la_CFLAGS=-fno-optimize-sibling-calls
+libtest_la_CFLAGS=-fno-optimize-sibling-calls $(COVERAGE_CFLAGS)
 # the exported names created by gcc for stdcall functions are missing the leading _, so MS.NET
 # can't find them. So we use --kill-at to remove the @ suffix as well.
-libtest_la_LDFLAGS=-no-undefined -rpath `pwd` -Wl,--kill-at
+libtest_la_LDFLAGS=-no-undefined -rpath `pwd` -Wl,--kill-at $(COVERAGE_LDFLAGS)
 else
-libtest_la_LDFLAGS = -rpath `pwd`
+libtest_la_LDFLAGS = -rpath `pwd` $(COVERAGE_LDFLAGS)
 endif
 libtest_la_SOURCES = libtest.c
 libtest_la_LIBADD = $(GLIB_LIBS) $(LIBICONV)

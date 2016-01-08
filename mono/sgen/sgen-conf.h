@@ -28,7 +28,7 @@ typedef mword SgenDescriptor;
  * Turning on heavy statistics will turn off the managed allocator and
  * the managed write barrier.
  */
-//#define HEAVY_STATISTICS
+#define HEAVY_STATISTICS
 
 #ifdef HEAVY_STATISTICS
 #define HEAVY_STAT(x)	x
@@ -105,7 +105,7 @@ typedef mword SgenDescriptor;
 #ifndef HEAVY_STATISTICS
 // #define MANAGED_ALLOCATION
 #ifndef XDOMAIN_CHECKS_IN_WBARRIER
-#define MANAGED_WBARRIER
+// #define MANAGED_WBARRIER
 #endif
 #endif
 #endif

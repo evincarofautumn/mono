@@ -2131,10 +2131,9 @@ emit_instrumentation_call (MonoCompile *cfg, void *func)
 	}
 }
 
-static void
-emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
+static gboolean
+should_emit_region_call (MonoCompile *cfg)
 {
-	MonoInst *iargs [1];
 	MonoWrapperType allowed_types[] = {
 		MONO_WRAPPER_NONE,
 		/* MONO_WRAPPER_DELEGATE_INVOKE, */
@@ -2176,26 +2175,35 @@ emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
 	};
 	size_t num_allowed_types = sizeof (allowed_types) / sizeof (*allowed_types);
 	size_t i;
-	gboolean allowed_type = FALSE;
 	for (i = 0; i < num_allowed_types; ++i) {
 		/* FIXME: Should this use orig_method? */
-		if (cfg->method->wrapper_type == allowed_types [i]) {
-			allowed_type = TRUE;
-			break;
+		if (cfg->method->wrapper_type == allowed_types [i])
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static void
+emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
+{
+	MonoInst *iargs [1];
+	if (!should_emit_region_call (cfg))
+		return;
+	if (ret)
+		iargs [0] = ret;
+	else
+		EMIT_NEW_PCONST (cfg, iargs [0], NULL);
+	if (G_UNLIKELY (cfg->verbose_level > 3)) {
+		if (func == mono_gc_region_enter) {
+			printf ("Emitted region enter call (in: B%d)\n", cfg->cbb->block_num);
+		} else if (func == mono_gc_region_exit) {
+			printf ("Emitted region exit call (in: B%d", cfg->cbb->block_num);
+			if (ret)
+				printf (", reg: %d", ret->dreg);
+			printf (")\n");
 		}
 	}
-	if (cfg->method->wrapper_type == MONO_WRAPPER_MANAGED_TO_NATIVE) {
-#if 0
-		EMIT_NEW_PCONST (cfg, iargs [0], NULL);
-		mono_emit_jit_icall (cfg, mono_gc_region_bail, iargs);
-#endif
-	} else if (allowed_type) {
-		if (ret)
-			iargs [0] = ret;
-		else
-			EMIT_NEW_PCONST (cfg, iargs [0], NULL);
-		mono_emit_jit_icall (cfg, func, iargs);
-	}
+	mono_emit_jit_icall (cfg, func, iargs);
 }
 
 static void
@@ -2203,7 +2211,7 @@ emit_region_exit_call (MonoCompile *cfg, MonoInst *ret)
 {
 	if (cfg->opt & MONO_OPT_FREE_REGIONS) {
 		emit_region_call (cfg, mono_gc_region_exit, ret);
-	} else {
+	} else if (should_emit_region_call (cfg)) {
 		/* MonoInst *iargs [1]; */
 		/* EMIT_NEW_PCONST (cfg, iargs [0], NULL); */
 		mono_emit_jit_icall (cfg, mono_gc_region_bail, NULL);

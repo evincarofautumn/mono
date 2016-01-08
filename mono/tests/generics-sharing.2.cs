@@ -434,6 +434,7 @@ public class main {
 	}
 
 	static void checkException<T> (String method, ActionDelegate action) where T : Exception {
+/*
 		try {
 			try {
 				action ();
@@ -443,6 +444,7 @@ public class main {
 		} catch (Exception exc) {
 			error ("method " + method + " should have thrown " + typeof (T).ToString () + " but did throw " + exc);
 		}
+*/
 	}
 
 	public static void work<T> (T obj, bool mustCatch) {

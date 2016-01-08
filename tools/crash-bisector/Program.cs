@@ -142,6 +142,12 @@ namespace crashbisector
 			var secondHalf = methods.Skip (half);
 			Console.WriteLine ("Splitting into two halves: {0} and {1} methods.", firstHalf.Count (), secondHalf.Count ());
 
+			if (rand.Next (2) == 1) {
+				Console.WriteLine ("switching halves");
+				var tmp = firstHalf;
+				firstHalf = secondHalf;
+				secondHalf = tmp;
+			}
 			Console.WriteLine ("Running first half.");
 			var firstSuccess = RunWithMethods (firstHalf);
 			Console.WriteLine ("Crashed: {0}", !firstSuccess);

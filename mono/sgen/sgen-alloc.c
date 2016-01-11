@@ -49,9 +49,14 @@ static guint64 stat_regions_bailed = 0;
 static guint64 stat_regions_entered = 0;
 static guint64 stat_regions_exited = 0;
 static guint64 stat_regions_stuck = 0;
+static guint64 stat_regions_forgotten = 0;
 
 static guint64 stat_region_bytes_cleared = 0;
 static guint64 stat_region_bytes_stuck = 0;
+static double stat_region_exit_size_min = +1.0 / 0.0;
+static double stat_region_exit_size_mean = 0.0;
+static double stat_region_exit_size_nonzero_mean = 0.0;
+static double stat_region_exit_size_max = -1.0 / 0.0;
 
 static guint64 stat_region_stuck_major_to_minor = 0;
 static guint64 stat_region_stuck_old_tlab_to_new_tlab = 0;
@@ -199,6 +204,7 @@ forget_stuck_regions (void)
 		TLAB_STUCK = NULL;
 	}
 	TLAB_REGIONS_END = end;
+	stat_regions_forgotten += forgotten;
 	return forgotten;
 }
 
@@ -295,7 +301,7 @@ get_method_from_ip (void *ip)
 	}
 	method = ji->d.method->name;
 
-	res = g_strdup_printf (" %s + 0x%x (%p %p) [%p - %s]", method, (int)((char*)ip - (char*)ji->code_start), ji->code_start, (char*)ji->code_start + ji->code_size, domain, domain->friendly_name);
+	res = g_strdup_printf (" %s:%s + 0x%x (%p %p) [%p - %s]", ji->d.method->klass->name, method, (int)((char*)ip - (char*)ji->code_start), ji->code_start, (char*)ji->code_start + ji->code_size, domain, domain->friendly_name);
 
 	return res;
 }
@@ -403,6 +409,9 @@ mono_gc_region_exit (gpointer ret)
 		goto end;
 	}
 	region_size = next - region;
+	HEAVY_STAT (stat_region_exit_size_min = region_size < stat_region_exit_size_min ? region_size : stat_region_exit_size_min);
+	HEAVY_STAT (stat_region_exit_size_max = region_size > stat_region_exit_size_max ? region_size : stat_region_exit_size_max);
+	HEAVY_STAT (stat_region_exit_size_mean = stat_regions_exited == 1 ? region_size : ((stat_regions_exited - 1) * stat_region_exit_size_mean + region_size) / stat_regions_exited);
 	if (region_size) {
 #if 0
 		g_print ("clearing %lu bytes from %p to %p, start %p, next %p, stuck %p\n", region_size, region, region + region_size, TLAB_START, TLAB_NEXT, TLAB_STUCK);
@@ -412,6 +421,7 @@ mono_gc_region_exit (gpointer ret)
 		g_print ("clearing %lu bytes\n", region_size);
 #endif
 		HEAVY_STAT (stat_region_bytes_cleared += region_size);
+		HEAVY_STAT (stat_region_exit_size_nonzero_mean = stat_regions_exited == 1 ? region_size : ((stat_regions_exited - 1) * stat_region_exit_size_nonzero_mean + region_size) / stat_regions_exited);
 		memset (region, 0, region_size);
 	}
 	/* Reset TLAB pointer. */
@@ -875,9 +885,14 @@ sgen_init_allocator (void)
 
 	mono_counters_register ("regions bailed", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_bailed);
 	mono_counters_register ("regions entered", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_entered);
+	mono_counters_register ("regions forgotten", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_forgotten);
 	mono_counters_register ("regions exited", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_exited);
 	mono_counters_register ("region bytes cleared", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_bytes_cleared);
 	mono_counters_register ("region bytes stuck", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_bytes_stuck);
+	mono_counters_register ("region exit size mean", MONO_COUNTER_GC | MONO_COUNTER_DOUBLE, &stat_region_exit_size_mean);
+	mono_counters_register ("region exit size nonzero mean", MONO_COUNTER_GC | MONO_COUNTER_DOUBLE, &stat_region_exit_size_nonzero_mean);
+	mono_counters_register ("region exit size min", MONO_COUNTER_GC | MONO_COUNTER_DOUBLE, &stat_region_exit_size_min);
+	mono_counters_register ("region exit size max", MONO_COUNTER_GC | MONO_COUNTER_DOUBLE, &stat_region_exit_size_max);
 
 	mono_counters_register ("regions stuck major->minor", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_major_to_minor);
 	mono_counters_register ("regions stuck old->new tlab", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_tlab_to_new_tlab);

@@ -2195,9 +2195,13 @@ emit_region_call (MonoCompile *cfg, void *func, MonoInst *ret)
 		EMIT_NEW_PCONST (cfg, iargs [0], NULL);
 	if (G_UNLIKELY (cfg->verbose_level > 3)) {
 		if (func == mono_gc_region_enter) {
-			printf ("Emitted region enter call (in: B%d)\n", cfg->cbb->block_num);
+			printf (
+				"Emitted region enter call (in: B%d, meth: %s:%s)\n",
+				cfg->cbb->block_num, cfg->method->klass->name, cfg->method->name);
 		} else if (func == mono_gc_region_exit) {
-			printf ("Emitted region exit call (in: B%d", cfg->cbb->block_num);
+			printf (
+				"Emitted region exit call (in: B%d, meth: %s:%s",
+				cfg->cbb->block_num, cfg->method->klass->name, cfg->method->name);
 			if (ret)
 				printf (", reg: %d", ret->dreg);
 			printf (")\n");
@@ -13689,6 +13693,9 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 	cfg->cbb = init_localsbb;
 	emit_instrumentation_call (cfg, mono_profiler_method_enter);
+	if (!strcmp (method->name, "Finalize")) {
+		g_print ("Emitting enter call for finalizer of class %s.\n", method->klass->name);
+	}
 	emit_region_call (cfg, mono_gc_region_enter, NULL);
 
 	if (seq_points) {

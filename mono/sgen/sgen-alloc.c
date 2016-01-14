@@ -62,6 +62,7 @@ static guint64 stat_region_stuck_major_to_minor = 0;
 static guint64 stat_region_stuck_old_tlab_to_new_tlab = 0;
 static guint64 stat_region_stuck_old_region_to_new_region = 0;
 static guint64 stat_region_stuck_old_frame_to_new_frame = 0;
+static guint64 stat_region_stuck_return = 0;
 #endif
 
 /*
@@ -256,7 +257,9 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
 	gboolean old_frame_to_new_frame = sgen_ptr_on_stack (dst);
 	gboolean always_stick = !dst;
 #ifdef HEAVY_STATISTICS
-	if (major_to_minor)
+	if (always_stick)
+		++stat_region_stuck_return;
+	else if (major_to_minor)
 		++stat_region_stuck_major_to_minor;
 	else if (old_tlab_to_new_tlab)
 		++stat_region_stuck_old_tlab_to_new_tlab;
@@ -898,6 +901,7 @@ sgen_init_allocator (void)
 	mono_counters_register ("regions stuck old->new tlab", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_tlab_to_new_tlab);
 	mono_counters_register ("regions stuck old->new region", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_region_to_new_region);
 	mono_counters_register ("regions stuck old->new frame", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_frame_to_new_frame);
+	mono_counters_register ("regions stuck return", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_return);
 #endif
 }
 

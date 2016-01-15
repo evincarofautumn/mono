@@ -160,6 +160,85 @@ zero_tlab_if_necessary (void *p, size_t size)
 	}
 }
 
+static size_t
+region_stack_size ()
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	return TLAB_REGIONS_END - TLAB_REGIONS_BEGIN;
+}
+
+static size_t
+region_stack_capacity ()
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	return TLAB_REGIONS_CAPACITY - TLAB_REGIONS_BEGIN;
+}
+
+static void
+region_stack_push (gpointer start)
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	SGEN_ASSERT (0, TLAB_REGIONS_END <= TLAB_REGIONS_CAPACITY, "Region stack overflow");
+	/* If full or not allocated then (re)allocate. */
+	if (TLAB_REGIONS_END == TLAB_REGIONS_CAPACITY) {
+		const size_t size = region_stack_size ();
+		const size_t capacity = region_stack_capacity ();
+		size_t new_capacity = capacity + capacity / 2;
+		if (!new_capacity)
+			new_capacity = 1024;
+		TLAB_REGIONS_BEGIN = g_realloc (TLAB_REGIONS_BEGIN, new_capacity * sizeof (*TLAB_REGIONS_BEGIN));
+		TLAB_REGIONS_END = TLAB_REGIONS_BEGIN + size;
+		TLAB_REGIONS_CAPACITY = TLAB_REGIONS_BEGIN + new_capacity;
+	}
+	/* Save TLAB pointer. */
+	*TLAB_REGIONS_END++ = start;
+}
+
+static void
+region_stack_pop ()
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	SGEN_ASSERT (0, TLAB_REGIONS_END > TLAB_REGIONS_BEGIN, "Region stack underflow");
+	--TLAB_REGIONS_END;
+}
+
+static gpointer
+region_stack_peek ()
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	SGEN_ASSERT (0, TLAB_REGIONS_END > TLAB_REGIONS_BEGIN, "Region stack underflow");
+	return TLAB_REGIONS_END [-1];
+}
+
+static void
+region_stack_clear ()
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
+	TLAB_STUCK = NULL;
+}
+
+static gboolean
+region_stack_empty ()
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	return TLAB_REGIONS_BEGIN == TLAB_REGIONS_END;
+}
+
 static gboolean
 sgen_ptr_in_tlab (gpointer ptr)
 {
@@ -247,7 +326,7 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
 	/* SGEN_ASSERT (0, dst, "Why are we writing into a null reference?"); */
 	if (!sgen_ptr_in_tlab (src))
 		goto end;
-	if (!TLAB_REGIONS_BEGIN || TLAB_REGIONS_END == TLAB_REGIONS_BEGIN) {
+	if (!TLAB_REGIONS_BEGIN || region_stack_empty ()) {
 		SGEN_ASSERT (0, !TLAB_STUCK, "Region info was not cleared correctly (stuck = %p, regions_begin = %p, regions_end = %p)", TLAB_STUCK, TLAB_REGIONS_BEGIN, TLAB_REGIONS_END);
 		goto end;
 	}
@@ -319,14 +398,9 @@ get_method_from_ip (void *ip)
 void
 mono_gc_region_bail (void)
 {
-// #ifndef HAVE_KW_THREAD
-	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-// #endif
 	sgen_gc_lock ();
 	HEAVY_STAT (++stat_regions_bailed);
-	TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
-	TLAB_STUCK = NULL;
-	// g_print ("*** nulling stuck because bailing region\n");
+	region_stack_clear ();
 	sgen_gc_unlock ();
 }
 
@@ -351,23 +425,7 @@ mono_gc_region_enter (void)
 		g_free (method_name);
 	}
 #endif
-	SGEN_ASSERT (0, TLAB_REGIONS_END <= TLAB_REGIONS_CAPACITY, "Region stack overflow");
-	/* If full or not allocated then (re)allocate. */
-	if (TLAB_REGIONS_END == TLAB_REGIONS_CAPACITY) {
-		const size_t size = TLAB_REGIONS_END - TLAB_REGIONS_BEGIN;
-		const size_t capacity = TLAB_REGIONS_CAPACITY - TLAB_REGIONS_BEGIN;
-		size_t new_capacity = capacity + capacity / 2;
-		if (!new_capacity)
-			new_capacity = 1024;
-#if 0
-		g_print ("reallocating region stack from %lu to %lu\n", capacity, new_capacity);
-#endif
-		TLAB_REGIONS_BEGIN = g_realloc (TLAB_REGIONS_BEGIN, new_capacity * sizeof (*TLAB_REGIONS_BEGIN));
-		TLAB_REGIONS_END = TLAB_REGIONS_BEGIN + size;
-		TLAB_REGIONS_CAPACITY = TLAB_REGIONS_BEGIN + new_capacity;
-	}
-	/* Save TLAB pointer. */
-	*TLAB_REGIONS_END++ = next;
+	region_stack_push (next);
 end:
 	sgen_gc_unlock ();
 }
@@ -398,11 +456,11 @@ mono_gc_region_exit (gpointer ret)
 		g_free (method_name);
 	}
 #endif
-	if (TLAB_REGIONS_END == TLAB_REGIONS_BEGIN) {
+	if (region_stack_empty ()) {
 		SGEN_ASSERT (0, !TLAB_STUCK, "The TLAB info has been reset incorrectly");
 		goto end;
 	}
-	region = TLAB_REGIONS_END [-1];
+	region = region_stack_peek ();
 	if (!(sgen_ptr_in_tlab (region) || region == TLAB_REAL_END)) {
 		g_printerr ("Region pointer %p outside current tlab %p-%p\n", region, TLAB_START, TLAB_REAL_END);
 		SGEN_ASSERT (0, sgen_ptr_in_tlab (region) || region == TLAB_REAL_END, "Region pointers should always be in the current TLAB");
@@ -421,7 +479,7 @@ mono_gc_region_exit (gpointer ret)
 	HEAVY_STAT (stat_region_exit_size_max = region_size > stat_region_exit_size_max ? region_size : stat_region_exit_size_max);
 	if (ret && !TLAB_STUCK) {
 		HEAVY_STAT (++stat_region_merged_return);
-		--TLAB_REGIONS_END;
+		region_stack_pop ();
 		goto end;
 	}
 	if (region_size) {
@@ -439,8 +497,8 @@ mono_gc_region_exit (gpointer ret)
 	}
 	/* Reset TLAB pointer. */
 	TLAB_NEXT = region;
-	--TLAB_REGIONS_END;
-	if (TLAB_REGIONS_BEGIN == TLAB_REGIONS_END) {
+	region_stack_pop ();
+	if (region_stack_empty ()) {
 		/* g_print ("*** nulling stuck because exited last region\n"); */
 		TLAB_STUCK = NULL;
 	}
@@ -613,9 +671,8 @@ sgen_alloc_obj_nolock (GCVTable vtable, size_t size)
 				TLAB_TEMP_END = TLAB_START + MIN (SGEN_SCAN_START_SIZE, alloc_size);
 				/* size_t capacity = TLAB_REGIONS_CAPACITY - TLAB_REGIONS_BEGIN; */
 				/* g_print ("*** resetting region info due to allocating a new TLAB (1)\n"); */
-				stat_regions_reset += TLAB_REGIONS_END - TLAB_REGIONS_BEGIN;
-				TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
-				TLAB_STUCK = NULL;
+				stat_regions_reset += region_stack_size ();
+				region_stack_clear ();
 				// g_print ("*** nulling stuck because allocated new TLAB\n");
 				/* memset (TLAB_REGIONS_BEGIN, 0, capacity * sizeof (*TLAB_REGIONS_BEGIN)); */
 
@@ -721,13 +778,12 @@ sgen_try_alloc_obj_nolock (GCVTable vtable, size_t size)
 				return NULL;
 
 			/* g_print ("*** resetting region info due to allocating a new TLAB (2)\n"); */
-			stat_regions_reset += TLAB_REGIONS_END - TLAB_REGIONS_BEGIN;
+			stat_regions_reset += region_stack_size ();
 			TLAB_START = (char*)new_next;
 			TLAB_NEXT = new_next + size;
 			TLAB_REAL_END = new_next + alloc_size;
 			TLAB_TEMP_END = new_next + MIN (SGEN_SCAN_START_SIZE, alloc_size);
-			TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
-			TLAB_STUCK = NULL;
+			region_stack_clear ();
 			// g_print ("*** nulling stuck because allocated new TLAB\n");
 			sgen_set_nursery_scan_start ((char*)p);
 

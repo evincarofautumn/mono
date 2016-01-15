@@ -48,21 +48,25 @@ static guint64 stat_bytes_alloced_los = 0;
 static guint64 stat_regions_bailed = 0;
 static guint64 stat_regions_entered = 0;
 static guint64 stat_regions_exited = 0;
+static guint64 stat_regions_nonzero_exited = 0;
 static guint64 stat_regions_stuck = 0;
 static guint64 stat_regions_forgotten = 0;
+static guint64 stat_regions_reset = 0;
 
 static guint64 stat_region_bytes_cleared = 0;
 static guint64 stat_region_bytes_stuck = 0;
 static double stat_region_exit_size_min = +1.0 / 0.0;
-static double stat_region_exit_size_mean = 0.0;
 static double stat_region_exit_size_nonzero_mean = 0.0;
 static double stat_region_exit_size_max = -1.0 / 0.0;
 
 static guint64 stat_region_stuck_major_to_minor = 0;
+static guint64 stat_region_stuck_stack_to_region = 0;
 static guint64 stat_region_stuck_old_tlab_to_new_tlab = 0;
 static guint64 stat_region_stuck_old_region_to_new_region = 0;
 static guint64 stat_region_stuck_old_frame_to_new_frame = 0;
-static guint64 stat_region_stuck_return = 0;
+static guint64 stat_region_stuck_always = 0;
+
+static guint64 stat_region_merged_return = 0;
 #endif
 
 /*
@@ -177,8 +181,8 @@ forget_stuck_regions (void)
 	char *stuck = TLAB_STUCK;
 	size_t forgotten;
 #ifdef HEAVY_STATISTICS
-	if (TLAB_STUCK > TLAB_START && TLAB_STUCK <= TLAB_REAL_END)
-		stat_region_bytes_stuck += TLAB_STUCK - TLAB_START;
+	if (begin != end && TLAB_STUCK > TLAB_START && TLAB_STUCK <= TLAB_REAL_END)
+		stat_region_bytes_stuck += TLAB_STUCK - *begin;
 #endif
 	while (p != end && *p <= stuck)
 		++p;
@@ -258,10 +262,13 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
 	gboolean always_stick = !dst;
 #ifdef HEAVY_STATISTICS
 	if (always_stick)
-		++stat_region_stuck_return;
-	else if (major_to_minor)
-		++stat_region_stuck_major_to_minor;
-	else if (old_tlab_to_new_tlab)
+		++stat_region_stuck_always;
+	else if (major_to_minor) {
+		if (dst > (void *)&__thread_info__ && dst < (void *)__thread_info__->client_info.stack_end)
+			++stat_region_stuck_stack_to_region;
+		else
+			++stat_region_stuck_major_to_minor;
+	} else if (old_tlab_to_new_tlab)
 		++stat_region_stuck_old_tlab_to_new_tlab;
 	else if (old_region_to_new_region)
 		++stat_region_stuck_old_region_to_new_region;
@@ -414,7 +421,6 @@ mono_gc_region_exit (gpointer ret)
 	region_size = next - region;
 	HEAVY_STAT (stat_region_exit_size_min = region_size < stat_region_exit_size_min ? region_size : stat_region_exit_size_min);
 	HEAVY_STAT (stat_region_exit_size_max = region_size > stat_region_exit_size_max ? region_size : stat_region_exit_size_max);
-	HEAVY_STAT (stat_region_exit_size_mean = stat_regions_exited == 1 ? region_size : ((stat_regions_exited - 1) * stat_region_exit_size_mean + region_size) / stat_regions_exited);
 	if (region_size) {
 #if 0
 		g_print ("clearing %lu bytes from %p to %p, start %p, next %p, stuck %p\n", region_size, region, region + region_size, TLAB_START, TLAB_NEXT, TLAB_STUCK);
@@ -424,7 +430,8 @@ mono_gc_region_exit (gpointer ret)
 		g_print ("clearing %lu bytes\n", region_size);
 #endif
 		HEAVY_STAT (stat_region_bytes_cleared += region_size);
-		HEAVY_STAT (stat_region_exit_size_nonzero_mean = stat_regions_exited == 1 ? region_size : ((stat_regions_exited - 1) * stat_region_exit_size_nonzero_mean + region_size) / stat_regions_exited);
+		HEAVY_STAT (++stat_regions_nonzero_exited);
+		HEAVY_STAT (stat_region_exit_size_nonzero_mean = stat_regions_nonzero_exited == 1 ? region_size : ((stat_regions_nonzero_exited - 1) * stat_region_exit_size_nonzero_mean + region_size) / stat_regions_nonzero_exited);
 		memset (region, 0, region_size);
 	}
 	/* Reset TLAB pointer. */
@@ -603,6 +610,7 @@ sgen_alloc_obj_nolock (GCVTable vtable, size_t size)
 				TLAB_TEMP_END = TLAB_START + MIN (SGEN_SCAN_START_SIZE, alloc_size);
 				/* size_t capacity = TLAB_REGIONS_CAPACITY - TLAB_REGIONS_BEGIN; */
 				/* g_print ("*** resetting region info due to allocating a new TLAB (1)\n"); */
+				stat_regions_reset += TLAB_REGIONS_END - TLAB_REGIONS_BEGIN;
 				TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
 				TLAB_STUCK = NULL;
 				// g_print ("*** nulling stuck because allocated new TLAB\n");
@@ -710,6 +718,7 @@ sgen_try_alloc_obj_nolock (GCVTable vtable, size_t size)
 				return NULL;
 
 			/* g_print ("*** resetting region info due to allocating a new TLAB (2)\n"); */
+			stat_regions_reset += TLAB_REGIONS_END - TLAB_REGIONS_BEGIN;
 			TLAB_START = (char*)new_next;
 			TLAB_NEXT = new_next + size;
 			TLAB_REAL_END = new_next + alloc_size;
@@ -890,18 +899,21 @@ sgen_init_allocator (void)
 	mono_counters_register ("regions entered", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_entered);
 	mono_counters_register ("regions forgotten", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_forgotten);
 	mono_counters_register ("regions exited", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_exited);
+	mono_counters_register ("regions reset", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_regions_reset);
 	mono_counters_register ("region bytes cleared", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_bytes_cleared);
 	mono_counters_register ("region bytes stuck", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_bytes_stuck);
-	mono_counters_register ("region exit size mean", MONO_COUNTER_GC | MONO_COUNTER_DOUBLE, &stat_region_exit_size_mean);
 	mono_counters_register ("region exit size nonzero mean", MONO_COUNTER_GC | MONO_COUNTER_DOUBLE, &stat_region_exit_size_nonzero_mean);
 	mono_counters_register ("region exit size min", MONO_COUNTER_GC | MONO_COUNTER_DOUBLE, &stat_region_exit_size_min);
 	mono_counters_register ("region exit size max", MONO_COUNTER_GC | MONO_COUNTER_DOUBLE, &stat_region_exit_size_max);
 
 	mono_counters_register ("regions stuck major->minor", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_major_to_minor);
+	mono_counters_register ("regions stuck stack->region", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_stack_to_region);
 	mono_counters_register ("regions stuck old->new tlab", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_tlab_to_new_tlab);
 	mono_counters_register ("regions stuck old->new region", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_region_to_new_region);
 	mono_counters_register ("regions stuck old->new frame", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_old_frame_to_new_frame);
-	mono_counters_register ("regions stuck return", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_return);
+	mono_counters_register ("regions stuck always", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_stuck_always);
+
+	mono_counters_register ("regions merged return", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_region_merged_return);
 #endif
 }
 

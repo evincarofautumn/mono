@@ -383,8 +383,6 @@ mono_gc_region_exit (gpointer ret)
 	char *region;
 	size_t region_size;
 	char *next;
-	if (ret)
-		mono_gc_stick_region_if_necessary (ret, NULL);
 	sgen_gc_lock ();
 	HEAVY_STAT (++stat_regions_exited);
 #if 1
@@ -421,6 +419,11 @@ mono_gc_region_exit (gpointer ret)
 	region_size = next - region;
 	HEAVY_STAT (stat_region_exit_size_min = region_size < stat_region_exit_size_min ? region_size : stat_region_exit_size_min);
 	HEAVY_STAT (stat_region_exit_size_max = region_size > stat_region_exit_size_max ? region_size : stat_region_exit_size_max);
+	if (ret && !TLAB_STUCK) {
+		HEAVY_STAT (++stat_region_merged_return);
+		--TLAB_REGIONS_END;
+		goto end;
+	}
 	if (region_size) {
 #if 0
 		g_print ("clearing %lu bytes from %p to %p, start %p, next %p, stuck %p\n", region_size, region, region + region_size, TLAB_START, TLAB_NEXT, TLAB_STUCK);

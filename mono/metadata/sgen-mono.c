@@ -32,6 +32,7 @@
 static guint64 stat_wbarrier_set_arrayref = 0;
 static guint64 stat_wbarrier_value_copy = 0;
 static guint64 stat_wbarrier_object_copy = 0;
+static guint64 stat_wbarrier_region_unsupported = 0;
 
 static guint64 los_marked_cards;
 static guint64 los_array_cards;
@@ -100,6 +101,9 @@ mono_gc_wbarrier_value_copy (gpointer dest, gpointer src, int count, MonoClass *
 	HEAVY_STAT (++stat_wbarrier_value_copy);
 	g_assert (klass->valuetype);
 
+	HEAVY_STAT (++stat_wbarrier_region_unsupported);
+	mono_gc_stick_region_if_necessary (src, NULL);
+
 	SGEN_LOG (8, "Adding value remset at %p, count %d, descr %p for class %s (%p)", dest, count, (gpointer)klass->gc_descr, klass->name, klass);
 
 	if (sgen_ptr_in_nursery (dest) || sgen_ptr_on_stack (dest) || !sgen_gc_descr_has_references ((mword)klass->gc_descr)) {
@@ -156,10 +160,8 @@ mono_gc_wbarrier_object_copy (MonoObject* obj, MonoObject *src)
 
 	HEAVY_STAT (++stat_wbarrier_object_copy);
 
-	mono_gc_stick_region_if_necessary (src, obj);
-#if 1
 	scan_object_for_region_sticking_copy_wbarrier (obj, (char *)src, (mword) src->vtable->gc_descr);
-#endif
+
 	if (sgen_ptr_in_nursery (obj) || sgen_ptr_on_stack (obj) || !SGEN_OBJECT_HAS_REFERENCES (src)) {
 		size = mono_object_class (obj)->instance_size;
 		mono_gc_memmove_aligned ((char*)obj + sizeof (MonoObject), (char*)src + sizeof (MonoObject),
@@ -200,6 +202,8 @@ mono_gc_wbarrier_set_field (MonoObject *obj, gpointer field_ptr, MonoObject* val
 void
 mono_gc_wbarrier_value_copy_bitmap (gpointer _dest, gpointer _src, int size, unsigned bitmap)
 {
+	HEAVY_STAT (++stat_wbarrier_region_unsupported);
+	mono_gc_stick_region_if_necessary (_src, NULL);
 	sgen_wbarrier_value_copy_bitmap (_dest, _src, size, bitmap);
 }
 
@@ -2968,6 +2972,8 @@ mono_gc_base_init (void)
 	mono_counters_register ("WBarrier set arrayref", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_wbarrier_set_arrayref);
 	mono_counters_register ("WBarrier value copy", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_wbarrier_value_copy);
 	mono_counters_register ("WBarrier object copy", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_wbarrier_object_copy);
+
+	mono_counters_register ("WBarrier region unsupported", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_wbarrier_region_unsupported);
 #endif
 
 	sgen_gc_init ();

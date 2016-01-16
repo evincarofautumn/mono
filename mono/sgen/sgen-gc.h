@@ -373,6 +373,15 @@ typedef void (*IterateObjectCallbackFunc) (GCObject*, size_t, void*);
 
 void sgen_scan_area_with_callback (char *start, char *end, IterateObjectCallbackFunc callback, void *data, gboolean allow_flags, gboolean fail_on_canaries);
 
+typedef struct _SgenRegionInfo SgenRegionInfo;
+
+struct _SgenRegionInfo {
+    /* Start address of region. */
+    char *address;
+    /* Number of mono_gc_region_exit calls required to exit region. */
+    gint32 references;
+};
+
 /* eventually share with MonoThread? */
 /*
  * This structure extends the MonoThreadInfo structure.
@@ -393,7 +402,7 @@ struct _SgenThreadInfo {
 #endif
 /* #ifndef HAVE_KW_THREAD */
 	/* Stack of pointers to region starts. */
-	char **tlab_regions_begin, **tlab_regions_end, **tlab_regions_capacity;
+	SgenRegionInfo *tlab_regions_begin, *tlab_regions_end, *tlab_regions_capacity;
 	/* Address below which we cannot clear regions, due to escaped pointers. */
 	char *tlab_stuck;
 /* #endif */

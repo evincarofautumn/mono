@@ -91,7 +91,7 @@ static __thread char *tlab_real_end;
 /* Used by the managed allocator/wbarrier */
 static __thread char **tlab_next_addr MONO_ATTR_USED;
 /* Stack of pointers to region starts. */
-static __thread char **tlab_regions_begin, **tlab_regions_end, **tlab_regions_capacity;
+static __thread SgenRegionInfo *tlab_regions_begin, *tlab_regions_end, *tlab_regions_capacity;
 /* Address below which we cannot clear regions, due to escaped pointers. */
 char *tlab_stuck;
 #endif
@@ -178,6 +178,25 @@ region_stack_capacity ()
 	return TLAB_REGIONS_CAPACITY - TLAB_REGIONS_BEGIN;
 }
 
+static gboolean
+region_stack_empty ()
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	return TLAB_REGIONS_BEGIN == TLAB_REGIONS_END;
+}
+
+static SgenRegionInfo *
+region_stack_peek ()
+{
+// #ifndef HAVE_KW_THREAD
+	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
+// #endif
+	SGEN_ASSERT (0, TLAB_REGIONS_END > TLAB_REGIONS_BEGIN, "Region stack underflow");
+	return &TLAB_REGIONS_END [-1];
+}
+
 static void
 region_stack_push (gpointer start)
 {
@@ -185,6 +204,7 @@ region_stack_push (gpointer start)
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
 // #endif
 	SGEN_ASSERT (0, TLAB_REGIONS_END <= TLAB_REGIONS_CAPACITY, "Region stack overflow");
+
 	/* If full or not allocated then (re)allocate.
 	 *
 	 * FIXME: Make this allocation safe without locking.
@@ -199,8 +219,12 @@ region_stack_push (gpointer start)
 		TLAB_REGIONS_END = TLAB_REGIONS_BEGIN + size;
 		TLAB_REGIONS_CAPACITY = TLAB_REGIONS_BEGIN + new_capacity;
 	}
-	/* Save TLAB pointer. */
-	*TLAB_REGIONS_END++ = start;
+
+	/* Empty regions are represented by an increment of the reference count. */
+	if (!region_stack_empty () && region_stack_peek ()->address == start)
+		++region_stack_peek ()->references;
+	else
+		*TLAB_REGIONS_END++ = (SgenRegionInfo) { .address = start, .references = 1 };
 }
 
 static void
@@ -213,16 +237,6 @@ region_stack_pop ()
 	--TLAB_REGIONS_END;
 }
 
-static gpointer
-region_stack_peek ()
-{
-// #ifndef HAVE_KW_THREAD
-	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-// #endif
-	SGEN_ASSERT (0, TLAB_REGIONS_END > TLAB_REGIONS_BEGIN, "Region stack underflow");
-	return TLAB_REGIONS_END [-1];
-}
-
 static void
 region_stack_clear ()
 {
@@ -231,15 +245,6 @@ region_stack_clear ()
 // #endif
 	TLAB_REGIONS_END = TLAB_REGIONS_BEGIN;
 	TLAB_STUCK = NULL;
-}
-
-static gboolean
-region_stack_empty ()
-{
-// #ifndef HAVE_KW_THREAD
-	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
-// #endif
-	return TLAB_REGIONS_BEGIN == TLAB_REGIONS_END;
 }
 
 static gboolean
@@ -259,15 +264,15 @@ forget_stuck_regions (void)
 	SgenThreadInfo *__thread_info__ = mono_thread_info_current ();
 // #endif
 
-	char **p = TLAB_REGIONS_BEGIN;
+	SgenRegionInfo *p = TLAB_REGIONS_BEGIN;
 
 #ifdef HEAVY_STATISTICS
 	if (!region_stack_empty () && TLAB_STUCK > TLAB_START && TLAB_STUCK <= TLAB_REAL_END)
-		stat_region_bytes_stuck += TLAB_STUCK - *TLAB_REGIONS_BEGIN;
+		stat_region_bytes_stuck += TLAB_STUCK - TLAB_REGIONS_BEGIN->address;
 #endif
 
 	/* Find first non-stuck region. */
-	while (p != TLAB_REGIONS_END && *p <= TLAB_STUCK)
+	while (p != TLAB_REGIONS_END && p->address <= TLAB_STUCK)
 		++p;
 
 	const size_t forgotten = p - TLAB_REGIONS_BEGIN;
@@ -316,21 +321,22 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
 	gboolean old_frame_to_new_frame = sgen_ptr_on_stack (dst);
 	gboolean always_stick = !dst;
 
+	if (always_stick) {
+		HEAVY_STAT (++stat_region_stuck_always);
+	} else if (major_to_minor) {
 #ifdef HEAVY_STATISTICS
-	if (always_stick)
-		++stat_region_stuck_always;
-	else if (major_to_minor) {
 		if (dst > (void *)&__thread_info__ && dst < (void *)__thread_info__->client_info.stack_end)
 			++stat_region_stuck_stack_to_region;
 		else
 			++stat_region_stuck_major_to_minor;
-	} else if (old_tlab_to_new_tlab)
-		++stat_region_stuck_old_tlab_to_new_tlab;
-	else if (old_region_to_new_region)
-		++stat_region_stuck_old_region_to_new_region;
-	else if (old_frame_to_new_frame)
-		++stat_region_stuck_old_frame_to_new_frame;
 #endif
+	} else if (old_tlab_to_new_tlab) {
+		HEAVY_STAT (++stat_region_stuck_old_tlab_to_new_tlab);
+	} else if (old_region_to_new_region) {
+		HEAVY_STAT (++stat_region_stuck_old_region_to_new_region);
+	} else if (old_frame_to_new_frame) {
+		HEAVY_STAT (++stat_region_stuck_old_frame_to_new_frame);
+	}
 
 	if (major_to_minor || old_tlab_to_new_tlab || old_region_to_new_region || old_frame_to_new_frame || always_stick) {
 		TLAB_STUCK = MAX (TLAB_STUCK, TLAB_NEXT);
@@ -403,7 +409,11 @@ mono_gc_region_exit (gpointer ret)
 		goto end;
 	}
 
-	char *region = region_stack_peek ();
+	/* If we're just exiting a merged region, there's nothing to do. */
+	if (--region_stack_peek ()->references > 0)
+		goto end;
+
+	char *region = region_stack_peek ()->address;
 
 	SGEN_ASSERT (0, sgen_ptr_in_tlab (region) || region == TLAB_REAL_END, "Region pointers should always be in the current TLAB");
 	if (TLAB_STUCK)

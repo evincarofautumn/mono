@@ -198,6 +198,18 @@ region_stack_peek ()
 }
 
 static void
+region_stack_retain ()
+{
+	++region_stack_peek ()->references;
+}
+
+static gint32
+region_stack_release ()
+{
+	return --region_stack_peek ()->references;
+}
+
+static void
 region_stack_push (gpointer start)
 {
 // #ifndef HAVE_KW_THREAD
@@ -222,7 +234,7 @@ region_stack_push (gpointer start)
 
 	/* Empty regions are represented by an increment of the reference count. */
 	if (!region_stack_empty () && region_stack_peek ()->address == start)
-		++region_stack_peek ()->references;
+		region_stack_retain ();
 	else
 		*TLAB_REGIONS_END++ = (SgenRegionInfo) { .address = start, .references = 1 };
 }
@@ -288,6 +300,17 @@ forget_stuck_regions (void)
 	return forgotten;
 }
 
+static void
+region_stack_merge ()
+{
+	SGEN_ASSERT (0, region_stack_size () >= 2, "Not enough regions to merge");
+	gint32 references = region_stack_peek ()->references;
+	/* g_print ("merging %p (%d) with ", region_stack_peek ()->address, references); */
+	region_stack_pop ();
+	/* g_print ("%p (%d)\n", region_stack_peek ()->address, region_stack_peek ()->references); */
+	region_stack_peek ()->references += references;
+}
+
 /* Intercepts writes of 'src' into 'dst'. If they are not in the same
  * region, then this sticks the region of 'src'. If 'dst' is 'NULL',
  * the region is always stuck.
@@ -316,7 +339,14 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
 	gboolean major_to_minor = !sgen_ptr_in_nursery (dst);
 	gboolean old_tlab_to_new_tlab = !sgen_ptr_in_tlab (dst);
 	/* FIXME: This is too conservative; it should check whether region_of(dst) < region_of(src). */
+#if 0
 	gboolean old_region_to_new_region = dst < src;
+#else
+	gboolean old_region_to_new_region
+		= dst
+		&& dst >= (gpointer)TLAB_START
+		&& dst < (gpointer)region_stack_peek ()->address;
+#endif
 	/* FIXME: This is WAY too conservative; it should check whether the destination is in a higher stack frame. */
 	gboolean old_frame_to_new_frame = sgen_ptr_on_stack (dst);
 	gboolean always_stick = !dst;
@@ -333,6 +363,12 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
 	} else if (old_tlab_to_new_tlab) {
 		HEAVY_STAT (++stat_region_stuck_old_tlab_to_new_tlab);
 	} else if (old_region_to_new_region) {
+		/* If a pointer escapes to a higher region, merge all intervening regions. */
+		if (region_stack_size () > 1) {
+			while (region_stack_size () > 1 && dst < (gpointer)region_stack_peek ()->address)
+				region_stack_merge ();
+			goto end;
+		}
 		HEAVY_STAT (++stat_region_stuck_old_region_to_new_region);
 	} else if (old_frame_to_new_frame) {
 		HEAVY_STAT (++stat_region_stuck_old_frame_to_new_frame);
@@ -410,7 +446,7 @@ mono_gc_region_exit (gpointer ret)
 	}
 
 	/* If we're just exiting a merged region, there's nothing to do. */
-	if (--region_stack_peek ()->references > 0)
+	if (region_stack_release () > 0)
 		goto end;
 
 	char *region = region_stack_peek ()->address;
@@ -439,7 +475,13 @@ mono_gc_region_exit (gpointer ret)
 	 */
 	if (ret && !TLAB_STUCK) {
 		HEAVY_STAT (++stat_region_merged_return);
-		region_stack_pop ();
+		if (region_stack_size () > 1) {
+			/* g_print ("merging %p due to return\n", region); */
+			region_stack_merge ();
+		} else {
+			/* g_print ("popping %p due to return\n", region); */
+			region_stack_pop ();
+		}
 		goto end;
 	}
 
@@ -458,6 +500,9 @@ mono_gc_region_exit (gpointer ret)
 
 	/* Reset TLAB pointer. */
 	TLAB_NEXT = region;
+	SGEN_ASSERT (0, region_stack_peek ()->references == 0,
+		"Why are we exiting a region with multiple (%d) references?",
+		region_stack_peek ()->references);
 	region_stack_pop ();
 	if (region_stack_empty ())
 		TLAB_STUCK = NULL;

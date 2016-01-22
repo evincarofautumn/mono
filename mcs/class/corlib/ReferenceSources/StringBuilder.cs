@@ -754,8 +754,7 @@ namespace System.Text {
 		}
 #endif
 
-#if !MONO
-        public StringBuilder Replace(char oldChar, char newChar, int startIndex, int count) {
+        public unsafe StringBuilder Replace(char oldChar, char newChar, int startIndex, int count) {
             Contract.Ensures(Contract.Result<StringBuilder>() != null);
 
             int currentLength = Length;
@@ -769,19 +768,50 @@ namespace System.Text {
 
             int endIndex = startIndex + count;
             StringBuilder chunk = this;
+            /* If the source character is not compact-representable, we can skip
+             * all compact chunks.
+             */
+            bool skipCompact = !String.CompactRepresentable(oldChar);
+            bool compactRepresentable = String.CompactRepresentable(newChar);
             for (; ; )
             {
                 int endIndexInChunk = endIndex - chunk.m_ChunkOffset;
                 int startIndexInChunk = startIndex - chunk.m_ChunkOffset;
-                if (endIndexInChunk >= 0)
+                if (endIndexInChunk >= 0 && !(chunk.m_IsCompact && skipCompact))
                 {
                     int curInChunk = Math.Max(startIndexInChunk, 0);
                     int endInChunk = Math.Min(chunk.m_ChunkLength, endIndexInChunk);
-                    while (curInChunk < endInChunk)
-                    {
-                        if (chunk.m_ChunkChars[curInChunk] == oldChar)
-                            chunk.m_ChunkChars[curInChunk] = newChar;
-                        curInChunk++;
+                    /* If chunk is compact and replacement is not compact-
+                     * representable, scan ahead to see whether we must degrade.
+                     */
+                    bool mustDegrade = false;
+                    if (chunk.m_IsCompact && !compactRepresentable) {
+                        fixed (byte* chunkBytes = chunk.m_ChunkBytes) {
+                            for (int i = curInChunk; i < endInChunk; ++i) {
+                                if (chunkBytes[i] == oldChar) {
+                                    mustDegrade = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (mustDegrade)
+                        chunk.Degrade();
+                    fixed (byte* chunkBytes = chunk.m_ChunkBytes) {
+                        if (chunk.m_IsCompact) {
+                            while (curInChunk < endInChunk) {
+                                if ((char)chunkBytes[curInChunk] == oldChar)
+                                    chunkBytes[curInChunk] = (byte)newChar;
+                                curInChunk++;
+                            }
+                        } else {
+                            char* chunkChars = (char*)chunkBytes;
+                            while (curInChunk < endInChunk) {
+                                if (chunkChars[curInChunk] == oldChar)
+                                    chunkChars[curInChunk] = newChar;
+                                curInChunk++;
+                            }
+                        }
                     }
                 }
                 if (startIndexInChunk >= 0)
@@ -790,11 +820,6 @@ namespace System.Text {
             }
             return this;
         }
-#else
-        public StringBuilder Replace(char oldChar, char newChar, int startIndex, int count) {
-			throw new NotImplementedException("Replace(char,char,int,int)");
-		}
-#endif
 
         /// <summary>
         /// Appends 'value' of length 'count' to the stringBuilder. 

@@ -617,10 +617,9 @@ namespace System.Text {
             return this;
         }
 
-#if !MONO
         [System.Runtime.InteropServices.ComVisible(false)]
         [SecuritySafeCritical]
-        public void CopyTo(int sourceIndex, char[] destination, int destinationIndex, int count) {
+        public unsafe void CopyTo(int sourceIndex, char[] destination, int destinationIndex, int count) {
             if (destination == null) {
                 throw new ArgumentNullException("destination");
             }
@@ -672,18 +671,18 @@ namespace System.Text {
 
                     // SafeCritical: we ensure that chunkStartIndex + chunkCount are within range of m_chunkChars
                     // as well as ensuring that curDestIndex + chunkCount are within range of destination
-                    ThreadSafeCopy(chunk.m_ChunkChars, chunkStartIndex, destination, curDestIndex, chunkCount);
+                    if (chunk.m_IsCompact) {
+                        for (int i = 0; i < chunkCount; ++i)
+                            destination[curDestIndex + i] = (char)chunk.m_ChunkBytes[chunkStartIndex + i];
+                    } else {
+                        fixed (char* destChars = destination)
+                        fixed (byte* chunkBytes = chunk.m_ChunkBytes)
+                            String.wstrcpy(destChars + curDestIndex, (char*)chunkBytes + chunkStartIndex, chunkCount);
+                    }
                 }
                 chunk = chunk.m_ChunkPrevious;
             }
         }
-#else
-        [System.Runtime.InteropServices.ComVisible(false)]
-        [SecuritySafeCritical]
-        public void CopyTo(int sourceIndex, char[] destination, int destinationIndex, int count) {
-			throw new NotImplementedException("CopyTo(int,char[],int,int)");
-		}
-#endif
 
         // Appends a character at the end of this string builder. The capacity is adjusted as needed.
         public unsafe StringBuilder Append(char value) {

@@ -207,7 +207,7 @@ namespace System.Text {
                 Contract.Assert(currentBlock.m_MaxCapacity == maxCapacity, "Bad maxCapacity");
                 Contract.Assert(currentBlock.m_ChunkBytes != null, "Empty Buffer");
 
-                Contract.Assert(currentBlock.m_ChunkLength * CharSize <= currentBlock.m_ChunkBytes.Length, "Out of range length");
+                Contract.Assert(currentBlock.m_ChunkLength * currentBlock.CharSize <= currentBlock.m_ChunkBytes.Length, "Out of range length");
                 Contract.Assert(currentBlock.m_ChunkLength >= 0, "Negative length");
                 Contract.Assert(currentBlock.m_ChunkOffset >= 0, "Negative offset");
 

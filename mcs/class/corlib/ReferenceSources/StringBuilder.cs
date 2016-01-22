@@ -1343,13 +1343,12 @@ namespace System.Text {
             VerifyClassInvariant();
         }
 
-#if !MONO
         /// <summary>
         /// Removes 'count' characters from the logical index 'startIndex' and returns the chunk and 
         /// index in the chunk of that logical index in the out parameters.  
         /// </summary>
         [SecuritySafeCritical]
-        private void Remove(int startIndex, int count, out StringBuilder chunk, out int indexInChunk)
+        private unsafe void Remove(int startIndex, int count, out StringBuilder chunk, out int indexInChunk)
         {
             VerifyClassInvariant();
             Contract.Assert(startIndex >= 0 && startIndex < Length, "startIndex not in string");
@@ -1407,19 +1406,18 @@ namespace System.Text {
             // SafeCritical: We ensure that endIndexInChunk + copyCount is within range of m_ChunkChars and
             // also ensure that copyTargetIndexInChunk + copyCount is within the chunk
             //
-            // Remove any characters in the end chunk, by sliding the characters down. 
-            if (copyTargetIndexInChunk != endIndexInChunk)  // Sometimes no move is necessary
-                ThreadSafeCopy(endChunk.m_ChunkChars, endIndexInChunk, endChunk.m_ChunkChars, copyTargetIndexInChunk, copyCount);
+            // Remove any characters in the end chunk, by sliding the characters down.
+            // Sometimes no move is necessary.
+            if (copyTargetIndexInChunk != endIndexInChunk) {
+                fixed (byte* chunkBytes = endChunk.m_ChunkBytes) {
+                    int charSize = endChunk.CharSize;
+                    Buffer.Memcpy(chunkBytes + copyTargetIndexInChunk * charSize, chunkBytes + endIndexInChunk * charSize, copyCount * charSize);
+                }
+            }
 
             Contract.Assert(chunk != null, "fell off beginning of string!");
             VerifyClassInvariant();
         }
-#else
-        [SecuritySafeCritical]
-        private void Remove(int startIndex, int count, out StringBuilder chunk, out int indexInChunk) {
-			throw new NotImplementedException("Remove(int startIndex, int count, out StringBuilder chunk, out int indexInChunk)");
-		}
-#endif
 
 #if FEATURE_SERIALIZATION
         [System.Security.SecurityCritical]  // auto-generated

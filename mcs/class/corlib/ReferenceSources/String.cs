@@ -1786,22 +1786,27 @@ namespace System
 			int newLength = oldLength + insertLength;
 			if (newLength == 0)
 				return Empty;
-			bool compact = IsCompact && value.IsCompact;
-			String result = FastAllocateString(newLength, SelectEncoding(compact));
+			bool resultIsCompact = IsCompact && value.IsCompact;
+			String result = FastAllocateString(newLength, SelectEncoding(resultIsCompact));
 			unsafe
 			{
 				fixed (byte* srcThis = &m_firstByte)
 				fixed (char* srcInsert = value)
 				fixed (char* dst = result) {
-					if (compact) {
-						memcpy((byte*)dst, srcThis, startIndex);
-						memcpy((byte*)dst + startIndex, (byte*)srcInsert, insertLength);
-						memcpy((byte*)dst + startIndex + insertLength, srcThis + startIndex, oldLength - startIndex);
-					} else {
-						wstrcpy(dst, (char*)srcThis, startIndex);
-						wstrcpy(dst + startIndex, srcInsert, insertLength);
-						wstrcpy(dst + startIndex + insertLength, (char*)srcThis + startIndex, oldLength - startIndex);
-					}
+                    if (IsCompact)
+                        result.CopyFromBytes(0, srcThis, startIndex);
+                    else
+                        result.CopyFromChars(0, (char*)srcThis, startIndex);
+
+                    if (value.IsCompact)
+                        result.CopyFromBytes(startIndex, (byte*)srcInsert, insertLength);
+                    else
+                        result.CopyFromChars(startIndex, srcInsert, insertLength);
+
+                    if (IsCompact)
+                        result.CopyFromBytes(startIndex + insertLength, srcThis + startIndex, oldLength - startIndex);
+                    else
+                        result.CopyFromChars(startIndex + insertLength, (char*)srcThis + startIndex, oldLength - startIndex);
 				}
 			}
 			return result;
@@ -2041,6 +2046,30 @@ namespace System
 				} else {
 					byte* dstPtr = (byte*)dest;
 					memcpy(dstPtr, srcPtr, len);
+				}
+			}
+		}
+
+
+		internal unsafe void CopyFromChars(int destIndex, char *source, int count) {
+			fixed (byte* dest = &m_firstByte) {
+				if (IsCompact) {
+					for (int i = 0; i < count; i++)
+						dest[destIndex + i] = (byte)source[i];
+				} else {
+					/* FIXME: Not thread-safe. */
+					String.wstrcpy((char*)dest + destIndex, source, count);
+				}
+			}
+		}
+
+		internal unsafe void CopyFromBytes(int destIndex, byte *source, int count) {
+			fixed (byte* dest = &m_firstByte) {
+				if (IsCompact) {
+					Buffer.Memcpy(dest + destIndex, source, count);
+				} else {
+					for (int i = 0; i < count; i++)
+						((char*)dest)[destIndex + i] = (char)source[i];
 				}
 			}
 		}

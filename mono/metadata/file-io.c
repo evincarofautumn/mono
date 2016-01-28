@@ -407,7 +407,11 @@ ves_icall_System_IO_MonoIO_GetFileSystemEntries (MonoString *path,
 	*error = ERROR_SUCCESS;
 
 	MONO_PREPARE_BLOCKING;
-	names = get_filesystem_entries (mono_string_chars (path), mono_string_chars (path_with_pattern), attrs, mask, error);
+	gunichar2 *path_chars = mono_string_to_utf16 (path);
+	gunichar2 *path_with_pattern_chars = mono_string_to_utf16 (path_with_pattern);
+	names = get_filesystem_entries (path_chars, path_with_pattern_chars, attrs, mask, error);
+	g_free (path_with_pattern_chars);
+	g_free (path_chars);
 	MONO_FINISH_BLOCKING;
 
 	if (!names) {

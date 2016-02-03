@@ -1051,38 +1051,17 @@ namespace System
 					}
 				}
 			}
-			string jointString = FastAllocateString(jointLength, compact ? ENCODING_ASCII : ENCODING_UTF16);
+			string jointString = FastAllocateString(jointLength, String.SelectEncoding(compact));
 			fixed (byte* pointerToJointStringByte = &jointString.m_firstByte) {
-				if (compact) {
-					byte* dest = pointerToJointStringByte;
-					if (value[startIndex] != null) {
-						fixed (byte* src = &value[startIndex].m_firstByte)
-							memcpy(dest, src, value[startIndex].Length);
-						dest += value[startIndex].Length;
-					}
-					for (int i = startIndex + 1; i <= endIndex; ++i) {
-						fixed (byte* src = &separator.m_firstByte)
-							memcpy(dest, src, separator.Length);
-						dest += separator.Length;
-						if (value[i] == null)
-							continue;
-						fixed (byte* src = &value[i].m_firstByte)
-							memcpy(dest, src, value[i].Length);
-						dest += value[i].Length;
-					}
-					Contract.Assert(*dest == '\0', "String must be null-terminated!");
-				} else {
-					char* pointerToJointString = (char*)pointerToJointStringByte;
-					UnSafeCharBuffer charBuffer = new UnSafeCharBuffer( pointerToJointString, jointLength);
+				UnSafeCharBuffer charBuffer = new UnSafeCharBuffer(pointerToJointStringByte, jointLength, compact);
 
-					// Append the first string first and then append each following string prefixed by the separator.
-					charBuffer.AppendString( value[startIndex] );
-					for (int stringToJoinIndex = startIndex + 1; stringToJoinIndex <= endIndex; stringToJoinIndex++) {
-						charBuffer.AppendString( separator );
-						charBuffer.AppendString( value[stringToJoinIndex] );
-					}
-					Contract.Assert(*(pointerToJointString + charBuffer.Length) == '\0', "String must be null-terminated!");
+				// Append the first string first and then append each following string prefixed by the separator.
+				charBuffer.AppendString(value[startIndex]);
+				for (int stringToJoinIndex = startIndex + 1; stringToJoinIndex <= endIndex; stringToJoinIndex++) {
+					charBuffer.AppendString(separator);
+					charBuffer.AppendString(value[stringToJoinIndex]);
 				}
+				// Contract.Assert(*(pointerToJointString + charBuffer.Length) == '\0', "String must be null-terminated!");
 			}
 
 			return jointString;

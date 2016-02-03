@@ -5491,24 +5491,9 @@ MonoInternalEncoding
 mono_string_infer_encoding_utf8 (const char *text, size_t length)
 {
 #if ENABLE_COMPACT_ENCODING
-	const char *p = text;
-	guint64 mask64 = 0x8080808080808080ULL;
-	guint32 mask32 = 0x80808080UL;
-	guint16 mask16 = 0x8080;
-	while (length >= 4) {
-		if (*(const guint64 *)p & mask64)
+	for (const guint8 *p = (const guint8 *)text; length; ++p, --length)
+		if (*p & 0x80)
 			return MONO_ENCODING_UTF16;
-		p += sizeof (guint64);
-		length -= 4;
-	}
-	while (length >= 2) {
-		if (*(const guint32 *)p & mask32)
-			return MONO_ENCODING_UTF16;
-		p += sizeof (guint32);
-		length -= 2;
-	}
-	if (length == 1 && (*(const guint16 *)p & mask16))
-		return MONO_ENCODING_UTF16;
 	return MONO_ENCODING_ASCII;
 #else
 	return MONO_ENCODING_UTF16;
@@ -5519,66 +5504,10 @@ MonoInternalEncoding
 mono_string_infer_encoding_utf16 (const guint16 *text, size_t length)
 {
 #if ENABLE_COMPACT_ENCODING
-#if BYTE_ORDER == G_LITTLE_ENDIAN
-#if 0
-    __attribute__ ((aligned (16))) const guint32 mask32x4 []
-		= { 0xFF80FF80ULL, 0xFF80FF80ULL, 0xFF80FF80ULL, 0xFF80FF80ULL };
-#else
-    __attribute__ ((aligned (16))) const guint32 mask32x4 []
-		= { 0x80FF80FFULL, 0x80FF80FFULL, 0x80FF80FFULL, 0x80FF80FFULL };
-#endif
-	const __m128i mask128 = _mm_load_si128 ((const __m128i *)mask32x4);
-	const guint64 mask64 = 0xFF80FF80FF80FF80ULL;
-	const guint32 mask32 = 0xFF80FF80UL;
-	const guint16 mask16 = 0xFF80;
-#else
-#if 0
-    __attribute__ ((aligned (16))) const guint32 mask32x4 []
-		= { 0x80FF80FFULL, 0x80FF80FFULL, 0x80FF80FFULL, 0x80FF80FFULL };
-#else
-    __attribute__ ((aligned (16))) const guint32 mask32x4 []
-		= { 0xFF80FF80ULL, 0xFF80FF80ULL, 0xFF80FF80ULL, 0xFF80FF80ULL };
-#endif
-	const __m128i mask128 = _mm_load_si128 ((const __m128i *)mask32x4);
-	const guint64 mask64 = 0x80FF80FF80FF80FFULL;
-	const guint32 mask32 = 0x80FF80FFUL;
-	const guint16 mask16 = 0x80FF;
-#endif
-	const char *p = (const char *)text;
-#if 1
-	if (length >= 8) {
-		/* Get to a 16-byte boundary. */
-		while ((uintptr_t)p & 0xF) {
-			if (G_UNLIKELY ((*(const guint16 *)p & mask16)))
-				return MONO_ENCODING_UTF16;
-			p += sizeof (guint16);
-			length -= 1;
-		}
-		while (length >= 8) {
-			__m128i zero = _mm_setzero_si128 ();
-			if (G_UNLIKELY (_mm_movemask_epi8 (_mm_cmpeq_epi32 (_mm_and_si128 (*(const __m128i *)p, mask128), zero)) == 0xFFFF)) {
-				g_print (".");
-				return MONO_ENCODING_UTF16;
-			}
-			p += sizeof (__m128i);
-			length -= 8;
-		}
-	}
-#endif
-	while (length >= 4) {
-		if (G_UNLIKELY (*(const guint64 *)p & mask64))
+	for (const guint16 *p = text; length; ++p, --length)
+		/* FIXME: text can be unaligned. */
+		if (*p & 0xFF80)
 			return MONO_ENCODING_UTF16;
-		p += sizeof (guint64);
-		length -= 4;
-	}
-	while (length >= 2) {
-		if (G_UNLIKELY (*(const guint32 *)p & mask32))
-			return MONO_ENCODING_UTF16;
-		p += sizeof (guint32);
-		length -= 2;
-	}
-	if (length == 1 && G_UNLIKELY ((*(const guint16 *)p & mask16)))
-		return MONO_ENCODING_UTF16;
 	return MONO_ENCODING_ASCII;
 #else
 	return MONO_ENCODING_UTF16;

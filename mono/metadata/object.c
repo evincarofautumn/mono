@@ -7822,7 +7822,7 @@ int
 mono_string_length (MonoString *s)
 {
 	MONO_REQ_GC_UNSAFE_MODE;
-	return mono_string_length_fast (s, FALSE);
+	return mono_string_length_fast (s, TRUE);
 }
 
 /**

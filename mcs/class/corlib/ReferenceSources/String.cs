@@ -1593,7 +1593,7 @@ namespace System
 		}
 
 		[System.Security.SecuritySafeCritical]	// auto-generated
-		private String CtorCharArrayStartLength(char [] value, int startIndex, int length)
+		unsafe private String CtorCharArrayStartLength(char [] value, int startIndex, int length)
 		{
 			if (value == null)
 				throw new ArgumentNullException("value");
@@ -1611,18 +1611,17 @@ namespace System
 			if (length <= 0)
 				return Empty;
 
-			/* FIXME: Could infer non-compact encoding even if result could be compact. */
-			bool compact = CompactRepresentable(value);
+			bool compact;
+			fixed (char* source = value)
+				compact = CompactRepresentable(source + startIndex, length);
 			String result = FastAllocateString(length, SelectEncoding(compact));
-			unsafe {
-				fixed (byte* destByte = result)
+			fixed (byte* destByte = result)
 				fixed (char* source = value) {
-					if (compact) {
-						for (int i = 0; i < length; ++i)
-							destByte[i] = (byte)source[startIndex + i];
-					} else {
-						wstrcpy((char*)destByte, source + startIndex, length);
-					}
+				if (compact) {
+					for (int i = 0; i < length; ++i)
+						destByte[i] = (byte)source[startIndex + i];
+				} else {
+					wstrcpy((char*)destByte, source + startIndex, length);
 				}
 			}
 			return result;

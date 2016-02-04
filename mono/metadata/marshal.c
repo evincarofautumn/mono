@@ -779,7 +779,7 @@ mono_string_utf16_to_builder_copy (MonoStringBuilder *sb, gunichar2 *text, size_
 	 * have to change. Fortunately, the new representation might be the compact
 	 * encoding, so we might get to save some memory.
 	 */
-	MonoInternalEncoding encoding = mono_string_infer_encoding_utf16 (text, string_len);
+	MonoInternalEncoding encoding = mono_string_infer_encoding_ucs2 (text, string_len);
 	if (sb->isCompact) {
 		switch (encoding) {
 		case MONO_ENCODING_ASCII:
@@ -833,7 +833,7 @@ mono_string_utf16_to_builder2 (gunichar2 *text)
 	int len;
 	for (len = 0; text [len] != 0; ++len);
 
-	MonoInternalEncoding encoding = mono_string_infer_encoding_utf16 (text, len);
+	MonoInternalEncoding encoding = mono_string_infer_encoding_ucs2 (text, len);
 	MonoStringBuilder *sb = mono_string_builder_new (len, encoding);
 	mono_string_utf16_to_builder (sb, text);
 

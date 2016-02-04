@@ -5487,28 +5487,133 @@ init_string_counters ()
 }
 /* #endif */
 
+/* Infer whether 'text', of length 'length' in bytes, can be represented in
+ * ASCII or must be represented in UTF-16.
+ */
 MonoInternalEncoding
 mono_string_infer_encoding_utf8 (const char *text, size_t length)
 {
 #if ENABLE_COMPACT_ENCODING
-	for (const guint8 *p = (const guint8 *)text; length; ++p, --length)
-		if (*p & 0x80)
+
+	guint64 mask64 = 0x8080808080808080ULL;
+	guint32 mask32 = 0x80808080UL;
+	guint16 mask16 = 0x8080;
+	guint8 mask8 = 0x80;
+
+	const char *p = text;
+
+	if (length >= 8) {
+
+		/* Get to an 8-byte boundary. */
+		while ((uintptr_t)p & 0x7) {
+			if (G_UNLIKELY ((*(const guint8 *)p & mask8)))
+				return MONO_ENCODING_UTF16;
+			p += sizeof (guint8);
+			length -= 1;
+		}
+
+		while (length >= 8) {
+			if (G_UNLIKELY (*(const guint64 *)p & mask64))
+				return MONO_ENCODING_UTF16;
+			p += sizeof (guint64);
+			length -= 8;
+		}
+
+	}
+
+	while (length >= 4) {
+		if (G_UNLIKELY (*(const guint32 *)p & mask32))
 			return MONO_ENCODING_UTF16;
+		p += sizeof (guint32);
+		length -= 4;
+	}
+
+	while (length >= 2) {
+		if (G_UNLIKELY (*(const guint16 *)p & mask16))
+			return MONO_ENCODING_UTF16;
+		p += sizeof (guint16);
+		length -= 2;
+	}
+
+	if (length == 1) {
+		if (G_UNLIKELY (*(const guint8 *)p & mask8))
+			return MONO_ENCODING_UTF16;
+		p += sizeof (guint8);
+		length -= 1;
+	}
+
 	return MONO_ENCODING_ASCII;
+
 #else
 	return MONO_ENCODING_UTF16;
 #endif
 }
 
+/* Infer whether 'text', of length 'length' in code units, can be represented in
+ * ASCII or must be represented in UTF-16.
+ */
 MonoInternalEncoding
-mono_string_infer_encoding_utf16 (const guint16 *text, size_t length)
+mono_string_infer_encoding_ucs2 (const guint16 *text, size_t length)
 {
 #if ENABLE_COMPACT_ENCODING
-	for (const guint16 *p = text; length; ++p, --length)
-		/* FIXME: text can be unaligned. */
-		if (*p & 0xFF80)
+
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+	const guint16 mask16 = 0xFF80;
+	const guint32 mask32 = 0xFF80FF80UL;
+	const guint64 mask64 = 0xFF80FF80FF80FF80ULL;
+#else
+	const guint16 mask16 = 0x80FF;
+	const guint32 mask32 = 0x80FF80FFUL;
+	const guint64 mask64 = 0x80FF80FF80FF80FFULL;
+#endif
+    __attribute__ ((aligned (16))) const guint32 mask32x4 []
+		= { mask32, mask32, mask32, mask32 };
+	const __m128i mask128 = _mm_load_si128 ((const __m128i *)mask32x4);
+
+	const char *p = (const char *)text;
+
+	/* Get to a 16-byte boundary.
+	 *
+	 * FIXME: text may be unaligned, in which case this will loop through the
+	 * entire string, generating an unaligned access for every character.
+	 */
+	while ((uintptr_t)p & 0xF) {
+		if (G_UNLIKELY ((*(const guint16 *)p & mask16)))
 			return MONO_ENCODING_UTF16;
+		p += sizeof (guint16);
+		length -= 1;
+	}
+
+	while (length >= 8) {
+		const __m128i masked = _mm_and_si128 (*(const __m128i *)p, mask128);
+		const __m128i zero = _mm_setzero_si128 ();
+		if (G_UNLIKELY (_mm_movemask_epi8 (_mm_cmpeq_epi16 (masked, zero)) != 0xFFFF))
+			return MONO_ENCODING_UTF16;
+		p += sizeof (__m128i);
+		length -= 8;
+	}
+
+	while (length >= 4) {
+		if (G_UNLIKELY (*(const guint64 *)p & mask64))
+			return MONO_ENCODING_UTF16;
+		p += sizeof (guint64);
+		length -= 4;
+	}
+
+	while (length >= 2) {
+		if (G_UNLIKELY (*(const guint32 *)p & mask32))
+			return MONO_ENCODING_UTF16;
+		p += sizeof (guint32);
+		length -= 2;
+	}
+
+	if (length == 1) {
+		if (G_UNLIKELY ((*(const guint16 *)p & mask16)))
+			return MONO_ENCODING_UTF16;
+	}
+
 	return MONO_ENCODING_ASCII;
+
 #else
 	return MONO_ENCODING_UTF16;
 #endif
@@ -5549,10 +5654,10 @@ mono_string_new_utf16_checked (MonoDomain *domain, const guint16 *text, gint32 l
 	MONO_REQ_GC_UNSAFE_MODE;
 
 	MonoString *s;
-	
 	mono_error_init (error);
-	
-	MonoInternalEncoding encoding = mono_string_infer_encoding_utf16 (text, len);
+
+	MonoInternalEncoding encoding = mono_string_infer_encoding_ucs2 (text, len);
+
 	s = mono_string_new_size_checked (domain, len, encoding, error);
 	if (s != NULL) {
 		/* Can't use mono_string_size_fast here because 'text' is not null-terminated. */
@@ -5566,9 +5671,6 @@ mono_string_new_utf16_checked (MonoDomain *domain, const guint16 *text, gint32 l
 				for (i = 0; i < len; ++i)
 					s->bytes [i] = (char)text [i];
 			}
-			break;
-		default:
-			g_assert_not_reached ();
 		}
 	}
 

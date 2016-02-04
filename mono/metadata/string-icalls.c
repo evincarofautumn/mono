@@ -36,7 +36,7 @@ ves_icall_System_String_ctor_RedirectToCreateString (void)
 
 MonoBoolean
 ves_icall_System_String_CompactRepresentable (const guint16 *const str, const gint32 length) {
-	return mono_string_infer_encoding_utf16 (str, length) == MONO_ENCODING_ASCII;
+	return mono_string_infer_encoding_ucs2 (str, length) == MONO_ENCODING_ASCII;
 }
 
 MonoString *

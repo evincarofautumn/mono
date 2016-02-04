@@ -5577,7 +5577,7 @@ mono_string_infer_encoding_ucs2 (const guint16 *text, size_t length)
 	 * FIXME: text may be unaligned, in which case this will loop through the
 	 * entire string, generating an unaligned access for every character.
 	 */
-	while ((uintptr_t)p & 0xF) {
+	while (((uintptr_t)p & 0xF) && length) {
 		if (G_UNLIKELY ((*(const guint16 *)p & mask16)))
 			return MONO_ENCODING_UTF16;
 		p += sizeof (guint16);

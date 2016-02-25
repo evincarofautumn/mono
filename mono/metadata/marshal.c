@@ -10281,7 +10281,7 @@ mono_marshal_string_to_utf16_copy (MonoString *s)
 	} else {
 		MonoError error;
 		size_t length = mono_string_length_fast (s, TRUE);
-		gunichar2 *res = mono_marshal_alloc ((length + 1) * sizeof (gunichar2));
+		gunichar2 *res = mono_marshal_alloc ((length + 1) * sizeof (gunichar2), &error);
 		mono_error_raise_exception (&error); /* FIXME don't raise here */
 		mono_string_copy_to_utf16 (s, res);
 		res [length] = 0;

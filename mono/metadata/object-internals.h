@@ -1773,7 +1773,7 @@ MonoObject *
 mono_object_clone_checked (MonoObject *obj, MonoError *error);
 
 MonoString *
-mono_string_new_size_checked (MonoDomain *domain, gint32 len, MonoError *error);
+mono_string_new_size_checked (MonoDomain *domain, gint32 len, MonoInternalEncoding encoding, MonoError *error);
 
 MonoString*
 mono_string_new_checked (MonoDomain *domain, const char *text, MonoError *merror);

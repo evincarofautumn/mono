@@ -5724,14 +5724,14 @@ MonoString *
 mono_string_new_size (MonoDomain *domain, gint32 len, int32_t encoding)
 {
 	MonoError error;
-	MonoString *str = mono_string_new_size_checked (domain, len, &error);
+	MonoString *str = mono_string_new_size_checked (domain, len, encoding, &error);
 	mono_error_raise_exception (&error);
 
 	return str;
 }
 
 MonoString *
-mono_string_new_size_checked (MonoDomain *domain, gint32 len, MonoError *error)
+mono_string_new_size_checked (MonoDomain *domain, gint32 len, MonoInternalEncoding encoding, MonoError *error)
 {
 	MONO_REQ_GC_UNSAFE_MODE;
 

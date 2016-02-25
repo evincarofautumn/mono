@@ -1050,9 +1050,6 @@ namespace System.Text {
 
 #if !MONO
          // Copies the source StringBuilder to the destination IntPtr memory allocated with len bytes.
-        #if !FEATURE_CORECLR
-        [System.Runtime.ForceTokenStabilization]
-        #endif //!FEATURE_CORECLR
         [System.Security.SecurityCritical]  // auto-generated
         internal unsafe void InternalCopy(IntPtr dest, int len) {
             if(len ==0)
@@ -1079,9 +1076,6 @@ namespace System.Text {
         }
 #else
          // Copies the source StringBuilder to the destination IntPtr memory allocated with len bytes.
-        #if !FEATURE_CORECLR
-        [System.Runtime.ForceTokenStabilization]
-        #endif //!FEATURE_CORECLR
         [System.Security.SecurityCritical]  // auto-generated
         internal unsafe void InternalCopy(IntPtr dest, int len) {
 			throw new NotImplementedException("InternalCopy(IntPtr,int)");

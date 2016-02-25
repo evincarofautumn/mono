@@ -1706,9 +1706,6 @@ namespace System
 			}
 		}
 		[System.Security.SecurityCritical]	// auto-generated
-		#if !FEATURE_CORECLR
-		[System.Runtime.ForceTokenStabilization]
-		#endif //!FEATURE_CORECLR
 		private unsafe String CtorCharPtrStartLength(char *ptr, int startIndex, int length)
 		{
 			if (length < 0) {
@@ -2007,9 +2004,6 @@ namespace System
 
 		// Copies the source String (byte buffer) to the destination IntPtr memory allocated with len bytes.
 		[System.Security.SecurityCritical]	// auto-generated
-		#if !FEATURE_CORECLR
-		[System.Runtime.ForceTokenStabilization]
-		#endif //!FEATURE_CORECLR
 		internal unsafe static void InternalCopy(String src, IntPtr dest,int len)
 		{
 			if (len == 0)

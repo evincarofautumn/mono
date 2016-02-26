@@ -45,7 +45,7 @@ namespace System
 	partial class String
 	{
 
-		[NonSerialized]private int m_taggedStringLength;
+		[NonSerialized]private UInt32 m_taggedStringLength;
 		[NonSerialized]private byte m_firstByte;
 
 		internal const int ENCODING_UTF16 = 0;

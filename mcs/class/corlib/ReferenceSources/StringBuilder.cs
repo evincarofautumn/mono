@@ -78,12 +78,12 @@ namespace System.Text {
 			m_IsCompact = value.IsCompact;
 
 			unsafe {
-				fixed (char* valueChars = value) {
+				fixed (byte* valueBytes = &value.m_firstByte) {
 					int charSize = value.CharSize;
 					m_ChunkBytes = new byte[capacity * charSize];
 					fixed (byte* chunkBytes = m_ChunkBytes) {
 						/* FIXME: Not thread-safe. */
-						Buffer.Memcpy(chunkBytes, (byte*)valueChars + startIndex * charSize, length * charSize);
+						Buffer.Memcpy(chunkBytes, valueBytes + startIndex * charSize, length * charSize);
 					}
 				}
 			}
@@ -179,14 +179,14 @@ namespace System.Text {
             m_ChunkBytes = new byte[persistedCapacity * CharSize];
 			unsafe {
 				fixed (byte* chunkBytes = m_ChunkBytes)
-				fixed (char* persistedChars = persistedString) {
+				fixed (byte* persistedBytes = &persistedString.m_firstByte) {
 					if (m_IsCompact && !persistedString.IsCompact) {
 						/* FIXME: Unroll. */
 						for (int i = 0; i < persistedString.Length; ++i)
-							chunkBytes[i] = (byte)persistedChars[i];
+							chunkBytes[i] = (byte)((char*)persistedBytes)[i];
 					} else {
 						/* FIXME: Not thread-safe. */
-						Buffer.Memcpy(chunkBytes, (byte*)persistedChars, persistedString.Length * CharSize);
+						Buffer.Memcpy(chunkBytes, persistedBytes, persistedString.Length * CharSize);
 					}
 				}
 			}
@@ -263,9 +263,8 @@ namespace System.Text {
 			bool compactRepresentable = CompactRepresentable;
             string ret = string.FastAllocateString(Length, String.SelectEncoding(compactRepresentable));
             StringBuilder chunk = this;
-			fixed (char* destChars = ret) {
+			fixed (byte* destBytes = &ret.m_firstByte) {
 				if (compactRepresentable) {
-					byte* destBytes = (byte*)destChars;
                     do {
                         if (chunk.m_ChunkLength > 0) {
                             // Copy these into local variables so that they are stable even in the presence of ----s (hackers might do this)
@@ -284,6 +283,7 @@ namespace System.Text {
                         chunk = chunk.m_ChunkPrevious;
                     } while (chunk != null);
 				} else {
+					char* destChars = (char*)destBytes;
                     do {
                         if (chunk.m_ChunkLength > 0) {
                             // Copy these into local variables so that they are stable even in the presence of ----s (hackers might do this)
@@ -345,10 +345,8 @@ namespace System.Text {
 			bool compactRepresentable = CompactRepresentable;
             string ret = string.FastAllocateString(length, String.SelectEncoding(compactRepresentable));
             int curDestIndex = length;
-			fixed (char* destChars = ret)
+			fixed (byte* destBytes = &ret.m_firstByte)
 			{
-				byte* destBytes = (byte*)destChars;
-
 				while (curDestIndex > 0)
 				{
 					int chunkEndIndex = sourceEndIndex - chunk.m_ChunkOffset;
@@ -386,9 +384,9 @@ namespace System.Text {
 										if (chunk.m_IsCompact) {
 											/* FIXME: Unroll. */
 											for (int i = 0; i < chunkCount; ++i)
-												destChars[curDestIndex + i] = (char)sourceBytes[chunkStartIndex + i];
+												((char*)destBytes)[curDestIndex + i] = (char)sourceBytes[chunkStartIndex + i];
 										} else {
-											string.wstrcpy(destChars + curDestIndex, (char*)sourceBytes + chunkStartIndex, chunkCount);
+											string.wstrcpy((char*)destBytes + curDestIndex, (char*)sourceBytes + chunkStartIndex, chunkCount);
 										}
 									}
 								}
@@ -901,7 +899,7 @@ namespace System.Text {
                 return;
 
             unsafe {
-                fixed (char* valuePtr = value)
+                fixed (byte* valuePtr = &value.m_firstByte)
                 {
                     // calculate the total amount of extra space or space needed for all the replacements.  
                     int delta = (value.Length - removeCount) * replacementsCount;
@@ -918,9 +916,9 @@ namespace System.Text {
                     {
                         // Copy in the new string for the ith replacement
 						if (value.IsCompact)
-							ReplaceInPlaceAtChunk(ref targetChunk, ref targetIndexInChunk, (byte*)valuePtr, value.Length);
-						else
 							ReplaceInPlaceAtChunk(ref targetChunk, ref targetIndexInChunk, valuePtr, value.Length);
+						else
+							ReplaceInPlaceAtChunk(ref targetChunk, ref targetIndexInChunk, (char*)valuePtr, value.Length);
                         int gapStart = replacements[i] + removeCount;
                         i++;
                         if (i >= replacementsCount)

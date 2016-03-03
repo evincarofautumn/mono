@@ -5934,6 +5934,29 @@ mini_emit_inst_for_sharable_method (MonoCompile *cfg, MonoMethod *cmethod, MonoM
 	return NULL;
 }
 
+static MonoMethod*
+throw_exception (void)
+{
+	static MonoMethod *method = NULL;
+
+	if (!method) {
+		MonoSecurityManager *secman = mono_security_manager_get_methods ();
+		method = mono_class_get_method_from_name (secman->securitymanager, "ThrowException", 1);
+	}
+	g_assert (method);
+	return method;
+}
+
+static MonoInst *
+emit_throw_exception (MonoCompile *cfg, MonoException *ex)
+{
+	MonoMethod *thrower = throw_exception ();
+	MonoInst *args [1];
+
+	EMIT_NEW_PCONST (cfg, args [0], ex);
+	return mono_emit_method_call (cfg, thrower, args, NULL);
+}
+
 static MonoInst*
 mini_emit_inst_for_method (MonoCompile *cfg, MonoMethod *cmethod, MonoMethodSignature *fsig, MonoInst **args)
 {
@@ -6089,6 +6112,11 @@ mini_emit_inst_for_method (MonoCompile *cfg, MonoMethod *cmethod, MonoMethodSign
 			return NULL;
 	} else if (cmethod->klass == runtime_helpers_class) {
 		if (strcmp (cmethod->name, "get_OffsetToStringData") == 0 && fsig->param_count == 0) {
+#if 1
+			MonoException *ex = mono_get_exception_not_supported
+				("Unsafe access to string data is not supported by this runtime");
+			emit_throw_exception (cfg, ex);
+#endif
 			EMIT_NEW_ICONST (cfg, ins, MONO_STRUCT_OFFSET (MonoString, bytes));
 			return ins;
 		} else
@@ -7466,29 +7494,6 @@ mini_get_signature (MonoMethod *method, guint32 token, MonoGenericContext *conte
 		g_assert(mono_error_ok(&error));
 	}
 	return fsig;
-}
-
-static MonoMethod*
-throw_exception (void)
-{
-	static MonoMethod *method = NULL;
-
-	if (!method) {
-		MonoSecurityManager *secman = mono_security_manager_get_methods ();
-		method = mono_class_get_method_from_name (secman->securitymanager, "ThrowException", 1);
-	}
-	g_assert (method);
-	return method;
-}
-
-static void
-emit_throw_exception (MonoCompile *cfg, MonoException *ex)
-{
-	MonoMethod *thrower = throw_exception ();
-	MonoInst *args [1];
-
-	EMIT_NEW_PCONST (cfg, args [0], ex);
-	mono_emit_method_call (cfg, thrower, args, NULL);
 }
 
 /*
@@ -11636,7 +11641,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 							g_assert (vtable);
 							if (! vtable->initialized)
 								INLINE_FAILURE ("class init");
-							ex = mono_runtime_class_init_full (vtable, FALSE);
+							ex = mono_runtime_class_init_full (vtable, TRUE);
 							if (ex) {
 								mono_cfg_set_exception (cfg, MONO_EXCEPTION_MONO_ERROR);
 								mono_error_set_exception_instance (&cfg->error, ex);

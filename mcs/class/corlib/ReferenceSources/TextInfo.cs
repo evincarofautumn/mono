@@ -11,16 +11,15 @@ namespace System.Globalization
 
 			// UTF-16 because 'ToUpper' may not return ASCII given ASCII input.
 			string tmp = String.FastAllocateString (str.Length, String.ENCODING_UTF16);
-			fixed (char* source = str)
-			fixed (char* dest = tmp) {
+			fixed (byte* source = &str.m_firstByte)
+			fixed (byte* dest = &tmp.m_firstByte) {
+                char* destPtr = (char*)dest;
 				if (str.IsCompact) {
-					char* destPtr = dest;
-					byte* sourcePtr = (byte*)source;
+					byte* sourcePtr = source;
 					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
 						*destPtr = ToUpper((char)*sourcePtr);
 				} else {
-					char* destPtr = dest;
-					char* sourcePtr = source;
+					char* sourcePtr = (char*)source;
 					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
 						*destPtr = ToUpper(*sourcePtr);
 				}
@@ -35,16 +34,15 @@ namespace System.Globalization
 
 			// UTF-16 because 'ToUpper' may not return ASCII given ASCII input.
 			string tmp = String.FastAllocateString (str.Length, String.ENCODING_UTF16);
-			fixed (char* source = str)
-			fixed (char* destByte = tmp) {
+			fixed (byte* source = &str.m_firstByte)
+			fixed (byte* destByte = &tmp.m_firstByte) {
+                char* destPtr = (char*)destByte;
 				if (str.IsCompact) {
-					char* destPtr = destByte;
-					byte* sourcePtr = (byte*)source;
+					byte* sourcePtr = source;
 					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
 						*destPtr = ToLower((char)*sourcePtr);
 				} else {
-					char* destPtr = destByte;
-					char* sourcePtr = source;
+					char* sourcePtr = (char*)source;
 					for (int n = 0; n < str.Length; n++, sourcePtr++, destPtr++)
 						*destPtr = ToLower(*sourcePtr);
 				}

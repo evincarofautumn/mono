@@ -46,7 +46,7 @@ namespace System
 	{
 
 		[NonSerialized]private UInt32 m_taggedStringLength;
-		[NonSerialized]private byte m_firstByte;
+		[NonSerialized]internal byte m_firstByte;
 
 		internal const int ENCODING_UTF16 = 0;
 		internal const int ENCODING_ASCII = 1;
@@ -86,8 +86,22 @@ namespace System
 				/* We could assert here that all strings that claim to be compact in fact are. */
 				return true;
 			/* TODO: Collect metrics on strings that could have been made compact. */
-			fixed (char* p = this)
-				return CompactRepresentable(p, Length);
+			fixed (byte* p = &this.m_firstByte)
+				return CompactRepresentable((char*)p, Length);
+		}
+
+		public unsafe T UnsafeApply<T> (Func<IntPtr, T> compact, Func<IntPtr, T> noncompact) {
+			fixed (byte* p = &m_firstByte) {
+				if (IsCompact) {
+					if (compact != null)
+						return compact ((IntPtr)p);
+					return default (T);
+				} else {
+					if (noncompact != null)
+						return noncompact ((IntPtr)p);
+					return default (T);
+				}
+			}
 		}
 
 		internal static unsafe int CompareOrdinalUnchecked (String strA, int indexA, int lenA, String strB, int indexB, int lenB)
@@ -104,11 +118,11 @@ namespace System
 			if (lengthA == lengthB && indexA == indexB && Object.ReferenceEquals (strA, strB))
 				return 0;
 
-			fixed (char* aptr = strA, bptr = strB) {
+			fixed (byte* aptr = &strA.m_firstByte, bptr = &strB.m_firstByte) {
 				if (strA.IsCompact && strB.IsCompact) {
-					byte* ap = (byte*)aptr + indexA;
+					byte* ap = aptr + indexA;
 					byte* end = ap + Math.Min (lengthA, lengthB);
-					byte* bp = (byte*)bptr + indexB;
+					byte* bp = bptr + indexB;
 					while (ap < end) {
 						if (*ap != *bp)
 							return *ap - *bp;
@@ -118,9 +132,9 @@ namespace System
 					return lengthA - lengthB;
 				}
 				if (strA.IsCompact) {
-					byte* ap = (byte*)aptr + indexA;
+					byte* ap = aptr + indexA;
 					byte* end = ap + Math.Min (lengthA, lengthB);
-					char* bp = bptr + indexB;
+					char* bp = (char*)bptr + indexB;
 					while (ap < end) {
 						if ((char)*ap != *bp)
 							return *ap - *bp;
@@ -132,7 +146,7 @@ namespace System
 				if (strB.IsCompact) {
 					char* ap = (char*)aptr + indexA;
 					char* end = ap + Math.Min (lengthA, lengthB);
-					byte* bp = (byte*)bptr + indexB;
+					byte* bp = bptr + indexB;
 					while (ap < end) {
 						if (*ap != (char)*bp)
 							return *ap - *bp;
@@ -142,9 +156,9 @@ namespace System
 					return lengthA - lengthB;
 				}
 				{
-					char* ap = aptr + indexA;
+					char* ap = (char*)aptr + indexA;
 					char* end = ap + Math.Min (lengthA, lengthB);
-					char* bp = bptr + indexB;
+					char* bp = (char*)bptr + indexB;
 					while (ap < end) {
 						if (*ap != *bp)
 							return *ap - *bp;
@@ -230,15 +244,15 @@ namespace System
 			}
 
 			fixed (byte* thisPtrByte = &m_firstByte)
-			fixed (char* valuePtr = value) {
+			fixed (byte* valuePtr = &value.m_firstByte) {
 				char* thisPtr = (char*)thisPtrByte;
 				if (IsCompact && value.IsCompact) {
 					byte* ap = (byte*)thisPtr + startIndex;
 					byte* thisEnd = ap + count - valueLen + 1;
 					while (ap != thisEnd) {
-						if (*ap == *(byte*)valuePtr) {
+						if (*ap == *valuePtr) {
 							for (int i = 1; i < valueLen; i++)
-								if (ap[i] != ((byte*)valuePtr)[i])
+								if (ap[i] != valuePtr[i])
 									goto NextVal;
 							return (int)(ap - thisPtr);
 						}
@@ -249,9 +263,9 @@ namespace System
 					byte* ap = (byte*)thisPtr + startIndex;
 					byte* thisEnd = ap + count - valueLen + 1;
 					while (ap != thisEnd) {
-						if ((char)*ap == *valuePtr) {
+						if ((char)*ap == *(char*)valuePtr) {
 							for (int i = 1; i < valueLen; i++)
-								if ((char)ap[i] != valuePtr[i])
+								if ((char)ap[i] != ((char*)valuePtr)[i])
 									goto NextVal;
 							return (int)(ap - thisPtr);
 						}
@@ -262,9 +276,9 @@ namespace System
 					char* ap = thisPtr + startIndex;
 					char* thisEnd = ap + count - valueLen + 1;
 					while (ap != thisEnd) {
-						if (*ap == (char)*(byte*)valuePtr) {
+						if (*ap == (char)*valuePtr) {
 							for (int i = 1; i < valueLen; i++)
-								if (ap[i] != (char)((byte*)valuePtr)[i])
+								if (ap[i] != (char)valuePtr[i])
 									goto NextVal;
 							return (int)(ap - thisPtr);
 						}
@@ -275,9 +289,9 @@ namespace System
 					char* ap = thisPtr + startIndex;
 					char* thisEnd = ap + count - valueLen + 1;
 					while (ap != thisEnd) {
-						if (*ap == *valuePtr) {
+						if (*ap == *(char*)valuePtr) {
 							for (int i = 1; i < valueLen; i++)
-								if (ap[i] != valuePtr[i])
+								if (ap[i] != ((char*)valuePtr)[i])
 									goto NextVal;
 							return (int)(ap - thisPtr);
 						}
@@ -656,7 +670,8 @@ namespace System
 				String tmp = FastAllocateString (nlen, ENCODING_UTF16);
 
 				int curPos = 0, lastReadPos = 0;
-				fixed (char* dest = tmp) {
+				fixed (byte* destByte = &tmp.m_firstByte) {
+					char* dest = (char*)destByte;
 					for (int j = 0; j < count; j++) {
 						int precopy = dat[j] - lastReadPos;
 						CharCopy (dest + curPos, source + lastReadPos, precopy);
@@ -1074,11 +1089,11 @@ namespace System
 			Contract.EndContractBlock();
 			int length = Math.Min(strA.Length, strB.Length);
 
-			fixed (char* ap = strA, bp = strB)
+			fixed (byte* ap = &strA.m_firstByte, bp = &strB.m_firstByte)
 			{
 				if (strA.IsCompact && strB.IsCompact) {
-					byte* a = (byte*)ap;
-					byte* b = (byte*)bp;
+					byte* a = ap;
+					byte* b = bp;
 					while (length != 0) {
 						int charA = *a;
 						int charB = *b;
@@ -1091,8 +1106,8 @@ namespace System
 						length--;
 					}
 				} else if (strA.IsCompact) {
-					byte* a = (byte*)ap;
-					char* b = bp;
+					byte* a = ap;
+					char* b = (char*)bp;
 					while (length != 0) {
 						int charA = *a;
 						int charB = *b;
@@ -1106,8 +1121,8 @@ namespace System
 						length--;
 					}
 				} else if (strB.IsCompact) {
-					char* a = ap;
-					byte* b = (byte*)bp;
+					char* a = (char*)ap;
+					byte* b = bp;
 					while (length != 0) {
 						int charA = *a;
 						int charB = *b;
@@ -1121,8 +1136,8 @@ namespace System
 						length--;
 					}
 				} else {
-					char* a = ap;
-					char* b = bp;
+					char* a = (char*)ap;
+					char* b = (char*)bp;
 					while (length != 0) {
 						int charA = *a;
 						int charB = *b;
@@ -1157,11 +1172,11 @@ namespace System
 			//
 			int length = strIn.Length;
 			String strOut = FastAllocateString(length, ENCODING_ASCII);
-			fixed (char* inPtr = strIn)
+			fixed (byte* inPtr = &strIn.m_firstByte)
 				fixed (byte* outPtr = &strOut.m_firstByte) {
 				if (strIn.IsCompact) {
 					for (int i = 0; i < length; ++i) {
-						int c = (char)((byte*)inPtr)[i];
+						int c = (char)inPtr[i];
 						Contract.Assert(c <= 0x7F, "string has to be ASCII");
 						// uppercase - notice that we need just one compare
 						if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
@@ -1169,7 +1184,7 @@ namespace System
 					}
 				} else {
 					for(int i = 0; i < length; i++) {
-						int c = inPtr[i];
+						int c = ((char*)inPtr)[i];
 						Contract.Assert(c <= 0x7F, "string has to be ASCII");
 						// uppercase - notice that we need just one compare
 						if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
@@ -1190,34 +1205,34 @@ namespace System
 
 			int length = strA.Length;
 
-			fixed (char* ap = strA, bp = strB) {
+			fixed (byte* ap = &strA.m_firstByte, bp = &strB.m_firstByte) {
 				if (strA.IsCompact && strB.IsCompact) {
-					byte* a = (byte*)ap;
-					byte* b = (byte*)bp;
+					byte* a = ap;
+					byte* b = bp;
 					/* FIXME: Unroll. */
 					for (int i = 0; i < strA.Length; ++i)
 						if (a[i] != b[i])
 							return false;
 					return true;
 				} else if (strA.IsCompact) {
-					byte* a = (byte*)ap;
-					char* b = bp;
+					byte* a = ap;
+					char* b = (char*)bp;
 					/* FIXME: Unroll. */
 					for (int i = 0; i < strA.Length; ++i)
 						if ((char)a[i] != b[i])
 							return false;
 					return true;
 				} else if (strB.IsCompact) {
-					char* a = ap;
-					byte* b = (byte*)bp;
+					char* a = (char*)ap;
+					byte* b = bp;
 					/* FIXME: Unroll. */
 					for (int i = 0; i < strA.Length; ++i)
 						if (a[i] != (char)b[i])
 							return false;
 					return true;
 				} else {
-					char* a = ap;
-					char* b = bp;
+					char* a = (char*)ap;
+					char* b = (char*)bp;
 					// unroll the loop
 #if AMD64
 					// for AMD64 bit platform we unroll by 12 and
@@ -1490,12 +1505,12 @@ namespace System
 			Contract.Assert( startIndex >= 0 && startIndex <= this.Length, "StartIndex is out of range!");
 			Contract.Assert( length >= 0 && startIndex <= this.Length - length, "length is out of range!");			   
 			String result = FastAllocateString(length, IsCompact ? ENCODING_ASCII : ENCODING_UTF16);
-			fixed (char* dest = result)
+			fixed (byte* dest = &result.m_firstByte)
 			fixed (byte* src = &m_firstByte) {
 				if (IsCompact)
-					memcpy ((byte*)dest, src + startIndex, length);
+					memcpy (dest, src + startIndex, length);
 				else
-					CharCopy (dest, (char*)src + startIndex, length);
+					CharCopy ((char*)dest, (char*)src + startIndex, length);
 			}
 			return result;
 		}
@@ -1519,9 +1534,9 @@ namespace System
 
 			/* FIXME: This could use ENCODING_ASCII, with a bit more cleverness. */
 			String s = FastAllocateString(stringLength, ENCODING_UTF16);
-			fixed (char* pTempChars = s)
+			fixed (byte* pTempBytes = &s.m_firstByte)
 			{
-				int doubleCheck = encoding.GetChars(bytes, byteLength, pTempChars, stringLength, null);
+				int doubleCheck = encoding.GetChars(bytes, byteLength, (char*)pTempBytes, stringLength, null);
 				Contract.Assert(
 					stringLength == doubleCheck,
 					"Expected encoding.GetChars to return same length as encoding.GetCharCount");
@@ -1544,13 +1559,13 @@ namespace System
 			}
 			Contract.EndContractBlock();
 
-			fixed (char *pSrc = src)
-			fixed (char *pDest = dest) {
+			fixed (byte *pSrc = &src.m_firstByte)
+			fixed (byte *pDest = &dest.m_firstByte) {
 				if (src.IsCompact) {
 					for (int i = 0; i < src.Length; ++i)
-						pDest[destPos + i] = (char)((byte*)pSrc)[i];
+						((char*)pDest)[destPos + i] = (char)pSrc[i];
 				} else {
-					wstrcpy(pDest + destPos, (char*)pSrc, src.Length);
+					wstrcpy((char*)pDest + destPos, (char*)pSrc, src.Length);
 				}
 			}
 		}
@@ -1579,13 +1594,13 @@ namespace System
 			bool compact = CompactRepresentable(value);
 			String result = FastAllocateString(value.Length, SelectEncoding(compact));
 			unsafe {
-				fixed (char* dest = result)
+				fixed (byte* dest = &result.m_firstByte)
 				fixed (char* source = value) {
 					if (compact) {
 						for (int i = 0; i < value.Length; ++i)
-							((byte*)dest)[i] = (byte)source[i];
+							dest[i] = (byte)source[i];
 					} else {
-						wstrcpy(dest, source, value.Length);
+						wstrcpy((char*)dest, source, value.Length);
 					}
 				}
 			}
@@ -1615,7 +1630,7 @@ namespace System
 			fixed (char* source = value)
 				compact = CompactRepresentable(source + startIndex, length);
 			String result = FastAllocateString(length, SelectEncoding(compact));
-			fixed (byte* destByte = result)
+			fixed (byte* destByte = &result.m_firstByte)
 				fixed (char* source = value) {
 				if (compact) {
 					for (int i = 0; i < length; ++i)
@@ -1638,13 +1653,13 @@ namespace System
 			bool compact = CompactRepresentable(c);
 			String result = FastAllocateString(count, SelectEncoding(compact));
 			unsafe {
-				fixed (char* dest = result) {
+				fixed (byte* dest = &result.m_firstByte) {
 					if (compact) {
 						/* FIXME: Unroll. */
 						for (int i = 0; i < count; ++i)
-							((byte*)dest)[i] = (byte)c;
+							dest[i] = (byte)c;
 					} else {
-						char *dmem = dest;
+						char *dmem = (char*)dest;
 						while (((uint)dmem & 3) != 0 && count > 0) {
 							*dmem++ = c;
 							count--;
@@ -1691,12 +1706,12 @@ namespace System
 				bool compact = CompactRepresentable(ptr, count);
 
 				String result = FastAllocateString(count, SelectEncoding(compact));
-				fixed (char* dest = result) {
+				fixed (byte* dest = &result.m_firstByte) {
 					if (compact) {
 						for (int i = 0; i < count; ++i)
-							((byte*)dest)[i] = (byte)ptr[i];
+							dest[i] = (byte)ptr[i];
 					} else {
-						wstrcpy(dest, ptr, count);
+						wstrcpy((char*)dest, ptr, count);
 					}
 				}
 				return result;
@@ -1731,12 +1746,12 @@ namespace System
 			String result = FastAllocateString(length, SelectEncoding(compact));
 
 			try {
-				fixed(char* dest = result) {
+				fixed(byte* dest = &result.m_firstByte) {
 					if (compact) {
 						for (int i = 0; i < length; ++i)
-							((byte*)dest)[i] = (byte)ptr[startIndex + i];
+							dest[i] = (byte)ptr[startIndex + i];
 					} else {
-						wstrcpy(dest, pFrom, length);
+						wstrcpy((char*)dest, pFrom, length);
 					}
 				}
 				return result;
@@ -1766,17 +1781,17 @@ namespace System
 			unsafe
 			{
 				fixed (byte* srcThis = &m_firstByte)
-				fixed (char* srcInsert = value)
-				fixed (char* dst = result) {
+				fixed (byte* srcInsert = &value.m_firstByte)
+				fixed (byte* dst = &result.m_firstByte) {
                     if (IsCompact)
                         result.CopyFromBytes(0, srcThis, startIndex);
                     else
                         result.CopyFromChars(0, (char*)srcThis, startIndex);
 
                     if (value.IsCompact)
-                        result.CopyFromBytes(startIndex, (byte*)srcInsert, insertLength);
+                        result.CopyFromBytes(startIndex, srcInsert, insertLength);
                     else
-                        result.CopyFromChars(startIndex, srcInsert, insertLength);
+                        result.CopyFromChars(startIndex, (char*)srcInsert, insertLength);
 
                     if (IsCompact)
                         result.CopyFromBytes(startIndex + insertLength, srcThis + startIndex, oldLength - startIndex);
@@ -1809,13 +1824,13 @@ namespace System
 			unsafe
 			{
 				fixed (byte* src = &m_firstByte)
-				fixed (char* dst = result) {
+				fixed (byte* dst = &result.m_firstByte) {
 					if (compact) {
-						memcpy((byte*)dst, src, startIndex);
-						memcpy((byte*)dst + startIndex, src + startIndex + count, newLength - startIndex);
+						memcpy(dst, src, startIndex);
+						memcpy(dst + startIndex, src + startIndex + count, newLength - startIndex);
 					} else {
-						wstrcpy(dst, (char*)src, startIndex);
-						wstrcpy(dst + startIndex, (char*)src + startIndex + count, newLength - startIndex);
+						wstrcpy((char*)dst, (char*)src, startIndex);
+						wstrcpy((char*)dst + startIndex, (char*)src + startIndex + count, newLength - startIndex);
 					}
 				}
 			}
@@ -1835,12 +1850,12 @@ namespace System
 			bool compact = str.IsCompact;
 			String result = FastAllocateString(length, SelectEncoding(compact));
 
-			fixed (char* src = str)
-			fixed (char* dest = result) {
+			fixed (byte* src = &str.m_firstByte)
+			fixed (byte* dest = &result.m_firstByte) {
 				if (compact)
-					memcpy((byte*)dest, (byte*)src, length);
+					memcpy(dest, src, length);
 				else
-					wstrcpy(dest, src, length);
+					wstrcpy((char*)dest, (char*)src, length);
 			}
 			return result;
 		}
@@ -2008,16 +2023,14 @@ namespace System
 		{
 			if (len == 0)
 				return;
-			fixed (char* charPtr = src) {
-				byte* srcPtr = (byte*)charPtr;
+			fixed (byte* srcPtr = &src.m_firstByte) {
 				if (src.IsCompact) {
 					char* dstPtr = (char*)dest;
 					/* Maintaining the UTF-16 illusion, to be on the safe side. */
 					for (int i = 0; i < len; ++i)
 						*dstPtr++ = (char)*srcPtr;
 				} else {
-					byte* dstPtr = (byte*)dest;
-					memcpy(dstPtr, srcPtr, len);
+					memcpy((byte*)dest, srcPtr, len);
 				}
 			}
 		}

@@ -960,16 +960,6 @@ class Tests {
 		return 0;
 	}
 
-	public static unsafe int test_0_pin_string () {
-		string x = "xxx";
-		fixed (char *c = x) {
-			// This relies on the compact encoding.
-			if ((char)*(byte*)c != 'x')
-				return 1;
-		}
-		return 0;
-	}
-	
 	public static int my_flags;
 	public static int test_0_and_cmp_static ()
 	{

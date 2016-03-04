@@ -11641,7 +11641,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 							g_assert (vtable);
 							if (! vtable->initialized)
 								INLINE_FAILURE ("class init");
-							ex = mono_runtime_class_init_full (vtable, TRUE);
+							ex = mono_runtime_class_init_full (vtable, FALSE);
 							if (ex) {
 								mono_cfg_set_exception (cfg, MONO_EXCEPTION_MONO_ERROR);
 								mono_error_set_exception_instance (&cfg->error, ex);

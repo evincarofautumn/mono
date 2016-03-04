@@ -1209,12 +1209,6 @@ ncells ) {
 		return (a2.Length == 100) ? 0 : 1;
 	}
 
-	public static int test_0_intrins_runtimehelpers_offset_to_string_data () {
-		int i = RuntimeHelpers.OffsetToStringData;
-		
-		return i - i;
-	}
-
 	public static int test_0_intrins_string_setchar () {
 		StringBuilder sb = new StringBuilder ("ABC");
 
@@ -1689,19 +1683,6 @@ ncells ) {
 		[MethodImplAttribute (MethodImplOptions.NoInlining)]
 		public unsafe void EncodeIntoBuffer(char* value, int valueLength, char* buffer, int bufferLength) {
 		}
-	}
-
-	static unsafe int test_0_mul_ovf_regress_36052 () {
-		var p = new MulOvfClass ();
-
-		string typeName = typeof(int).Name;
-		int bufferSize = 45;
-
-		fixed (char* value = typeName) {
-			char* buffer = stackalloc char[bufferSize];
-			p.EncodeIntoBuffer(value, typeName.Length, buffer, bufferSize);
-		}
-		return 0;
 	}
 
 	struct Struct16 {

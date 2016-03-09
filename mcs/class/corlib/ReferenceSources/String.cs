@@ -90,20 +90,6 @@ namespace System
 				return CompactRepresentable((char*)p, Length);
 		}
 
-		public unsafe T UnsafeApply<T> (Func<IntPtr, T> compact, Func<IntPtr, T> noncompact) {
-			fixed (byte* p = &m_firstByte) {
-				if (IsCompact) {
-					if (compact != null)
-						return compact ((IntPtr)p);
-					return default (T);
-				} else {
-					if (noncompact != null)
-						return noncompact ((IntPtr)p);
-					return default (T);
-				}
-			}
-		}
-
 		internal static unsafe int CompareOrdinalUnchecked (String strA, int indexA, int lenA, String strB, int indexB, int lenB)
 		{
 			if (strA == null) {

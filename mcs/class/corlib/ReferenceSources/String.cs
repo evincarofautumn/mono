@@ -705,7 +705,7 @@ namespace System
 
 			/* FIXME: Avoid ToCharArray. */
 			fixed (char* src = ToCharArray ())
-			fixed (byte *destByte = result) {
+			fixed (byte *destByte = &result.m_firstByte) {
 				char* dest = (char*)destByte;
 				if (isRightPadded) {
 					CharCopy (dest, src, Length);

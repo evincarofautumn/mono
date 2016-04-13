@@ -304,11 +304,15 @@ static void
 region_stack_merge ()
 {
 	SGEN_ASSERT (0, region_stack_size () >= 2, "Not enough regions to merge");
-	gint32 references = region_stack_peek ()->references;
+	gpointer const current = region_stack_peek ()->address;
+	gint32 const references = region_stack_peek ()->references;
 	/* g_print ("merging %p (%d) with ", region_stack_peek ()->address, references); */
 	region_stack_pop ();
 	/* g_print ("%p (%d)\n", region_stack_peek ()->address, region_stack_peek ()->references); */
 	region_stack_peek ()->references += references;
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+	binary_protocol_region_merge (current, region_stack_peek ()->address);
+#endif
 }
 
 /* Intercepts writes of 'src' into 'dst'. If they are not in the same
@@ -353,15 +357,25 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
 
 	if (always_stick) {
 		HEAVY_STAT (++stat_region_stuck_always);
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+		binary_protocol_region_escape_generic (dst, src, ((MonoObject *)src)->vtable);
+#endif
 	} else if (major_to_minor) {
 #ifdef HEAVY_STATISTICS
-		if (dst > (void *)&__thread_info__ && dst < (void *)__thread_info__->client_info.stack_end)
+		if (dst > (void *)&__thread_info__ && dst < (void *)__thread_info__->client_info.stack_end) {
 			++stat_region_stuck_stack_to_region;
-		else
+		} else {
 			++stat_region_stuck_major_to_minor;
+		}
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+		binary_protocol_region_escape_major (dst, src, ((MonoObject *)src)->vtable);
+#endif
 #endif
 	} else if (old_tlab_to_new_tlab) {
 		HEAVY_STAT (++stat_region_stuck_old_tlab_to_new_tlab);
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+		binary_protocol_region_escape_minor (dst, src, ((MonoObject *)src)->vtable);
+#endif
 	} else if (old_region_to_new_region) {
 		/* If a pointer escapes to a higher region, merge all intervening regions. */
 		if (region_stack_size () > 1) {
@@ -370,12 +384,21 @@ mono_gc_stick_region_if_necessary (gpointer src, gpointer dst)
 			goto end;
 		}
 		HEAVY_STAT (++stat_region_stuck_old_region_to_new_region);
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+		binary_protocol_region_escape_region (dst, src, ((MonoObject *)src)->vtable);
+#endif
 	} else if (old_frame_to_new_frame) {
 		HEAVY_STAT (++stat_region_stuck_old_frame_to_new_frame);
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+		binary_protocol_region_escape_stack (dst, src, ((MonoObject *)src)->vtable);
+#endif
 	}
 
 	if (major_to_minor || old_tlab_to_new_tlab || old_region_to_new_region || old_frame_to_new_frame || always_stick) {
 		TLAB_STUCK = MAX (TLAB_STUCK, TLAB_NEXT);
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+		binary_protocol_region_stick (TLAB_STUCK);
+#endif
 		forget_stuck_regions ();
 		HEAVY_STAT (++stat_regions_stuck);
 	}
@@ -414,7 +437,13 @@ mono_gc_region_enter (void)
 		goto end;
 	}
 
-	region_stack_push (TLAB_NEXT);
+	{
+		gpointer const region = TLAB_NEXT;
+		region_stack_push (region);
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+		binary_protocol_region_enter (region);
+#endif
+	}
 
 end:
 	sgen_gc_unlock ();
@@ -481,6 +510,9 @@ mono_gc_region_exit (gpointer ret)
 		} else {
 			/* g_print ("popping %p due to return\n", region); */
 			region_stack_pop ();
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+			binary_protocol_region_exit (region, region_size);
+#endif
 		}
 		goto end;
 	}
@@ -488,6 +520,9 @@ mono_gc_region_exit (gpointer ret)
 	/* Actually clear objects in the region. */
 	if (region_size) {
 		memset (region, 0, region_size);
+#ifdef SGEN_HEAVY_BINARY_PROTOCOL
+		binary_protocol_region_clear (region, region_size);
+#endif
 
 #ifdef HEAVY_STATISTICS
 		stat_region_bytes_cleared += region_size;

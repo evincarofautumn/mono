@@ -694,6 +694,56 @@ sgen_client_binary_protocol_concurrent_sweep_end (long long timestamp)
 {
 }
 
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_escape_generic (gpointer dst, gpointer obj, gpointer vtable)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_escape_major (gpointer dst, gpointer obj, gpointer vtable)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_escape_minor (gpointer dst, gpointer obj, gpointer vtable)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_escape_region (gpointer dst, gpointer obj, gpointer vtable)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_escape_stack (gpointer dst, gpointer obj, gpointer vtable)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_enter (gpointer region)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_exit (gpointer region, size_t size)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_merge (gpointer current, gpointer parent)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_clear (gpointer region, size_t size)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_region_stick (gpointer region)
+{
+}
+
 int sgen_thread_handshake (BOOL suspend);
 gboolean sgen_suspend_thread (SgenThreadInfo *info);
 gboolean sgen_resume_thread (SgenThreadInfo *info);

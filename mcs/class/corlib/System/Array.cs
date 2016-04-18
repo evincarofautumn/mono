@@ -223,7 +223,7 @@ namespace System
 		[MethodImplAttribute (MethodImplOptions.InternalCall)]
 		internal extern void SetGenericValueImpl<T> (int pos, ref T value);
 
-		internal struct InternalEnumerator<T> : IEnumerator<T>
+		internal class InternalEnumerator<T> : IEnumerator<T>
 		{
 			const int NOT_STARTED = -2;
 			

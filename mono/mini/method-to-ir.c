@@ -13693,9 +13693,6 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 	cfg->cbb = init_localsbb;
 	emit_instrumentation_call (cfg, mono_profiler_method_enter);
-	if (!strcmp (method->name, "Finalize")) {
-		g_print ("Emitting enter call for finalizer of class %s.\n", method->klass->name);
-	}
 	emit_region_call (cfg, mono_gc_region_enter, NULL);
 
 	if (seq_points) {

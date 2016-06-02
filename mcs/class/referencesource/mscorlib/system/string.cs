@@ -343,7 +343,7 @@ namespace System {
                     int charA = *a;
                     int charB = *b;
 
-                    Contract.Assert((charA | charB) <= 0x7F, "strings have to be ASCII");
+                    Contract.Assert(CompactRepresentable(charA) && CompactRepresentable(charB), "strings have to be ASCII");
 
                     // uppercase both chars - notice that we need just one compare per char
                     if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
@@ -401,7 +401,7 @@ namespace System {
 
                 for(int i = 0; i < length; i++) {
                     int c = inBuff[i];
-                    Contract.Assert(c <= 0x7F, "string has to be ASCII");
+                    Contract.Assert(CompactRepresentable(c), "string has to be ASCII");
 
                     // uppercase - notice that we need just one compare
                     if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;

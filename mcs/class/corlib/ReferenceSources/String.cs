@@ -74,6 +74,11 @@ namespace System
 			return (int)value <= 0x7F;
 		}
 
+		internal static bool CompactRepresentable(int value)
+		{
+			return value >= 0 && value <= 0x7F;
+		}
+
 		internal static unsafe bool CompactRepresentable(char [] value)
 		{
 			fixed (char* p = value)
@@ -543,7 +548,7 @@ namespace System
 			if (start_pos < 4)
 				start_pos = 0;
 
-			bool compact = IsCompact && (int)newChar <= 0x7F;
+			bool compact = IsCompact && CompactRepresentable(newChar);
 			string tmp = FastAllocateString (Length, compact ? ENCODING_ASCII : ENCODING_UTF16);
 			fixed (byte* srcByte = &m_firstByte) {
 				fixed (byte* destByte = &tmp.m_firstByte) {
@@ -934,7 +939,7 @@ namespace System
 				throw new ArgumentOutOfRangeException ("count");
 			if (count == 0)
 				return Empty;
-			bool compact = (int)c <= 0x7F;
+			bool compact = CompactRepresentable(c);
 			string result = FastAllocateString (count, compact ? ENCODING_ASCII : ENCODING_UTF16);
 			fixed (byte* destByte = &result.m_firstByte) {
 				if (compact) {
@@ -1097,7 +1102,7 @@ namespace System
 					while (length != 0) {
 						int charA = *a;
 						int charB = *b;
-						Contract.Assert(charB <= 0x7F, "strings have to be ASCII");
+						Contract.Assert(CompactRepresentable(charB), "strings have to be ASCII");
 						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
 						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
 						if ((char)charA != charB)
@@ -1112,7 +1117,7 @@ namespace System
 					while (length != 0) {
 						int charA = *a;
 						int charB = *b;
-						Contract.Assert(charA <= 0x7F, "strings have to be ASCII");
+						Contract.Assert(CompactRepresentable(charA), "strings have to be ASCII");
 						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
 						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
 						if (charA != charB)
@@ -1127,7 +1132,7 @@ namespace System
 					while (length != 0) {
 						int charA = *a;
 						int charB = *b;
-						Contract.Assert((charA | charB) <= 0x7F, "strings have to be ASCII");
+						Contract.Assert(CompactRepresentable(charA) && CompactRepresentable(charB), "strings have to be ASCII");
 						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
 						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
 						if (charA != charB)
@@ -1163,7 +1168,7 @@ namespace System
 				if (strIn.IsCompact) {
 					for (int i = 0; i < length; ++i) {
 						int c = (char)inPtr[i];
-						Contract.Assert(c <= 0x7F, "string has to be ASCII");
+						Contract.Assert(CompactRepresentable(c), "string has to be ASCII");
 						// uppercase - notice that we need just one compare
 						if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
 						outPtr[i] = (byte)c;
@@ -1171,7 +1176,7 @@ namespace System
 				} else {
 					for(int i = 0; i < length; i++) {
 						int c = ((char*)inPtr)[i];
-						Contract.Assert(c <= 0x7F, "string has to be ASCII");
+						Contract.Assert(CompactRepresentable(c), "string has to be ASCII");
 						// uppercase - notice that we need just one compare
 						if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
 						((byte*)outPtr)[i] = (byte)c;

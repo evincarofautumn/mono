@@ -62,6 +62,92 @@ namespace System {
 
 #endif
 
+        /* Encoding-agnostic unsafe random-access iterator. */
+        private interface Iterator
+        {
+            Iterator Advance (int offset = 1);
+            long Difference (Iterator that);
+            char Get (int index = 0);
+            void Set (int index, char value);
+            int CharSize ();
+            IntPtr Pointer ();
+        }
+
+        private unsafe struct CompactIterator : Iterator
+        {
+            byte* data;
+            public CompactIterator (IntPtr data)
+            {
+                this.data = (byte*)data;
+            }
+            public Iterator Advance (int offset)
+            {
+                return new CompactIterator ((IntPtr)(data + offset));
+            }
+            public long Difference (Iterator that)
+            {
+                return this.data - ((CompactIterator)that).data;
+            }
+            public char Get (int index)
+            {
+                return (char)data [index];
+            }
+            public void Set (int index, char value)
+            {
+                /* FIXME: We may want checked & unchecked versions of this. */
+                if (!CompactRepresentable (value))
+                    throw new ArgumentOutOfRangeException ("value", "Must be ASCII");
+                data[index] = (byte)value;
+            }
+            public int CharSize ()
+            {
+                return 1;
+            }
+            public IntPtr Pointer ()
+            {
+                return (IntPtr)data;
+            }
+        }
+
+        private unsafe struct NonCompactIterator : Iterator {
+            char* data;
+            public NonCompactIterator (IntPtr data)
+            {
+                this.data = (char*)data;
+            }
+            public Iterator Advance (int offset)
+            {
+                return new NonCompactIterator ((IntPtr)(data + offset));
+            }
+            public long Difference (Iterator that)
+            {
+                return this.data - ((NonCompactIterator)that).data;
+            }
+            public char Get (int index)
+            {
+                return data [index];
+            }
+            public void Set (int index, char value)
+            {
+                data [index] = value;
+            }
+            public int CharSize ()
+            {
+                return 2;
+            }
+            public IntPtr Pointer ()
+            {
+                return (IntPtr)data;
+            }
+        }
+
+        private static unsafe Iterator GetIterator (IntPtr data, bool compact)
+        {
+            if (compact)
+                return new CompactIterator (data);
+            return new NonCompactIterator (data);
+        }
+
         //private static readonly char FmtMsgMarkerChar='%';
         //private static readonly char FmtMsgFmtCodeChar='!';
         //These are defined in Com99/src/vm/COMStringCommon.h and must be kept in [....].

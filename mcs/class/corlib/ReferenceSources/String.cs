@@ -178,46 +178,12 @@ namespace System
 
 		internal unsafe int IndexOfUnchecked (char value, int startIndex, int count)
 		{
-			// It helps JIT compiler to optimize comparison
-			int value_32 = (int)value;
-
 			fixed (byte* startByte = &m_firstByte) {
-				if (IsCompact) {
-					/* FIXME: Unroll. */
-					for (int i = startIndex; i < startIndex + count; ++i)
-						if ((char)startByte [i] == value)
-							return i;
-				} else {
-					char* start = (char*)startByte;
-					char* ptr = start + startIndex;
-					char* end_ptr = ptr + (count >> 3 << 3);
-					while (ptr != end_ptr) {
-						if (*ptr == value_32)
-							return (int)(ptr - start);
-						if (ptr[1] == value_32)
-							return (int)(ptr - start + 1);
-						if (ptr[2] == value_32)
-							return (int)(ptr - start + 2);
-						if (ptr[3] == value_32)
-							return (int)(ptr - start + 3);
-						if (ptr[4] == value_32)
-							return (int)(ptr - start + 4);
-						if (ptr[5] == value_32)
-							return (int)(ptr - start + 5);
-						if (ptr[6] == value_32)
-							return (int)(ptr - start + 6);
-						if (ptr[7] == value_32)
-							return (int)(ptr - start + 7);
-
-						ptr += 8;
-					}
-					end_ptr += count & 0x07;
-					while (ptr != end_ptr) {
-						if (*ptr == value_32)
-							return (int)(ptr - start);
-						ptr++;
-					}
-				}
+				var iterator = GetIterator ((IntPtr)startByte, IsCompact);
+				/* FIXME: Unroll. */
+				for (int i = startIndex; i < startIndex + count; ++i)
+					if (iterator.Get (i) == value)
+						return i;
 				return -1;
 			}
 		}

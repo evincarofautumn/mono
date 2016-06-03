@@ -297,67 +297,14 @@ namespace System
 
 		internal unsafe int LastIndexOfUnchecked (char value, int startIndex, int count)
 		{
-			// It helps JIT compiler to optimize comparison
-			int value_32 = (int)value;
-
 			fixed (byte* startByte = &m_firstByte) {
-				char* start = (char*)startByte;
-				if (IsCompact) {
-					byte* ptr = (byte*)start + startIndex;
-					byte* end_ptr = (byte*)ptr - (count & ~7);
-					while (ptr != end_ptr) {
-						if (*ptr == value_32)
-							return (int)(ptr - (byte*)start);
-						if (ptr[-1] == value_32)
-							return (int)(ptr - (byte*)start) - 1;
-						if (ptr[-2] == value_32)
-							return (int)(ptr - (byte*)start) - 2;
-						if (ptr[-3] == value_32)
-							return (int)(ptr - (byte*)start) - 3;
-						if (ptr[-4] == value_32)
-							return (int)(ptr - (byte*)start) - 4;
-						if (ptr[-5] == value_32)
-							return (int)(ptr - (byte*)start) - 5;
-						if (ptr[-6] == value_32)
-							return (int)(ptr - (byte*)start) - 6;
-						if (ptr[-7] == value_32)
-							return (int)(ptr - (byte*)start) - 7;
-						ptr -= 8;
-					}
-					end_ptr -= count & 7;
-					while (ptr != end_ptr) {
-						if (*ptr == value_32)
-							return (int)(ptr - (byte*)start);
-						ptr--;
-					}
-				} else {
-					char* ptr = start + startIndex;
-					char* end_ptr = ptr - (count & ~7);
-					while (ptr != end_ptr) {
-						if (*ptr == value_32)
-							return (int)(ptr - start);
-						if (ptr[-1] == value_32)
-							return (int)(ptr - start) - 1;
-						if (ptr[-2] == value_32)
-							return (int)(ptr - start) - 2;
-						if (ptr[-3] == value_32)
-							return (int)(ptr - start) - 3;
-						if (ptr[-4] == value_32)
-							return (int)(ptr - start) - 4;
-						if (ptr[-5] == value_32)
-							return (int)(ptr - start) - 5;
-						if (ptr[-6] == value_32)
-							return (int)(ptr - start) - 6;
-						if (ptr[-7] == value_32)
-							return (int)(ptr - start) - 7;
-						ptr -= 8;
-					}
-					end_ptr -= count & 7;
-					while (ptr != end_ptr) {
-						if (*ptr == value_32)
-							return (int)(ptr - start);
-						ptr--;
-					}
+				var start = GetIterator ((IntPtr)startByte, IsCompact);
+				var ptr = start.Advance (startIndex);
+				var end = ptr.Advance (-count);
+				while (ptr.Pointer () != end.Pointer ()) {
+					if (ptr.Get () == value)
+						return (int)ptr.Difference (start);
+					ptr = ptr.Advance (-1);
 				}
 				return -1;
 			}

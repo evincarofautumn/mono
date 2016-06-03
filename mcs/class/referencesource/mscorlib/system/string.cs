@@ -76,22 +76,32 @@ namespace System {
         private unsafe struct CompactIterator : Iterator
         {
             byte* data;
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public CompactIterator (IntPtr data)
             {
                 this.data = (byte*)data;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Iterator Advance (int offset)
             {
                 return new CompactIterator ((IntPtr)(data + offset));
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public long Difference (Iterator that)
             {
                 return this.data - ((CompactIterator)that).data;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public char Get (int index)
             {
                 return (char)data [index];
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Set (int index, char value)
             {
                 /* FIXME: We may want checked & unchecked versions of this. */
@@ -99,48 +109,70 @@ namespace System {
                     throw new ArgumentOutOfRangeException ("value", "Must be ASCII");
                 data[index] = (byte)value;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public int CharSize ()
             {
                 return 1;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public IntPtr Pointer ()
             {
                 return (IntPtr)data;
             }
+
         }
 
-        private unsafe struct NonCompactIterator : Iterator {
+        private unsafe struct NonCompactIterator : Iterator
+        {
             char* data;
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public NonCompactIterator (IntPtr data)
             {
                 this.data = (char*)data;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Iterator Advance (int offset)
             {
                 return new NonCompactIterator ((IntPtr)(data + offset));
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public long Difference (Iterator that)
             {
                 return this.data - ((NonCompactIterator)that).data;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public char Get (int index)
             {
                 return data [index];
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Set (int index, char value)
             {
                 data [index] = value;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public int CharSize ()
             {
                 return 2;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public IntPtr Pointer ()
             {
                 return (IntPtr)data;
             }
+
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static unsafe Iterator GetIterator (IntPtr data, bool compact)
         {
             if (compact)

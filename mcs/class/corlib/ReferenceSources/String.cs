@@ -202,59 +202,19 @@ namespace System
 
 			fixed (byte* thisPtrByte = &m_firstByte)
 			fixed (byte* valuePtr = &value.m_firstByte) {
-				char* thisPtr = (char*)thisPtrByte;
-				if (IsCompact && value.IsCompact) {
-					byte* ap = (byte*)thisPtr + startIndex;
-					byte* thisEnd = ap + count - valueLen + 1;
-					while (ap != thisEnd) {
-						if (*ap == *valuePtr) {
-							for (int i = 1; i < valueLen; i++)
-								if (ap[i] != valuePtr[i])
-									goto NextVal;
-							return (int)(ap - thisPtr);
-						}
-						NextVal:
-						ap++;
+				var thisIter = GetIterator ((IntPtr)thisPtrByte, IsCompact);
+				var valueIter = GetIterator ((IntPtr)valuePtr, value.IsCompact);
+				var aIter = thisIter.Advance (startIndex);
+				var thisEnd = aIter.Advance (count - valueLen + 1);
+				while (aIter.Pointer () != thisEnd.Pointer ()) {
+					if (aIter.Get () == valueIter.Get ()) {
+						for (int i = 1; i < valueLen; ++i)
+							if (aIter.Get (i) != valueIter.Get (i))
+								goto NextVal;
+						return (int)(aIter.Difference (thisIter));
 					}
-				} else if (IsCompact) {
-					byte* ap = (byte*)thisPtr + startIndex;
-					byte* thisEnd = ap + count - valueLen + 1;
-					while (ap != thisEnd) {
-						if ((char)*ap == *(char*)valuePtr) {
-							for (int i = 1; i < valueLen; i++)
-								if ((char)ap[i] != ((char*)valuePtr)[i])
-									goto NextVal;
-							return (int)(ap - thisPtr);
-						}
-						NextVal:
-						ap++;
-					}
-				} else if (value.IsCompact) {
-					char* ap = thisPtr + startIndex;
-					char* thisEnd = ap + count - valueLen + 1;
-					while (ap != thisEnd) {
-						if (*ap == (char)*valuePtr) {
-							for (int i = 1; i < valueLen; i++)
-								if (ap[i] != (char)valuePtr[i])
-									goto NextVal;
-							return (int)(ap - thisPtr);
-						}
-						NextVal:
-						ap++;
-					}
-				} else {
-					char* ap = thisPtr + startIndex;
-					char* thisEnd = ap + count - valueLen + 1;
-					while (ap != thisEnd) {
-						if (*ap == *(char*)valuePtr) {
-							for (int i = 1; i < valueLen; i++)
-								if (ap[i] != ((char*)valuePtr)[i])
-									goto NextVal;
-							return (int)(ap - thisPtr);
-						}
-						NextVal:
-						ap++;
-					}
+					NextVal:
+					aIter = aIter.Advance ();
 				}
 			}
 			return -1;

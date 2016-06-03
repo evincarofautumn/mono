@@ -257,41 +257,22 @@ namespace System
 				}
 
 				fixed (byte* startByte = &m_firstByte) {
-					char* start = (char*)startByte;
-					if (IsCompact) {
-						byte* ptr = (byte*)start + startIndex;
-						byte* end_ptr = ptr + count;
-						while (ptr != end_ptr) {
-							if (*ptr > highest || *ptr < lowest) {
-								ptr++;
-								continue;
-							}
-							if ((char)*ptr == *any)
-								return (int)(ptr - (byte*)start);
-							any_ptr = any;
-							while (++any_ptr != end_any_ptr) {
-								if ((char)*ptr == *any_ptr)
-									return (int)(ptr - (byte*)start);
-							}
-							ptr++;
+					var start = GetIterator ((IntPtr)startByte, IsCompact);
+					var ptr = start.Advance (startIndex);
+					var end = ptr.Advance (count);
+					while (ptr.Pointer () != end.Pointer ()) {
+						if (ptr.Get () > highest || ptr.Get () < lowest) {
+							ptr = ptr.Advance ();
+							continue;
 						}
-					} else {
-						char* ptr = start + startIndex;
-						char* end_ptr = ptr + count;
-						while (ptr != end_ptr) {
-							if (*ptr > highest || *ptr < lowest) {
-								ptr++;
-								continue;
-							}
-							if (*ptr == *any)
-								return (int)(ptr - start);
-							any_ptr = any;
-							while (++any_ptr != end_any_ptr) {
-								if (*ptr == *any_ptr)
-									return (int)(ptr - start);
-							}
-							ptr++;
+						if (ptr.Get () == *any)
+							return (int)(ptr.Difference (start));
+						any_ptr = any;
+						while (++any_ptr != end_any_ptr) {
+							if ((char)ptr.Get () == *any_ptr)
+								return (int)(ptr.Difference (start));
 						}
+						ptr = ptr.Advance ();
 					}
 				}
 			}

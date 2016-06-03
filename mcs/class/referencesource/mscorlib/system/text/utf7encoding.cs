@@ -263,15 +263,15 @@ namespace System.Text
                 bytes = new byte[1];
 
             fixed (byte* pBytes = bytes) {
-#if MONO
                 if (s.IsCompact) {
                     /* FIXME: Avoid ToCharArray. */
                     fixed (char* pChars = s.ToCharArray())
                         return GetBytes(pChars + charIndex, charCount, pBytes + byteIndex, byteCount, null);
                 }
-#endif
-                fixed (char* pChars = s)
+                fixed (byte* sp = &s.m_firstByte) {
+                    char* pChars = (char*)sp;
                     return GetBytes(pChars + charIndex, charCount, pBytes + byteIndex, byteCount, null);
+                }
             }
         }
 

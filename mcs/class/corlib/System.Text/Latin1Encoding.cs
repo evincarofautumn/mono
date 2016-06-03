@@ -122,7 +122,8 @@ internal class Latin1Encoding : Encoding
 			throw new ArgumentNullException ("s");
 
 		unsafe {
-			fixed (char *chars = s) {
+			/* FIXME: Avoid ToCharArray. */
+			fixed (char *chars = s.ToCharArray ()) {
 				return InternalGetBytes (chars, s.Length, charIndex, charCount, bytes, byteIndex, ref buffer, ref fallback_chars);
 			}
 		}
@@ -259,7 +260,8 @@ internal class Latin1Encoding : Encoding
 				/* FIXME: This could use ASCII with a bit more cleverness. */
 				string s = string.FastAllocateString (count, String.ENCODING_UTF16);
 
-				fixed (char* charPtr = s) {
+				fixed (byte* sp = &s.m_firstByte) {
+					char* charPtr = (char*)sp;
 					byte* currByte = bytePtr + index;
 					byte* lastByte = currByte + count;
 					char* currChar = charPtr;

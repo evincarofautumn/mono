@@ -388,41 +388,24 @@ namespace System
 			if (start_pos < 4)
 				start_pos = 0;
 
-			bool compact = IsCompact && CompactRepresentable(newChar);
-			string tmp = FastAllocateString (Length, compact ? ENCODING_ASCII : ENCODING_UTF16);
-			fixed (byte* srcByte = &m_firstByte) {
-				fixed (byte* destByte = &tmp.m_firstByte) {
-					if (compact) {
-						if (start_pos != 0)
-							memcpy(destByte, srcByte, start_pos);
-						byte* end_ptr = destByte + Length;
-						byte* dest_ptr = destByte + start_pos;
-						byte* src_ptr = srcByte + start_pos;
-						while (dest_ptr != end_ptr) {
-							if ((char)*src_ptr == oldChar)
-								*dest_ptr = (byte)newChar;
-							else
-								*dest_ptr = *src_ptr;
-							++src_ptr;
-							++dest_ptr;
-						}
-					} else {
-						char* dest = (char*)destByte;
-						char* src = (char*)srcByte;
-						if (start_pos != 0)
-							CharCopy (dest, src, start_pos);
-						char* end_ptr = dest + Length;
-						char* dest_ptr = dest + start_pos;
-						char* src_ptr = src + start_pos;
-						while (dest_ptr != end_ptr) {
-							if (*src_ptr == oldChar)
-								*dest_ptr = newChar;
-							else
-								*dest_ptr = *src_ptr;
-							++src_ptr;
-							++dest_ptr;
-						}
-					}
+			bool compact = IsCompact && CompactRepresentable (newChar);
+			string tmp = FastAllocateString (Length, SelectEncoding (compact));
+			fixed (byte* srcByte = &m_firstByte)
+			fixed (byte* destByte = &tmp.m_firstByte) {
+				var srcIter = GetIterator ((IntPtr)srcByte, IsCompact);
+				var destIter = GetIterator ((IntPtr)destByte, tmp.IsCompact);
+				if (start_pos != 0)
+					destIter.CopyFrom (srcIter, start_pos);
+				var endPtr = destIter.Advance (Length);
+				var destPtr = destIter.Advance (start_pos);
+				var srcPtr = srcIter.Advance (start_pos);
+				while (destPtr.Pointer () != endPtr.Pointer ()) {
+					if (srcPtr.Get () == oldChar)
+						destPtr.Set (newChar);
+					else
+						destPtr.Set (srcPtr.Get ());
+					srcPtr = srcPtr.Advance ();
+					destPtr = destPtr.Advance ();
 				}
 			}
 			return tmp;

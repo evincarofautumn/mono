@@ -66,9 +66,10 @@ namespace System {
         private interface Iterator
         {
             Iterator Advance (int offset = 1);
+            void CopyFrom (Iterator that, int count);
             long Difference (Iterator that);
             char Get (int index = 0);
-            void Set (int index, char value);
+            void Set (char value, int index = 0);
             int CharSize ();
             IntPtr Pointer ();
         }
@@ -90,6 +91,17 @@ namespace System {
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void CopyFrom (Iterator that, int count)
+            {
+                if (this.CharSize () == that.CharSize ()) {
+                    memcpy (data, (byte*)that.Pointer (), count);
+                } else {
+                    for (int i = 0; i < count; ++i)
+                        Set (that.Get (i), i);
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public long Difference (Iterator that)
             {
                 return this.data - ((CompactIterator)that).data;
@@ -102,7 +114,7 @@ namespace System {
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Set (int index, char value)
+            public void Set (char value, int index)
             {
                 /* FIXME: We may want checked & unchecked versions of this. */
                 if (!CompactRepresentable (value))
@@ -141,6 +153,17 @@ namespace System {
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void CopyFrom (Iterator that, int count)
+            {
+                if (this.CharSize () == that.CharSize ()) {
+                    wstrcpy (data, (char*)that.Pointer (), count);
+                } else {
+                    for (int i = 0; i < count; ++i)
+                        Set (that.Get (i), i);
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public long Difference (Iterator that)
             {
                 return this.data - ((NonCompactIterator)that).data;
@@ -153,7 +176,7 @@ namespace System {
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Set (int index, char value)
+            public void Set (char value, int index)
             {
                 data [index] = value;
             }

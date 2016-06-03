@@ -337,33 +337,19 @@ namespace System
 
 			fixed (byte* startByte = &m_firstByte)
 			fixed (char* testStart = anyOf) {
-				char* start = (char*)startByte;
+				var start = GetIterator ((IntPtr)startByte, IsCompact);
 				char* test;
 				char* testEnd = testStart + anyOf.Length;
-				if (IsCompact) {
-					byte* ptr = (byte*)start + startIndex;
-					byte* ptrEnd = ptr - count;
-					while (ptr != ptrEnd) {
-						test = testStart;
-						while (test != testEnd) {
-							if (*test == (char)*ptr)
-								return (int)(ptr - (byte*)start);
-							test++;
-						}
-						ptr--;
+				var ptr = start.Advance (startIndex);
+				var end = ptr.Advance (-count);
+				while (ptr.Pointer () != end.Pointer ()) {
+					test = testStart;
+					while (test != testEnd) {
+						if (*test == ptr.Get ())
+							return (int)(ptr.Difference (start));
+						test++;
 					}
-				} else {
-					char* ptr = start + startIndex;
-					char* ptrEnd = ptr - count;
-					while (ptr != ptrEnd) {
-						test = testStart;
-						while (test != testEnd) {
-							if (*test == *ptr)
-								return (int)(ptr - start);
-							test++;
-						}
-						ptr--;
-					}
+					ptr = ptr.Advance (-1);
 				}
 				return -1;
 			}

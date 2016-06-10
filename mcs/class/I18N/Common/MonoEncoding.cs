@@ -179,7 +179,8 @@ namespace I18N.Common
 			if (charCount == 0 || bytes.Length == byteIndex)
 				return 0;
 			unsafe {
-				fixed (char* cptr = s) {
+				/* FIXME: Avoid ToCharArray. */
+				fixed (char* cptr = s.ToCharArray ()) {
 					fixed (byte* bptr = bytes) {
 						return GetBytesImpl (
 							cptr + charIndex,

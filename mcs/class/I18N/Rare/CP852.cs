@@ -111,7 +111,7 @@ public class CP852 : ByteEncoding
 			//Calculate byte count by actually doing encoding and discarding the data.
 			unsafe
 			{
-				fixed (char *s_ptr = s)
+				fixed (char *s_ptr = s.ToCharArray())
 				{
 					return GetBytesImpl(s_ptr, s.Length, null, 0);
 				}

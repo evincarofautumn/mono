@@ -65,7 +65,7 @@ namespace System.Text {
         internal int m_ChunkOffset;                  // The logial offset (sum of all characters in previous blocks)
         internal int m_MaxCapacity = 0;
 #if MONO
-		public bool m_IsCompact;
+		internal bool m_IsCompact;
 #endif
 
         //

@@ -658,7 +658,8 @@ static void printCharToByte(void)
 	printf("\t\t\t//Calculate byte count by actually doing encoding and discarding the data.\n");
 	printf("\t\t\tunsafe\n");
 	printf("\t\t\t{\n");
-	printf("\t\t\t\tfixed (char *s_ptr = s)\n");
+	/* FIXME: Avoid ToCharArray. */
+	printf("\t\t\t\tfixed (char *s_ptr = s.ToCharArray())\n");
 	printf("\t\t\t\t{\n");
 	printf("\t\t\t\t\treturn GetBytesImpl(s_ptr, s.Length, null, 0);\n");
 	printf("\t\t\t\t}\n");

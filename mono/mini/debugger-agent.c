@@ -9364,7 +9364,13 @@ string_commands (int command, guint8 *p, guint8 *end, Buffer *buf)
 		}
 		if (use_utf16) {
 			buffer_add_int (buf, mono_string_length (str) * 2);
-			buffer_add_data (buf, (guint8*)mono_string_chars (str), mono_string_length (str) * 2);
+			if (mono_string_is_compact (str)) {
+				gunichar2 *chars = mono_string_to_utf16 (str);
+				buffer_add_data (buf, (guint8*)chars, mono_string_length_fast (str, TRUE) * sizeof (gunichar2));
+				g_free (chars);
+			} else {
+				buffer_add_data (buf, (guint8*)mono_string_chars_fast (str), mono_string_length (str) * 2);
+			}
 		} else {
 			MonoError error;
 			s = mono_string_to_utf8_checked (str, &error);
@@ -9381,9 +9387,15 @@ string_commands (int command, guint8 *p, guint8 *end, Buffer *buf)
 		length = decode_long (p, &p, end);
 		if (index > mono_string_length (str) - length)
 			return ERR_INVALID_ARGUMENT;
-		c = mono_string_chars (str) + index;
-		for (i = 0; i < length; ++i)
-			buffer_add_short (buf, c [i]);
+		if (mono_string_is_compact (str)) {
+			char *bytes = mono_string_bytes_fast (str) + index;
+			for (i = 0; i < length; ++i)
+				buffer_add_short (buf, (gunichar2)bytes [i]);
+		} else {
+			gunichar2 *chars = mono_string_chars_fast (str) + index;
+			for (i = 0; i < length; ++i)
+				buffer_add_short (buf, chars [i]);
+		}
 		break;
 	default:
 		return ERR_NOT_IMPLEMENTED;

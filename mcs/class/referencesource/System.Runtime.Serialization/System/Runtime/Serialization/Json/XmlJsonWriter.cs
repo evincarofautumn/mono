@@ -1442,7 +1442,9 @@ namespace System.Runtime.Serialization.Json
         [SecuritySafeCritical]
         unsafe void WriteEscapedJsonString(string str)
         {
-            fixed (char* chars = str)
+            /* FIXME: Avoid ToCharArray. */
+            /* Great opportunity for optimisation! */
+            fixed (char* chars = str.ToCharArray ())
             {
                 int i = 0;
                 int j;

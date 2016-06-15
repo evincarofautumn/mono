@@ -553,7 +553,8 @@ namespace System.Xml
             int count = value.Length;
             if (count > 0)
             {
-                fixed (char* chars = value)
+                /* FIXME: Avoid ToCharArray. */
+                fixed (char* chars = value.ToCharArray ())
                 {
                     UnsafeWriteUTF8Chars(chars, count);
                 }

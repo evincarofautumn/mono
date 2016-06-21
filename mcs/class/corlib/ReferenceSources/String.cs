@@ -451,8 +451,10 @@ namespace System
 
 			const int maxValue = 200; // Allocate 800 byte maximum
 			int* dat = stackalloc int[maxValue];
-			/* FIXME: Avoid ToCharArray. */
-			fixed (char* source = ToCharArray (), replace = newValue.ToCharArray ()) {
+			fixed (byte* source = &m_firstByte, replace = &newValue.m_firstByte) {
+				var sourceIter = GetIterator ((IntPtr)source, IsCompact);
+				var replaceIter = GetIterator ((IntPtr)replace, newValue.IsCompact);
+
 				int i = 0, count = 0;
 				while (i < Length) {
 					int found = IndexOfUnchecked (oldValue, i, Length - i);
@@ -480,21 +482,28 @@ namespace System
 						throw new OutOfMemoryException ();
 					}
 				}
-				/* FIXME: Use ENCODING_ASCII when possible. */
-				String tmp = FastAllocateString (nlen, ENCODING_UTF16);
+				/* It would be possible to use the compact encoding in more
+				 * circumstances than this, for example:
+				 *
+				 *     "\u2192".Replace ("\u2192", "->")
+				 *
+				 * Here the result would be non-compact, even though it's
+				 * compact-representable.
+				 */
+				String tmp = FastAllocateString (nlen, SelectEncoding (IsCompact && newValue.IsCompact));
 
 				int curPos = 0, lastReadPos = 0;
 				fixed (byte* destByte = &tmp.m_firstByte) {
-					char* dest = (char*)destByte;
+					var destIter = GetIterator ((IntPtr)destByte, tmp.IsCompact);
 					for (int j = 0; j < count; j++) {
 						int precopy = dat[j] - lastReadPos;
-						CharCopy (dest + curPos, source + lastReadPos, precopy);
+						destIter.Advance (curPos).CopyFrom (sourceIter.Advance (lastReadPos), precopy);
 						curPos += precopy;
 						lastReadPos = dat[j] + oldValue.Length;
-						CharCopy (dest + curPos, replace, newValue.Length);
+						destIter.Advance (curPos).CopyFrom (replaceIter, newValue.Length);
 						curPos += newValue.Length;
 					}
-					CharCopy (dest + curPos, source + lastReadPos, Length - lastReadPos);
+					destIter.Advance (curPos).CopyFrom (sourceIter.Advance (lastReadPos), Length - lastReadPos);
 				}
 				return tmp;
 			}

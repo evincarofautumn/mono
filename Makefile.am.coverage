@@ -6,7 +6,7 @@ if HAVE_GCOV
 .PHONY: clean-gcda
 clean-gcda:
 	@echo Removing old coverage results
-	-find -name '*.gcda' -print | xargs -r rm
+	-find -name '*.gcda' -print0 -exec rm -f {} +
 
 .PHONY: coverage-html generate-coverage-html clean-coverage-html
 coverage-html: clean-gcda

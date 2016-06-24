@@ -24,14 +24,17 @@ coverage-html: clean-gcda
 generate-coverage-html:
 	@echo Collecting coverage data
 	$(LCOV) \
-		--directory $(top_builddir) \
+		$$(find $(top_srcdir) \
+			-name '*.gcda' \
+			-exec dirname {} \; \
+			| sort | uniq | perl -ne 'print "--directory $$_"') \
 		--capture \
 		--output-file coverage.info \
 		--no-checksum \
 		--compat-libtool
 	LANG=C $(GENHTML) \
 		--prefix $(top_builddir) \
-		--output-directory coverage-report \
+		--output-directory coverage-html \
 		--title "Code Coverage" \
 		--legend \
 		--show-details \

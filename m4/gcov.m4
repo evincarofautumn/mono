@@ -84,9 +84,9 @@ AC_DEFUN([AC_TDD_GCOV],
   changequote([,])
 
   # Add the special gcc flags
-  COVERAGE_CFLAGS="-fprofile-arcs -ftest-coverage"
-  COVERAGE_CXXFLAGS="-fprofile-arcs -ftest-coverage"
-  COVERAGE_LDFLAGS="-Wall -fprofile-arcs -ftest-coverage -lclang_rt.profile_osx -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/7.0.0/lib/darwin"
+  COVERAGE_CFLAGS="-fprofile-arcs -ftest-coverage -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/7.3.0/lib/darwin/ -lclang_rt.profile_osx"
+  COVERAGE_CXXFLAGS="-fprofile-arcs -ftest-coverage -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/7.3.0/lib/darwin/ -lclang_rt.profile_osx"
+  COVERAGE_LDFLAGS=""
 
 fi
 ]) # AC_TDD_GCOV

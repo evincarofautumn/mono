@@ -6,17 +6,36 @@ if HAVE_GCOV
 .PHONY: clean-gcda
 clean-gcda:
 	@echo Removing old coverage results
-	-find -name '*.gcda' -print0 -exec rm -f {} +
+	-find . \( -name '*.gcda' -o -name '*.gcno' \) -exec rm -f {} +
 
 .PHONY: coverage-html generate-coverage-html clean-coverage-html
 coverage-html: clean-gcda
 	-$(MAKE) $(AM_MAKEFLAGS) -k check
 	$(MAKE) $(AM_MAKEFLAGS) generate-coverage-html
 
+# 1. create baseline coverage data file
+#	$(LCOV) -c -i -d $(top_srcdir)/mono/sgen -o app_base.info --test-name "runtime"; \
+# 2. perform test
+# 3. create test coverage data file
+#	$(LCOV) -c -d $(top_srcdir)/mono/sgen -o app_test.info --test-name "runtime"; \
+# 4. combine baseline and test coverage data
+#	$(LCOV) -a app_base.info -a app_test.info -o app_total.info
+
 generate-coverage-html:
 	@echo Collecting coverage data
-	$(LCOV) --directory $(top_builddir) --capture --output-file coverage.info --no-checksum --compat-libtool
-	LANG=C $(GENHTML) --prefix $(top_builddir) --output-directory coveragereport --title "Code Coverage" --legend --show-details coverage.info
+	$(LCOV) \
+		--directory $(top_builddir) \
+		--capture \
+		--output-file coverage.info \
+		--no-checksum \
+		--compat-libtool
+	LANG=C $(GENHTML) \
+		--prefix $(top_builddir) \
+		--output-directory coverage-report \
+		--title "Code Coverage" \
+		--legend \
+		--show-details \
+		coverage.info
 
 clean-coverage-html: clean-gcda
 	-$(LCOV) --directory $(top_builddir) -z

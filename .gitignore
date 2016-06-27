@@ -46,6 +46,10 @@ _ReSharper*/
 *.orig
 *.rej
 
+# Code coverage data
+*.gcda
+*.gcno
+
 # NuGet packages
 !.nuget/*
 [Pp]ackages/*

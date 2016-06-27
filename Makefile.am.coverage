@@ -24,10 +24,11 @@ coverage-html: clean-gcda
 generate-coverage-html:
 	@echo Collecting coverage data
 	$(LCOV) \
-		$$(find $(top_srcdir) \
-			-name '*.gcda' \
-			-exec dirname {} \; \
-			| sort | uniq | perl -ne 'print "--directory $$_"') \
+		--directory mono/mini \
+		--directory mono/sgen \
+		--directory mono/metadata \
+		--directory mono/utils \
+		--no-recursion \
 		--capture \
 		--output-file coverage.info \
 		--no-checksum \

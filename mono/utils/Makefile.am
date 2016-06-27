@@ -1,6 +1,6 @@
 noinst_LTLIBRARIES = libmonoutils.la
 
-AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/mono $(LIBGC_CPPFLAGS) $(GLIB_CFLAGS) $(SHARED_CFLAGS)
+AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/mono $(LIBGC_CPPFLAGS) $(GLIB_CFLAGS) $(SHARED_CFLAGS) $(COVERAGE_CFLAGS)
 
 if ENABLE_DTRACE
 

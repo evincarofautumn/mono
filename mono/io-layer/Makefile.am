@@ -6,7 +6,8 @@ AM_CPPFLAGS = \
 	$(LIBGC_CPPFLAGS)	\
 	-DMONO_BINDIR=\""$(bindir)"\"	\
 	-I$(top_srcdir) \
-	$(SHARED_CFLAGS)
+	$(SHARED_CFLAGS) \
+	$(COVERAGE_CFLAGS)
 
 libwapiincludedir = $(includedir)/mono-$(API_VER)/mono/io-layer
 

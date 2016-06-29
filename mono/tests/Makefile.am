@@ -873,18 +873,16 @@ runtest: $(TESTSI_CS) $(TESTSI_IL) $(TESTBS) libtest.la $(PREREQSI_IL) $(PREREQS
 	fi
 
 # 1. create baseline coverage data file
+# 	$(LCOV) -c -i -d $(top_srcdir)/mono/sgen -d $(top_srcdir)/mono/mini -d $(top_srcdir)/mono/metadata -o coverage-base.info --test-name "runtime";
 # 2. perform test
 # 3. create test coverage data file
+#	$(LCOV) -c -d $(top_srcdir)/mono/sgen -d $(top_srcdir)/mono/mini -d $(top_srcdir)/mono/metadata -o coverage-test.info --test-name "runtime";
 # 4. combine baseline and test coverage data
+#	$(LCOV) -a coverage-base.info -a coverage-test.info -o coverage-total.info
 
 runtest-managed: test-runner.exe $(TESTSI_CS) $(TESTSI_IL) $(TESTBS) libtest.la $(PREREQSI_IL) $(PREREQSI_CS)
 	@if [ "x$$CI" = "x1" ]; then disabled_tests="$(DISABLED_TESTS_WRENCH)"; else disabled_tests="$(DISABLED_TESTS)"; fi; \
-	$(LCOV) -c -i -d $(top_srcdir)/mono/sgen -d $(top_srcdir)/mono/mini -d $(top_srcdir)/mono/metadata \
-		-o coverage-base.info --test-name "runtime"; \
-	$(RUNTIME) --debug ./test-runner.exe $(TEST_RUNNER_ARGS) -j a --testsuite-name "runtime" --timeout 300 --disabled "$${disabled_tests}" $(TESTSI_CS) $(TESTBS) $(TESTSI_IL); \
-	$(LCOV) -c -d $(top_srcdir)/mono/sgen -d $(top_srcdir)/mono/mini -d $(top_srcdir)/mono/metadata \
-		-o coverage-test.info --test-name "runtime"; \
-	$(LCOV) -a coverage-base.info -a coverage-test.info -o coverage-total.info
+	$(RUNTIME) --debug ./test-runner.exe $(TEST_RUNNER_ARGS) -j a --testsuite-name "runtime" --timeout 300 --disabled "$${disabled_tests}" $(TESTSI_CS) $(TESTBS) $(TESTSI_IL);
 
 runtest-managed-serial: test-runner.exe $(TESTSI_CS) $(TESTSI_IL) $(TESTBS) libtest.la $(PREREQSI_IL) $(PREREQSI_CS)
 	@if [ "x$$CI" = "x1" ]; then disabled_tests="$(DISABLED_TESTS_WRENCH)"; else disabled_tests="$(DISABLED_TESTS)"; fi; \

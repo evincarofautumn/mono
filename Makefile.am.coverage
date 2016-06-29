@@ -3,13 +3,13 @@
 
 if HAVE_GCOV
 
-.PHONY: clean-gcda
-clean-gcda:
+.PHONY: clean-coverage-data
+clean-coverage-data:
 	@echo Removing old coverage results
 	-find . \( -name '*.gcda' -o -name '*.gcno' \) -exec rm -f {} +
 
 .PHONY: coverage-html generate-coverage-html clean-coverage-html
-coverage-html: clean-gcda
+coverage-html: clean-coverage-data
 	-$(MAKE) $(AM_MAKEFLAGS) -k check
 	$(MAKE) $(AM_MAKEFLAGS) generate-coverage-html
 
@@ -37,14 +37,14 @@ generate-coverage-html:
 	LANG=C $(GENHTML) \
 		--prefix $(top_builddir) \
 		--output-directory coverage-html \
-		--title "Code Coverage" \
+		--title "Mono Code Coverage" \
 		--legend \
 		--show-details \
 		coverage.info
 
-clean-coverage-html: clean-gcda
+clean-coverage-html: clean-coverage-data
 	-$(LCOV) --directory $(top_builddir) -z
-	-rm -rf coverage.info coveragereport
+	-rm -rf coverage.info coverage-html
 
 clean-local: clean-coverage-html
 

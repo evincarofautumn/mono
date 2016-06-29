@@ -24,9 +24,10 @@ coverage-html: clean-gcda
 generate-coverage-html:
 	@echo Collecting coverage data
 	$(LCOV) \
+		--directory mono/io-layer \
+		--directory mono/metadata \
 		--directory mono/mini \
 		--directory mono/sgen \
-		--directory mono/metadata \
 		--directory mono/utils \
 		--no-recursion \
 		--capture \

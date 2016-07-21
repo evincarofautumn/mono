@@ -147,7 +147,7 @@ mono_string_is_compact (MonoString *s)
 	return s->tagged_length & 1;
 }
 
-#if 1
+#if 0
 #define mono_string_chars_fast(s) ((mono_unichar2*)(s)->bytes)
 #define mono_string_bytes_fast(s) ((s)->bytes)
 #else

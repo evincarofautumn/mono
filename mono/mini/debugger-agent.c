@@ -9346,7 +9346,6 @@ string_commands (int command, guint8 *p, guint8 *end, Buffer *buf)
 	MonoString *str;
 	char *s;
 	int i, index, length;
-	gunichar2 *c;
 	gboolean use_utf16 = FALSE;
 
 	objid = decode_objid (p, &p, end);
@@ -9357,13 +9356,13 @@ string_commands (int command, guint8 *p, guint8 *end, Buffer *buf)
 	switch (command) {
 	case CMD_STRING_REF_GET_VALUE:
 		if (CHECK_PROTOCOL_VERSION (2, 41)) {
-			for (i = 0; i < mono_string_length (str); ++i)
-				if (mono_string_chars (str)[i] == 0)
+			for (i = 0; i < mono_string_length_fast (str, TRUE); ++i)
+				if (mono_string_char_at (str, i) == 0)
 					use_utf16 = TRUE;
 			buffer_add_byte (buf, use_utf16 ? 1 : 0);
 		}
 		if (use_utf16) {
-			buffer_add_int (buf, mono_string_length (str) * 2);
+			buffer_add_int (buf, mono_string_length_fast (str, TRUE) * 2);
 			if (mono_string_is_compact (str)) {
 				gunichar2 *chars = mono_string_to_utf16 (str);
 				buffer_add_data (buf, (guint8*)chars, mono_string_length_fast (str, TRUE) * sizeof (gunichar2));

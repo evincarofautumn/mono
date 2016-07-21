@@ -876,68 +876,21 @@ namespace System
 
 			fixed (byte* ap = &strA.m_firstByte, bp = &strB.m_firstByte)
 			{
-				if (strA.IsCompact && strB.IsCompact) {
-					byte* a = ap;
-					byte* b = bp;
-					while (length != 0) {
-						int charA = *a;
-						int charB = *b;
-						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
-						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
-						if (charA != charB)
-							return charA - charB;
-						a++;
-						b++;
-						length--;
-					}
-				} else if (strA.IsCompact) {
-					byte* a = ap;
-					char* b = (char*)bp;
-					while (length != 0) {
-						int charA = *a;
-						int charB = *b;
-						Contract.Assert(CompactRepresentable(charB), "strings have to be ASCII");
-						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
-						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
-						if ((char)charA != charB)
-							return charA - charB;
-						a++;
-						b++;
-						length--;
-					}
-				} else if (strB.IsCompact) {
-					char* a = (char*)ap;
-					byte* b = bp;
-					while (length != 0) {
-						int charA = *a;
-						int charB = *b;
-						Contract.Assert(CompactRepresentable(charA), "strings have to be ASCII");
-						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
-						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
-						if (charA != charB)
-							return charA - charB;
-						a++;
-						b++;
-						length--;
-					}
-				} else {
-					char* a = (char*)ap;
-					char* b = (char*)bp;
-					while (length != 0) {
-						int charA = *a;
-						int charB = *b;
-						Contract.Assert(CompactRepresentable(charA) && CompactRepresentable(charB), "strings have to be ASCII");
-						if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
-						if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
-						if (charA != charB)
-							return charA - charB;
-						a++;
-						b++;
-						length--;
-					}
+				var a = GetIterator ((IntPtr)ap, strA.IsCompact);
+				var b = GetIterator ((IntPtr)bp, strB.IsCompact);
+				while (length != 0) {
+					int charA = a.Get ();
+					int charB = b.Get ();
+					if ((uint)(charA - 'a') <= (uint)('z' - 'a')) charA -= 0x20;
+					if ((uint)(charB - 'a') <= (uint)('z' - 'a')) charB -= 0x20;
+					if (charA != charB)
+						return charA - charB;
+					a = a.Advance ();
+					b = b.Advance ();
+					--length;
 				}
-				return strA.Length - strB.Length;
 			}
+			return strA.Length - strB.Length;
 		}
 
 		//

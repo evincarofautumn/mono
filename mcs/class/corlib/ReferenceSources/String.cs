@@ -936,68 +936,13 @@ namespace System
 			int length = strA.Length;
 
 			fixed (byte* ap = &strA.m_firstByte, bp = &strB.m_firstByte) {
-				if (strA.IsCompact && strB.IsCompact) {
-					byte* a = ap;
-					byte* b = bp;
-					/* FIXME: Unroll. */
-					for (int i = 0; i < strA.Length; ++i)
-						if (a[i] != b[i])
-							return false;
-					return true;
-				} else if (strA.IsCompact) {
-					byte* a = ap;
-					char* b = (char*)bp;
-					/* FIXME: Unroll. */
-					for (int i = 0; i < strA.Length; ++i)
-						if ((char)a[i] != b[i])
-							return false;
-					return true;
-				} else if (strB.IsCompact) {
-					char* a = (char*)ap;
-					byte* b = bp;
-					/* FIXME: Unroll. */
-					for (int i = 0; i < strA.Length; ++i)
-						if (a[i] != (char)b[i])
-							return false;
-					return true;
-				} else {
-					char* a = (char*)ap;
-					char* b = (char*)bp;
-					// unroll the loop
-#if AMD64
-					// for AMD64 bit platform we unroll by 12 and
-					// check 3 qword at a time. This is less code
-					// than the 32 bit case and is shorter
-					// pathlength
-					while (length >= 12)
-					{
-						if (*(long*)a	  != *(long*)b) return false;
-						if (*(long*)(a+4) != *(long*)(b+4)) return false;
-						if (*(long*)(a+8) != *(long*)(b+8)) return false;
-						a += 12; b += 12; length -= 12;
-					}
-#else
-					while (length >= 10)
-					{
-						if (*(int*)a != *(int*)b) return false;
-						if (*(int*)(a+2) != *(int*)(b+2)) return false;
-						if (*(int*)(a+4) != *(int*)(b+4)) return false;
-						if (*(int*)(a+6) != *(int*)(b+6)) return false;
-						if (*(int*)(a+8) != *(int*)(b+8)) return false;
-						a += 10; b += 10; length -= 10;
-					}
-#endif
-					// This depends on the fact that the String objects are
-					// always zero terminated and that the terminating zero is not included
-					// in the length. For odd string sizes, the last compare will include
-					// the zero terminator.
-					while (length > 0)
-					{
-						if (*(int*)a != *(int*)b) break;
-						a += 2; b += 2; length -= 2;
-					}
-					return (length <= 0);
-				}
+				var a = GetIterator ((IntPtr)ap, strA.IsCompact);
+				var b = GetIterator ((IntPtr)bp, strB.IsCompact);
+				/* FIXME: Unroll. */
+				for (int i = 0; i < length; ++i)
+					if (a.Get (i) != b.Get (i))
+						return false;
+				return true;
 			}
 		}
 

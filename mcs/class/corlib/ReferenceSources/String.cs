@@ -734,7 +734,7 @@ namespace System
 			if (count == 0)
 				return Empty;
 			bool compact = CompactRepresentable(c);
-			string result = FastAllocateString (count, compact ? ENCODING_ASCII : ENCODING_UTF16);
+			string result = FastAllocateString (count, SelectEncoding (compact));
 			fixed (byte* destByte = &result.m_firstByte) {
 				if (compact) {
 					byte* dest = destByte;
@@ -1179,7 +1179,7 @@ namespace System
 		unsafe string InternalSubString(int startIndex, int length) {
 			Contract.Assert( startIndex >= 0 && startIndex <= this.Length, "StartIndex is out of range!");
 			Contract.Assert( length >= 0 && startIndex <= this.Length - length, "length is out of range!");			   
-			String result = FastAllocateString(length, IsCompact ? ENCODING_ASCII : ENCODING_UTF16);
+			String result = FastAllocateString(length, SelectEncoding (IsCompact));
 			fixed (byte* dest = &result.m_firstByte)
 			fixed (byte* src = &m_firstByte) {
 				if (IsCompact)

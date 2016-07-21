@@ -110,54 +110,16 @@ namespace System
 				return 0;
 
 			fixed (byte* aptr = &strA.m_firstByte, bptr = &strB.m_firstByte) {
-				if (strA.IsCompact && strB.IsCompact) {
-					byte* ap = aptr + indexA;
-					byte* end = ap + Math.Min (lengthA, lengthB);
-					byte* bp = bptr + indexB;
-					while (ap < end) {
-						if (*ap != *bp)
-							return *ap - *bp;
-						ap++;
-						bp++;
-					}
-					return lengthA - lengthB;
+				var aIter = GetIterator ((IntPtr)aptr, strA.IsCompact).Advance (indexA);
+				var bIter = GetIterator ((IntPtr)bptr, strB.IsCompact).Advance (indexB);
+				var end = aIter.Advance (Math.Min (lengthA, lengthB));
+				while (aIter.Pointer () != end.Pointer ()) {
+					if (aIter.Get () != bIter.Get ())
+						return aIter.Get () - bIter.Get ();
+					aIter = aIter.Advance ();
+					bIter = bIter.Advance ();
 				}
-				if (strA.IsCompact) {
-					byte* ap = aptr + indexA;
-					byte* end = ap + Math.Min (lengthA, lengthB);
-					char* bp = (char*)bptr + indexB;
-					while (ap < end) {
-						if ((char)*ap != *bp)
-							return *ap - *bp;
-						ap++;
-						bp++;
-					}
-					return lengthA - lengthB;
-				}
-				if (strB.IsCompact) {
-					char* ap = (char*)aptr + indexA;
-					char* end = ap + Math.Min (lengthA, lengthB);
-					byte* bp = bptr + indexB;
-					while (ap < end) {
-						if (*ap != (char)*bp)
-							return *ap - *bp;
-						ap++;
-						bp++;
-					}
-					return lengthA - lengthB;
-				}
-				{
-					char* ap = (char*)aptr + indexA;
-					char* end = ap + Math.Min (lengthA, lengthB);
-					char* bp = (char*)bptr + indexB;
-					while (ap < end) {
-						if (*ap != *bp)
-							return *ap - *bp;
-						ap++;
-						bp++;
-					}
-					return lengthA - lengthB;
-				}
+				return lengthA - lengthB;
 			}
 		}
 

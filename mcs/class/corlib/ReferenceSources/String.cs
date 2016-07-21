@@ -1458,20 +1458,14 @@ namespace System
 				fixed (byte* srcThis = &m_firstByte)
 				fixed (byte* srcInsert = &value.m_firstByte)
 				fixed (byte* dst = &result.m_firstByte) {
-                    if (IsCompact)
-                        result.CopyFromBytes(0, srcThis, startIndex);
-                    else
-                        result.CopyFromChars(0, (char*)srcThis, startIndex);
-
-                    if (value.IsCompact)
-                        result.CopyFromBytes(startIndex, srcInsert, insertLength);
-                    else
-                        result.CopyFromChars(startIndex, (char*)srcInsert, insertLength);
-
-                    if (IsCompact)
-                        result.CopyFromBytes(startIndex + insertLength, srcThis + startIndex, oldLength - startIndex);
-                    else
-                        result.CopyFromChars(startIndex + insertLength, (char*)srcThis + startIndex, oldLength - startIndex);
+					var srcThisIter = GetIterator ((IntPtr)srcThis, IsCompact);
+					var srcInsertIter = GetIterator ((IntPtr)srcInsert, value.IsCompact);
+					var dstIter = GetIterator ((IntPtr)dst, result.IsCompact);
+					dstIter.CopyFrom (srcThisIter, startIndex);
+					dstIter = dstIter.Advance (startIndex);
+					dstIter.CopyFrom (srcInsertIter, insertLength);
+					dstIter = dstIter.Advance (insertLength);
+					dstIter.CopyFrom (srcThisIter.Advance (startIndex), oldLength - startIndex);
 				}
 			}
 			return result;

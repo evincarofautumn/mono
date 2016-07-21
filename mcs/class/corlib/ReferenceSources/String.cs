@@ -911,25 +911,17 @@ namespace System
 			int length = strIn.Length;
 			String strOut = FastAllocateString(length, ENCODING_ASCII);
 			fixed (byte* inPtr = &strIn.m_firstByte)
-				fixed (byte* outPtr = &strOut.m_firstByte) {
-				if (strIn.IsCompact) {
-					for (int i = 0; i < length; ++i) {
-						int c = (char)inPtr[i];
-						Contract.Assert(CompactRepresentable(c), "string has to be ASCII");
-						// uppercase - notice that we need just one compare
-						if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
-						outPtr[i] = (byte)c;
-					}
-				} else {
-					for(int i = 0; i < length; i++) {
-						int c = ((char*)inPtr)[i];
-						Contract.Assert(CompactRepresentable(c), "string has to be ASCII");
-						// uppercase - notice that we need just one compare
-						if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
-						((byte*)outPtr)[i] = (byte)c;
-					}
+			fixed (byte* outPtr = &strOut.m_firstByte) {
+				var inIter = GetIterator ((IntPtr)inPtr, strIn.IsCompact);
+				var outIter = GetIterator ((IntPtr)outPtr, strOut.IsCompact);
+				for (int i = 0; i < length; ++i) {
+					int c = (char)inIter.Get (i);
+					Contract.Assert(CompactRepresentable(c), "string has to be ASCII");
+					// uppercase - notice that we need just one compare
+					if ((uint)(c - 'a') <= (uint)('z' - 'a')) c -= 0x20;
+					outIter.Set ((char)c, i);
 				}
-				Contract.Assert(((byte*)outPtr)[length]=='\0', "((byte*)outPtr)[length]=='\0'");
+				Contract.Assert(outIter.Get (length) == '\0', "((byte*)outPtr)[length]=='\0'");
 			}
 			return strOut;
 		}

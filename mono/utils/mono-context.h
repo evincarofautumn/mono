@@ -23,6 +23,29 @@
 
 #if defined(__APPLE__)
 typedef struct __darwin_xmm_reg MonoContextSimdReg;
+#elif defined(__linux__)
+typedef struct _libc_xmmreg MonoContextSimdReg;
+#elif defined(HOST_WIN32)
+typedef M128A MonoContextSimdReg;
+#else
+#error "MonoContextSimdReg not defined on this platform."
+#endif
+
+#ifdef HOST_WIN32
+#include <windows.h>
+#endif
+
+#define MONO_CONTEXT_OFFSET(field, index, field_type) \
+    "i" (offsetof (MonoContext, field) + (index) * sizeof (field_type))
+
+#if defined(__APPLE__)
+typedef struct __darwin_xmm_reg MonoContextSimdReg;
+#elif defined(__linux__)
+typedef struct _libc_xmmreg MonoContextSimdReg;
+#elif defined(HOST_WIN32)
+typedef M128A MonoContextSimdReg;
+#else
+#error "MonoContextSimdReg not defined on this platform."
 #endif
 
 /*
@@ -106,9 +129,7 @@ typedef struct {
 	mgreg_t esi;
 	mgreg_t edi;
 	mgreg_t eip;
-#ifdef __APPLE__
     MonoContextSimdReg fregs [X86_XMM_NREG];
-#endif
 } MonoContext;
 
 #define MONO_CONTEXT_SET_IP(ctx,ip) do { (ctx)->eip = (mgreg_t)(ip); } while (0); 
@@ -151,6 +172,14 @@ typedef struct {
 	"mov %%edi, %c[edi](%0)\n" \
 	"call 1f\n"     \
 	"1: pop 0x20(%0)\n"     \
+	"movups %%xmm0, %c[xmm0](%0)\n"	\
+	"movups %%xmm1, %c[xmm1](%0)\n"	\
+	"movups %%xmm2, %c[xmm2](%0)\n"	\
+	"movups %%xmm3, %c[xmm3](%0)\n"	\
+	"movups %%xmm4, %c[xmm4](%0)\n"	\
+	"movups %%xmm5, %c[xmm5](%0)\n"	\
+	"movups %%xmm6, %c[xmm6](%0)\n"	\
+	"movups %%xmm7, %c[xmm7](%0)\n"	\
 	:	\
 	: "a" (&(ctx)),	\
 		[eax] MONO_CONTEXT_OFFSET (eax, 0, mgreg_t), \
@@ -160,7 +189,15 @@ typedef struct {
 		[ebp] MONO_CONTEXT_OFFSET (ebp, 0, mgreg_t), \
 		[esp] MONO_CONTEXT_OFFSET (esp, 0, mgreg_t), \
 		[esi] MONO_CONTEXT_OFFSET (esi, 0, mgreg_t), \
-		[edi] MONO_CONTEXT_OFFSET (edi, 0, mgreg_t) \
+		[edi] MONO_CONTEXT_OFFSET (edi, 0, mgreg_t), \
+		[xmm0] MONO_CONTEXT_OFFSET (fregs, X86_XMM0, MonoContextSimdReg), \
+		[xmm1] MONO_CONTEXT_OFFSET (fregs, X86_XMM1, MonoContextSimdReg), \
+		[xmm2] MONO_CONTEXT_OFFSET (fregs, X86_XMM2, MonoContextSimdReg), \
+		[xmm3] MONO_CONTEXT_OFFSET (fregs, X86_XMM3, MonoContextSimdReg), \
+		[xmm4] MONO_CONTEXT_OFFSET (fregs, X86_XMM4, MonoContextSimdReg), \
+		[xmm5] MONO_CONTEXT_OFFSET (fregs, X86_XMM5, MonoContextSimdReg), \
+		[xmm6] MONO_CONTEXT_OFFSET (fregs, X86_XMM6, MonoContextSimdReg), \
+		[xmm7] MONO_CONTEXT_OFFSET (fregs, X86_XMM7, MonoContextSimdReg) \
 	: "memory")
 #endif
 
@@ -180,11 +217,7 @@ typedef struct {
 
 typedef struct {
 	mgreg_t gregs [AMD64_NREG];
-#ifdef __APPLE__
 	MonoContextSimdReg fregs [AMD64_XMM_NREG];
-#else
-	double fregs [AMD64_XMM_NREG];
-#endif
 } MonoContext;
 
 #define MONO_CONTEXT_SET_IP(ctx,ip) do { (ctx)->gregs [AMD64_RIP] = (mgreg_t)(ip); } while (0);

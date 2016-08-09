@@ -506,6 +506,16 @@ sgen_client_finalize_notify (void)
 void
 mono_gc_register_for_finalization (MonoObject *obj, void *user_data)
 {
+	MonoDomain *domain;
+	g_assert (obj != NULL);
+	domain = obj->vtable->domain;
+	/*
+	 * If we register finalizers for domains that are unloading we might
+	 * end up running them while or after the domain is being cleared, so
+	 * the objects will not be valid anymore.
+	 */
+	if (mono_domain_is_unloading (domain))
+		return;
 	sgen_object_register_for_finalization (obj, user_data);
 }
 

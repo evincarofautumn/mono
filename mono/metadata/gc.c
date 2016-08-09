@@ -369,50 +369,10 @@ mono_gc_out_of_memory (size_t size)
 	return NULL;
 }
 
-/*
- * Some of our objects may point to a different address than the address returned by GC_malloc()
- * (because of the GetHashCode hack), but we need to pass the real address to register_finalizer.
- * This also means that in the callback we need to adjust the pointer to get back the real
- * MonoObject*.
- * We also need to be consistent in the use of the GC_debug* variants of malloc and register_finalizer, 
- * since that, too, can cause the underlying pointer to be offset.
- */
 static void
-object_register_finalizer (MonoObject *obj, void (*callback)(void *, void*))
+object_register_finalizer (MonoObject *obj, void (*callback) (void *, void *))
 {
-	MonoDomain *domain;
-
-	g_assert (obj != NULL);
-
-	domain = obj->vtable->domain;
-
-#if HAVE_BOEHM_GC
-	if (mono_domain_is_unloading (domain) && (callback != NULL))
-		/*
-		 * Can't register finalizers in a dying appdomain, since they
-		 * could be invoked after the appdomain has been unloaded.
-		 */
-		return;
-
-	mono_domain_finalizers_lock (domain);
-
-	if (callback)
-		g_hash_table_insert (domain->finalizable_objects_hash, obj, obj);
-	else
-		g_hash_table_remove (domain->finalizable_objects_hash, obj);
-
-	mono_domain_finalizers_unlock (domain);
-
 	mono_gc_register_for_finalization (obj, callback);
-#elif defined(HAVE_SGEN_GC)
-	/*
-	 * If we register finalizers for domains that are unloading we might
-	 * end up running them while or after the domain is being cleared, so
-	 * the objects will not be valid anymore.
-	 */
-	if (!mono_domain_is_unloading (domain))
-		mono_gc_register_for_finalization (obj, callback);
-#endif
 }
 
 /**
@@ -422,7 +382,14 @@ object_register_finalizer (MonoObject *obj, void (*callback)(void *, void*))
  * Records that object @obj has a finalizer, this will call the
  * Finalize method when the garbage collector disposes the object.
  * 
+ * Some of our objects may point to a different address than the address returned by GC_malloc()
+ * (because of the GetHashCode hack), but we need to pass the real address to register_finalizer.
+ * This also means that in the callback we need to adjust the pointer to get back the real
+ * MonoObject*.
+ * We also need to be consistent in the use of the GC_debug* variants of malloc and register_finalizer,
+ * since that, too, can cause the underlying pointer to be offset.
  */
+
 void
 mono_object_register_finalizer (MonoObject *obj)
 {
@@ -594,7 +561,7 @@ ves_icall_System_GC_ReRegisterForFinalize (MonoObject *obj)
 {
 	MONO_CHECK_ARG_NULL (obj,);
 
-	object_register_finalizer (obj, mono_gc_run_finalize);
+	mono_object_register_finalizer (obj);
 }
 
 void

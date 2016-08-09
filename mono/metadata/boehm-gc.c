@@ -1387,12 +1387,31 @@ void mono_gc_set_skip_thread (gboolean value)
 void
 mono_gc_register_for_finalization (MonoObject *obj, void *user_data)
 {
+	MonoDomain *domain;
 	guint offset = 0;
+
+	g_assert (obj != NULL);
+	domain = obj->vtable->domain;
+	if (mono_domain_is_unloading (domain) && user_data)
+		/*
+		 * Can't register finalizers in a dying appdomain, since they
+		 * could be invoked after the appdomain has been unloaded.
+		 */
+		return;
 
 #ifndef GC_DEBUG
 	/* This assertion is not valid when GC_DEBUG is defined */
 	g_assert (GC_base (obj) == (char*)obj - offset);
 #endif
+
+	mono_domain_finalizers_lock (domain);
+	{
+		if (user_data)
+			g_hash_table_insert (domain->finalizable_objects_hash, obj, obj);
+		else
+			g_hash_table_remove (domain->finalizable_objects_hash, obj);
+	}
+	mono_domain_finalizers_unlock (domain);
 
 	GC_REGISTER_FINALIZER_NO_ORDER ((char*)obj - offset, (GC_finalization_proc)user_data, GUINT_TO_POINTER (offset), NULL, NULL);
 }

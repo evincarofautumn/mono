@@ -1932,4 +1932,10 @@ mono_gchandle_free_domain (MonoDomain *domain)
 
 }
 
+gboolean
+mono_gc_ephemeron_array_add (MonoObject *obj)
+{
+	return TRUE;
+}
+
 #endif /* no Boehm GC */

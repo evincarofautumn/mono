@@ -626,12 +626,8 @@ ves_icall_System_GC_WaitForPendingFinalizers (void)
 void
 ves_icall_System_GC_register_ephemeron_array (MonoObject *array)
 {
-#ifdef HAVE_SGEN_GC
-	if (!mono_gc_ephemeron_array_add (array)) {
+	if (!mono_gc_ephemeron_array_add (array))
 		mono_set_pending_exception (mono_object_domain (array)->out_of_memory_ex);
-		return;
-	}
-#endif
 }
 
 MonoObject*

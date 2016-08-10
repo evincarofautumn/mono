@@ -106,6 +106,8 @@ gpointer mono_gc_out_of_memory (size_t size);
 void     mono_gc_enable_events (void);
 void     mono_gc_enable_alloc_events (void);
 
+gboolean mono_gc_object_is_finalized (MonoObject* obj);
+
 void mono_gchandle_set_target (guint32 gchandle, MonoObject *obj);
 
 /*Ephemeron functionality. Sgen only*/

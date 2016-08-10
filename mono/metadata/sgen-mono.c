@@ -2540,6 +2540,12 @@ mono_object_is_alive (MonoObject* o)
 	return TRUE;
 }
 
+gboolean
+mono_gc_object_is_finalized (MonoObject *obj)
+{
+	return FALSE;
+}
+
 int
 mono_gc_get_generation (MonoObject *obj)
 {

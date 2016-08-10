@@ -179,9 +179,6 @@ mono_gc_run_finalize (void *obj, void *data)
 	MonoError error;
 	MonoObject *exc = NULL;
 	MonoObject *o;
-#ifndef HAVE_SGEN_GC
-	MonoObject *o2;
-#endif
 	MonoMethod* finalizer = NULL;
 	MonoDomain *caller_domain = mono_domain_get ();
 	MonoDomain *domain;
@@ -217,17 +214,8 @@ mono_gc_run_finalize (void *obj, void *data)
 
 	domain = o->vtable->domain;
 
-#ifndef HAVE_SGEN_GC
-	mono_domain_finalizers_lock (domain);
-
-	o2 = (MonoObject *)g_hash_table_lookup (domain->finalizable_objects_hash, o);
-
-	mono_domain_finalizers_unlock (domain);
-
-	if (!o2)
-		/* Already finalized somehow */
+	if (mono_gc_object_is_finalized (obj))
 		return;
-#endif
 
 	/* make sure the finalizer is not called again if the object is resurrected */
 	object_register_finalizer ((MonoObject *)obj, NULL);

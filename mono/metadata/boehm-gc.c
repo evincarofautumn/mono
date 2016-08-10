@@ -408,6 +408,17 @@ mono_object_is_alive (MonoObject* o)
 	return GC_is_marked ((ptr_t)o);
 }
 
+gboolean
+mono_gc_object_is_finalized (MonoObject *obj)
+{
+	MonoDomain *domain = obj->vtable->domain;
+	MonoObject *result;
+	mono_domain_finalizers_lock (domain);
+	result = (MonoObject *)g_hash_table_lookup (domain->finalizable_objects_hash, obj);
+	mono_domain_finalizers_unlock (domain);
+	return !result;
+}
+
 int
 mono_gc_walk_heap (int flags, MonoGCReferences callback, void *data)
 {

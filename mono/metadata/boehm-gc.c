@@ -829,6 +829,38 @@ mono_gc_clear_domain (MonoDomain *domain)
 {
 }
 
+static void
+collect_objects (gpointer key, gpointer value, gpointer user_data)
+{
+	GPtrArray *arr = (GPtrArray*)user_data;
+	g_ptr_array_add (arr, key);
+}
+
+void
+mono_gc_finalize_domain (MonoDomain *domain)
+{
+	while (g_hash_table_size (domain->finalizable_objects_hash) > 0) {
+		int i;
+		GPtrArray *objs;
+		/*
+		 * Since the domain is unloading, nobody is allowed to put
+		 * new entries into the hash table. But finalize_object might
+		 * remove entries from the hash table, so we make a copy.
+		 */
+		objs = g_ptr_array_new ();
+		g_hash_table_foreach (domain->finalizable_objects_hash, collect_objects, objs);
+		/* printf ("FINALIZING %d OBJECTS.\n", objs->len); */
+
+		for (i = 0; i < objs->len; ++i) {
+			MonoObject *o = (MonoObject*)g_ptr_array_index (objs, i);
+			/* FIXME: Avoid finalizing threads, etc */
+			mono_gc_run_finalize (o, 0);
+		}
+
+		g_ptr_array_free (objs, TRUE);
+	}
+}
+
 void
 mono_gc_suspend_finalizers (void)
 {

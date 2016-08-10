@@ -762,17 +762,6 @@ hazard_free_queue_pump (void)
 	finalizer_thread_pulsed = FALSE;
 }
 
-#ifdef HAVE_BOEHM_GC
-
-static void
-collect_objects (gpointer key, gpointer value, gpointer user_data)
-{
-	GPtrArray *arr = (GPtrArray*)user_data;
-	g_ptr_array_add (arr, key);
-}
-
-#endif
-
 /*
  * finalize_domain_objects:
  *
@@ -799,33 +788,11 @@ finalize_domain_objects (void)
 	domain = req->domain;
 
 	/* Process finalizers which are already in the queue */
+	/* FIXME: Should this be removed? */
 	mono_gc_invoke_finalizers ();
 
-#ifdef HAVE_BOEHM_GC
-	while (g_hash_table_size (domain->finalizable_objects_hash) > 0) {
-		int i;
-		GPtrArray *objs;
-		/* 
-		 * Since the domain is unloading, nobody is allowed to put
-		 * new entries into the hash table. But finalize_object might
-		 * remove entries from the hash table, so we make a copy.
-		 */
-		objs = g_ptr_array_new ();
-		g_hash_table_foreach (domain->finalizable_objects_hash, collect_objects, objs);
-		/* printf ("FINALIZING %d OBJECTS.\n", objs->len); */
-
-		for (i = 0; i < objs->len; ++i) {
-			MonoObject *o = (MonoObject*)g_ptr_array_index (objs, i);
-			/* FIXME: Avoid finalizing threads, etc */
-			mono_gc_run_finalize (o, 0);
-		}
-
-		g_ptr_array_free (objs, TRUE);
-	}
-#elif defined(HAVE_SGEN_GC)
 	mono_gc_finalize_domain (domain);
 	mono_gc_invoke_finalizers ();
-#endif
 
 	/* cleanup the reference queue */
 	reference_queue_clear_for_domain (domain);

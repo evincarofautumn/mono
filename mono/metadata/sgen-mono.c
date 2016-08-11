@@ -3048,4 +3048,25 @@ mono_gc_is_null (void)
 	return FALSE;
 }
 
+void mono_g_hash_mark (void *addr, MonoGCMarkFunc mark_func, void *gc_data);
+
+void
+mono_gc_register_hash_table (void *hash, size_t size, MonoGCRootSource source, const char *message)
+{
+	/*
+	 * We use a user defined marking function to avoid having to register a GC root for
+	 * each hash node.
+	 */
+	static MonoGCDescriptor table_hash_descr = MONO_GC_DESCRIPTOR_NULL;
+	if (!table_hash_descr)
+		table_hash_descr = mono_gc_make_root_descr_user (mono_g_hash_mark);
+	mono_gc_register_root_wbarrier ((char *)hash, size, table_hash_descr, source, message);
+}
+
+void
+mono_gc_unregister_hash_table (void *hash)
+{
+	mono_gc_deregister_root ((char *)hash);
+}
+
 #endif

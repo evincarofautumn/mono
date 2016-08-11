@@ -1981,4 +1981,14 @@ mono_gc_ephemeron_array_add (MonoObject *obj)
 	return TRUE;
 }
 
+void
+mono_gc_register_hash_table (void *hash, size_t size, MonoGCRootSource source, const char *message)
+{
+}
+
+void
+mono_gc_unregister_hash_table (void *hash)
+{
+}
+
 #endif /* no Boehm GC */

@@ -72,11 +72,7 @@ struct _MonoGHashTable {
 static MonoGHashTable *
 mono_g_hash_table_new (GHashFunc hash_func, GEqualFunc key_equal_func);
 
-#ifdef HAVE_SGEN_GC
-static MonoGCDescriptor table_hash_descr = MONO_GC_DESCRIPTOR_NULL;
-
-static void mono_g_hash_mark (void *addr, MonoGCMarkFunc mark_func, void *gc_data);
-#endif
+void mono_g_hash_mark (void *addr, MonoGCMarkFunc mark_func, void *gc_data);
 
 static Slot*
 new_slot (MonoGHashTable *hash)
@@ -131,16 +127,7 @@ mono_g_hash_table_new_type (GHashFunc hash_func, GEqualFunc key_equal_func, Mono
 	if (type > MONO_HASH_KEY_VALUE_GC)
 		g_error ("wrong type for gc hashtable");
 
-#ifdef HAVE_SGEN_GC
-	/*
-	 * We use a user defined marking function to avoid having to register a GC root for
-	 * each hash node.
-	 */
-	if (!table_hash_descr)
-		table_hash_descr = mono_gc_make_root_descr_user (mono_g_hash_mark);
-	mono_gc_register_root_wbarrier ((char*)hash, sizeof (MonoGHashTable), table_hash_descr, source, msg);
-#endif
-
+	mono_gc_register_hash_table (hash, sizeof (MonoGHashTable), source, msg);
 	return hash;
 }
 
@@ -386,9 +373,7 @@ mono_g_hash_table_destroy (MonoGHashTable *hash)
 	
 	g_return_if_fail (hash != NULL);
 
-#ifdef HAVE_SGEN_GC
-	mono_gc_deregister_root ((char*)hash);
-#endif
+	mono_gc_unregister_hash_table (hash);
 
 	for (i = 0; i < hash->table_size; i++){
 		Slot *s, *next;
@@ -471,40 +456,34 @@ mono_g_hash_table_print_stats (MonoGHashTable *table)
 	printf ("Size: %d Table Size: %d Max Chain Length: %d\n", table->in_use, table->table_size, max_chain_size);
 }
 
-#ifdef HAVE_SGEN_GC
-
-/* GC marker function */
-static void
+void
 mono_g_hash_mark (void *addr, MonoGCMarkFunc mark_func, void *gc_data)
 {
-	MonoGHashTable *table = (MonoGHashTable*)addr;
+	MonoGHashTable *table = (MonoGHashTable *)addr;
 	Slot *node;
 	int i;
-
-	if (table->gc_type == MONO_HASH_KEY_GC) {
+	switch (table->gc_type) {
+	case MONO_HASH_KEY_GC:
+		for (i = 0; i < table->table_size; i++)
+			for (node = table->table [i]; node; node = node->next)
+				if (node->key)
+					mark_func (&node->key, gc_data);
+		break;
+	case MONO_HASH_VALUE_GC:
+		for (i = 0; i < table->table_size; i++)
+			for (node = table->table [i]; node; node = node->next)
+				if (node->value)
+					mark_func (&node->value, gc_data);
+		break;
+	case MONO_HASH_KEY_VALUE_GC:
 		for (i = 0; i < table->table_size; i++) {
 			for (node = table->table [i]; node; node = node->next) {
 				if (node->key)
 					mark_func (&node->key, gc_data);
-			}
-		}
-	} else if (table->gc_type == MONO_HASH_VALUE_GC) {
-		for (i = 0; i < table->table_size; i++) {
-			for (node = table->table [i]; node; node = node->next) {
 				if (node->value)
 					mark_func (&node->value, gc_data);
 			}
 		}
-	} else if (table->gc_type == MONO_HASH_KEY_VALUE_GC) {
-		for (i = 0; i < table->table_size; i++) {
-			for (node = table->table [i]; node; node = node->next) {
-				if (node->key)
-					mark_func (&node->key, gc_data);
-				if (node->value)
-					mark_func (&node->value, gc_data);
-			}
-		}
+		break;
 	}
 }
-	
-#endif

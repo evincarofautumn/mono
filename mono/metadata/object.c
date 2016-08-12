@@ -5672,6 +5672,23 @@ mono_object_clone_checked (MonoObject *obj, MonoError *error)
 	return o;
 }
 
+static void
+memmove_array (MonoClass *klass, MonoArray *dest, MonoArray *src, size_t size)
+{
+#ifdef HAVE_INCREMENTAL_COLLECTOR
+	if (klass->element_class->valuetype) {
+		if (klass->element_class->has_references)
+			mono_value_copy_array (dest, 0, mono_array_addr_with_size_fast (src, 0, 0), mono_array_length (src));
+		else
+			mono_gc_memmove_atomic (&dest->vector, &src->vector, size);
+	} else {
+		mono_array_memcpy_refs (dest, 0, src, 0, mono_array_length (src));
+	}
+#else
+	mono_gc_memmove_atomic (&dest->vector, &src->vector, size);
+#endif
+}
+
 /**
  * mono_array_full_copy:
  * @src: source array to copy
@@ -5692,18 +5709,7 @@ mono_array_full_copy (MonoArray *src, MonoArray *dest)
 	size = mono_array_length (src);
 	g_assert (size == mono_array_length (dest));
 	size *= mono_array_element_size (klass);
-#ifdef HAVE_SGEN_GC
-	if (klass->element_class->valuetype) {
-		if (klass->element_class->has_references)
-			mono_value_copy_array (dest, 0, mono_array_addr_with_size_fast (src, 0, 0), mono_array_length (src));
-		else
-			mono_gc_memmove_atomic (&dest->vector, &src->vector, size);
-	} else {
-		mono_array_memcpy_refs (dest, 0, src, 0, mono_array_length (src));
-	}
-#else
-	mono_gc_memmove_atomic (&dest->vector, &src->vector, size);
-#endif
+	memmove_array (klass, dest, src, size);
 }
 
 /**
@@ -5733,18 +5739,7 @@ mono_array_clone_in_domain (MonoDomain *domain, MonoArray *array, MonoError *err
 		return_val_if_nok (error, NULL);
 
 		size *= mono_array_element_size (klass);
-#ifdef HAVE_SGEN_GC
-		if (klass->element_class->valuetype) {
-			if (klass->element_class->has_references)
-				mono_value_copy_array (o, 0, mono_array_addr_with_size_fast (array, 0, 0), mono_array_length (array));
-			else
-				mono_gc_memmove_atomic (&o->vector, &array->vector, size);
-		} else {
-			mono_array_memcpy_refs (o, 0, array, 0, mono_array_length (array));
-		}
-#else
-		mono_gc_memmove_atomic (&o->vector, &array->vector, size);
-#endif
+		memmove_array (klass, o, array, size);
 		return o;
 	}
 	
@@ -5757,19 +5752,7 @@ mono_array_clone_in_domain (MonoDomain *domain, MonoArray *array, MonoError *err
 	}
 	o = mono_array_new_full_checked (domain, klass, sizes, (intptr_t*)sizes + klass->rank, error);
 	return_val_if_nok (error, NULL);
-#ifdef HAVE_SGEN_GC
-	if (klass->element_class->valuetype) {
-		if (klass->element_class->has_references)
-			mono_value_copy_array (o, 0, mono_array_addr_with_size_fast (array, 0, 0), mono_array_length (array));
-		else
-			mono_gc_memmove_atomic (&o->vector, &array->vector, size);
-	} else {
-		mono_array_memcpy_refs (o, 0, array, 0, mono_array_length (array));
-	}
-#else
-	mono_gc_memmove_atomic (&o->vector, &array->vector, size);
-#endif
-
+	memmove_array (klass, o, array, size);
 	return o;
 }
 

@@ -3481,6 +3481,7 @@ AC_ARG_WITH(sgen,                    [  --with-sgen=yes,no             Extra Gen
 AC_ARG_WITH(sgen-default-concurrent, [  --with-sgen-default-concurrent=yes,no             Use Concurrent GC, default=no],[],[with_sgen_default_concurrent=no])
 if test x$buildsgen = xyes; then
    AC_DEFINE(HAVE_MOVING_COLLECTOR, 1, [Moving collector])
+   AC_DEFINE(HAVE_INCREMENTAL_COLLECTOR, 1, [Collector that does not collect the entire heap: uses remembered sets and write barriers])
    SGEN_DEFINES="-DHAVE_SGEN_GC"
 
 	conc_gc_msg=""

@@ -2402,7 +2402,7 @@ unload_thread_main (void *arg)
 
 	mono_loader_lock (); //FIXME why do we need the loader lock here?
 	mono_domain_lock (domain);
-#ifdef HAVE_SGEN_GC
+#ifdef HAVE_INCREMENTAL_COLLECTOR
 	/*
 	 * We need to make sure that we don't have any remsets
 	 * pointing into static data of the to-be-freed domain because

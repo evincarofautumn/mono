@@ -315,7 +315,9 @@ ves_icall_System_Threading_Mutex_CreateMutex_internal (MonoBoolean owned, MonoSt
 	if (!name) {
 		mutex = mutex_create (owned);
 	} else {
-		mutex = namedmutex_create (owned, mono_string_chars (name));
+		gunichar2 *chars = mono_string_to_utf16 (name);
+		mutex = namedmutex_create (owned, chars);
+		g_free (chars);
 
 		if (GetLastError () == ERROR_ALREADY_EXISTS)
 			*created = FALSE;

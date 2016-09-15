@@ -57,7 +57,10 @@ mono_string_to_bstr(MonoString* ptr)
 	if (!ptr)
 		return NULL;
 
-	return mono_ptr_to_bstr(mono_string_chars(ptr), mono_string_length(ptr));
+	gunichar2 *chars = mono_string_to_utf16 (ptr);
+	gpointer result = mono_ptr_to_bstr (chars, mono_string_length_fast (ptr, TRUE));
+	g_free (chars);
+	return result;
 }
 
 #ifndef DISABLE_COM
@@ -2757,18 +2760,14 @@ mono_ptr_to_bstr(gpointer ptr, int slen)
 	if (!ptr)
 		return NULL;
 #ifdef HOST_WIN32
-	/* FIXME: Avoid allocation. */
-	gunichar2 *chars = mono_string_to_utf16 (string_obj);
-	gpointer result = SysAllocStringLen (chars, mono_string_length_fast (string_obj, TRUE));
-	g_free (chars);
-	return result;
+	return SysAllocStringLen (chars, slen);
 #else
 	if (com_provider == MONO_COM_DEFAULT) {
 		/* allocate len + 1 utf16 characters plus 4 byte integer for length*/
 		char *ret = (char *)g_malloc((slen + 1) * sizeof(gunichar2) + sizeof(guint32));
 		if (ret == NULL)
 			return NULL;
-		mono_string_copy_to_utf16 (string_obj, (mono_unichar2 *)(ret + sizeof(guint32)));
+		memcpy (ret + sizeof (guint32), ptr, slen * sizeof (gunichar2));
 		*((guint32 *)ret) = slen * sizeof (gunichar2);
 		ret [4 + slen * sizeof(gunichar2)] = 0;
 		ret [5 + slen * sizeof(gunichar2)] = 0;
@@ -2776,16 +2775,10 @@ mono_ptr_to_bstr(gpointer ptr, int slen)
 		return ret + 4;
 	}
 	else if (com_provider == MONO_COM_MS && init_com_provider_ms()) {
-		gpointer ret = NULL;
-		gunichar* str = NULL;
-		guint32 len = slen;
-		len = mono_string_length_fast (string_obj, TRUE);
-		str = mono_string_is_compact (string_obj)
-			? g_utf8_to_ucs4 (mono_string_bytes_fast (string_obj), len, NULL, NULL, NULL)
-			: g_utf16_to_ucs4 (mono_string_chars_fast (string_obj), len, NULL, NULL, NULL);
-		ret = sys_alloc_string_len_ms (str, len);
-		g_free(str);
-		return ret;
+		gunichar* decoded = g_utf16_to_ucs4 (ptr, slen, NULL, NULL, NULL);
+		gpointer result = sys_alloc_string_len_ms (decoded, slen);
+		g_free (decoded);
+		return result;
 	}
 	else {
 		g_assert_not_reached();

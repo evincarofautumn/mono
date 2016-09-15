@@ -156,19 +156,23 @@ add_mono_string_to_blob_cached (MonoDynamicImage *assembly, MonoString *str)
 	char *b = blob_size;
 	guint32 idx = 0, len;
 
-	len = str->length * 2;
+	len = mono_string_length_fast (str, TRUE) * sizeof (gunichar2);
 	mono_metadata_encode_value (len, b, &b);
 #if G_BYTE_ORDER != G_LITTLE_ENDIAN
 	{
 		char *swapped = g_malloc (2 * mono_string_length (str));
-		const char *p = (const char*)mono_string_chars (str);
-
+		const char *p = (const char*)mono_string_to_utf16 (str);
 		swap_with_size (swapped, p, 2, mono_string_length (str));
 		idx = mono_dynamic_image_add_to_blob_cached (assembly, blob_size, b-blob_size, swapped, len);
 		g_free (swapped);
+		g_free (p);
 	}
 #else
-	idx = mono_dynamic_image_add_to_blob_cached (assembly, blob_size, b-blob_size, (char*)mono_string_chars (str), len);
+	{
+		gunichar2 *chars = mono_string_to_utf16 (str);
+		idx = mono_dynamic_image_add_to_blob_cached (assembly, blob_size, b-blob_size, (char *)chars, len);
+		g_free (chars);
+	}
 #endif
 	return idx;
 }

@@ -20,8 +20,10 @@
 #include <mono/metadata/gc-internals.h>
 #include <mono/metadata/w32mutex-utils.h>
 #include <mono/utils/w32handle.h>
+#include <mono/utils/mono-proclib.h>
 
 #include <errno.h>
+#include <sched.h>
 
 #if defined(PLATFORM_ANDROID) && !defined(TARGET_ARM64) && !defined(TARGET_AMD64)
 #define USE_TKILL_ON_ANDROID 1
@@ -247,14 +249,18 @@ mono_native_thread_create (MonoNativeThreadId *tid, gpointer func, gpointer arg)
 gboolean
 mono_native_thread_set_affinity (MonoNativeThreadId *tid, int affinity)
 {
+#if defined (__MACH__)
+	return FALSE;
+#elif defined (HAVE_PTHREAD_SETAFFINITY_NP)
 	cpu_set_t cpu_set;
 	int status;
 	if (affinity < 0 || affinity > mono_cpu_count ())
 		return FALSE;
-	CPU_ZERO(&cpu_set);
-	CPU_SET(n, cpu_set);
-	status = pthread_setaffinity_np (*tid, sizeof (cpu_set), &cpu_set);
+	CPU_ZERO (&cpu_set);
+	CPU_SET (affinity, cpu_set);
+	status = pthread_setaffinity_np (*tid, sizeof cpu_set, &cpu_set);
 	return status == 0;
+#endif
 }
 
 void

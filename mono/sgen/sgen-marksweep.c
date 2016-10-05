@@ -57,6 +57,8 @@
 
 #define MS_BLOCK_FREE	(MS_BLOCK_SIZE - MS_BLOCK_SKIP)
 
+#define MS_BLOCK_OBJ_COUNT(block)	(MS_BLOCK_FREE / (block)->obj_size)
+
 #define MS_NUM_MARK_WORDS	((MS_BLOCK_SIZE / SGEN_ALLOC_ALIGN + sizeof (mword) * 8 - 1) / (sizeof (mword) * 8))
 
 /*
@@ -455,7 +457,7 @@ consistency_check (void)
 
 	/* check all blocks */
 	FOREACH_BLOCK_NO_LOCK (block) {
-		int count = MS_BLOCK_FREE / block->obj_size;
+		int count = MS_BLOCK_OBJ_COUNT (block);
 		int num_free = 0;
 		void **free;
 
@@ -567,7 +569,7 @@ ptr_is_in_major_block (char *ptr, char **start, gboolean *pinned)
 
 	FOREACH_BLOCK_NO_LOCK (block) {
 		if (ptr >= MS_BLOCK_FOR_BLOCK_INFO (block) && ptr <= MS_BLOCK_FOR_BLOCK_INFO (block) + MS_BLOCK_SIZE) {
-			int count = MS_BLOCK_FREE / block->obj_size;
+			int count = MS_BLOCK_OBJ_COUNT (block);
 			int i;
 
 			if (start)
@@ -873,7 +875,7 @@ major_iterate_objects (IterateObjectsFlags flags, IterateObjectCallbackFunc call
 	/* No actual sweeping will take place if we are in the middle of a major collection. */
 	major_finish_sweep_checking ();
 	FOREACH_BLOCK_NO_LOCK (block) {
-		int count = MS_BLOCK_FREE / block->obj_size;
+		int count = MS_BLOCK_OBJ_COUNT (block);
 		int i;
 
 		if (block->pinned && !pinned)
@@ -982,7 +984,7 @@ major_dump_heap (FILE *heap_dump_file)
 
 	FOREACH_BLOCK_NO_LOCK (block) {
 		int index = ms_find_block_obj_size_index (block->obj_size);
-		int count = MS_BLOCK_FREE / block->obj_size;
+		int count = MS_BLOCK_OBJ_COUNT (block);
 
 		slots_available [index] += count;
 		for (i = 0; i < count; ++i) {
@@ -999,7 +1001,7 @@ major_dump_heap (FILE *heap_dump_file)
 	fprintf (heap_dump_file, "</occupancies>\n");
 
 	FOREACH_BLOCK_NO_LOCK (block) {
-		int count = MS_BLOCK_FREE / block->obj_size;
+		int count = MS_BLOCK_OBJ_COUNT (block);
 		int i;
 		int start = -1;
 
@@ -1239,7 +1241,7 @@ mark_pinned_objects_in_block (MSBlockInfo *block, size_t first_entry, size_t las
 	for (; entry < end; ++entry) {
 		int index = MS_BLOCK_OBJ_INDEX (*entry, block);
 		GCObject *obj;
-		SGEN_ASSERT (9, index >= 0 && index < MS_BLOCK_FREE / block->obj_size, "invalid object %p index %d max-index %d", *entry, index, (int)(MS_BLOCK_FREE / block->obj_size));
+		SGEN_ASSERT (9, index >= 0 && index < MS_BLOCK_OBJ_COUNT (block), "invalid object %p index %d max-index %d", *entry, index, (int)(MS_BLOCK_OBJ_COUNT (block)));
 		if (index == last_index)
 			continue;
 		obj = MS_BLOCK_OBJ (block, index);
@@ -1340,7 +1342,7 @@ sweep_block (MSBlockInfo *block)
 
 	SGEN_ASSERT (6, block->state == BLOCK_STATE_SWEEPING, "How did we get here without setting state to sweeping?");
 
-	count = MS_BLOCK_FREE / block->obj_size;
+	count = MS_BLOCK_OBJ_COUNT (block);
 
 	block->free_list = NULL;
 
@@ -1498,7 +1500,7 @@ ensure_block_is_checked_for_sweeping (guint32 block_index, gboolean wait, gboole
 
 	block->is_to_space = FALSE;
 
-	count = MS_BLOCK_FREE / block->obj_size;
+	count = MS_BLOCK_OBJ_COUNT (block);
 
 	if (block->cardtable_mod_union)
 		memset (block->cardtable_mod_union, 0, CARDS_PER_BLOCK);
@@ -2138,7 +2140,7 @@ major_get_used_size (void)
 	major_finish_sweep_checking ();
 
 	FOREACH_BLOCK_NO_LOCK (block) {
-		int count = MS_BLOCK_FREE / block->obj_size;
+		int count = MS_BLOCK_OBJ_COUNT (block);
 		void **iter;
 		size += count * block->obj_size;
 		for (iter = block->free_list; iter; iter = (void**)*iter)

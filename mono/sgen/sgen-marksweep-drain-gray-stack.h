@@ -87,7 +87,7 @@ COPY_OR_MARK_FUNCTION_NAME (GCObject **ptr, GCObject *obj, SgenGrayQueue *queue)
 			if (!sgen_ptr_in_nursery (obj)) {
 				int size_index;
 				block = MS_BLOCK_FOR_OBJ (obj);
-				size_index = block->obj_size_index;
+				size_index = ms_find_block_obj_size_index (block->obj_size);
 				evacuate_block_obj_sizes [size_index] = FALSE;
 				MS_MARK_OBJECT_AND_ENQUEUE (obj, sgen_obj_get_descriptor (obj), block, queue);
 				return FALSE;

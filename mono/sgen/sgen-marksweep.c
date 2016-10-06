@@ -94,11 +94,6 @@ enum {
 typedef struct _MSBlockInfo MSBlockInfo;
 struct _MSBlockInfo {
 	guint16 obj_size;
-	/*
-	 * FIXME: Do we even need this? It's only used during sweep and might be worth
-	 * recalculating to save the space.
-	 */
-	guint16 obj_size_index;
 	/* FIXME: Reduce this - it only needs a byte. */
 	volatile gint32 state;
 	gint16 nused;
@@ -522,7 +517,6 @@ ms_alloc_block (int size_index, gboolean pinned, gboolean has_references)
 	SGEN_ASSERT (9, count >= 2, "block with %d objects, it must hold at least 2", count);
 
 	info->obj_size = size;
-	info->obj_size_index = size_index;
 	info->pinned = pinned;
 	info->has_references = has_references;
 	info->has_pinned = pinned;
@@ -1072,7 +1066,7 @@ mark_mod_union_card (GCObject *obj, void **ptr, GCObject *value_obj)
 static inline gboolean
 major_block_is_evacuating (MSBlockInfo *block)
 {
-	if (evacuate_block_obj_sizes [block->obj_size_index] &&
+	if (evacuate_block_obj_sizes [ms_find_block_obj_size_index (block->obj_size)] &&
 			!block->has_pinned &&
 			!block->is_to_space)
 		return TRUE;
@@ -1516,7 +1510,7 @@ ensure_block_is_checked_for_sweeping (guint32 block_index, gboolean wait, gboole
 		have_free = TRUE;
 
 	if (have_live) {
-		int obj_size_index = block->obj_size_index;
+		int obj_size_index = ms_find_block_obj_size_index (block->obj_size);
 		gboolean has_pinned = block->has_pinned;
 
 		set_block_state (block, BLOCK_STATE_NEED_SWEEPING, BLOCK_STATE_CHECKING);
@@ -1917,7 +1911,7 @@ major_start_major_collection (void)
 		 * effective on these blocks since we expect them to have high usage anyway,
 		 * given that the survival rate for majors is relatively high.
 		 */
-		if (evacuate_block_obj_sizes [block->obj_size_index] && !block->free_list)
+		if (evacuate_block_obj_sizes [ms_find_block_obj_size_index (block->obj_size)] && !block->free_list)
 			block->is_to_space = TRUE;
 	} END_FOREACH_BLOCK_NO_LOCK;
 	if (lazy_sweep && !concurrent_sweep)

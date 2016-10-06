@@ -1926,9 +1926,42 @@ major_start_major_collection (void)
 	set_sweep_state (SWEEP_STATE_NEED_SWEEPING, SWEEP_STATE_SWEPT);
 }
 
+/*
+ * Computes and logs statistics about how many objects reside in each block.
+ */
+static void
+compute_occupation_stats ()
+{
+	const MSBlockInfo *block;
+	double min = +INFINITY;
+	double max = -INFINITY;
+	double sum = 0.0;
+	double sum_squares = 0.0;
+	uint64_t n = 0;
+	FOREACH_BLOCK_NO_LOCK (block) {
+		const double x = (double)block->nused / MS_BLOCK_OBJ_COUNT (block);
+		sum += x;
+		sum_squares += x * x;
+		++n;
+		if (x < min)
+			min = x;
+		if (x > max)
+			max = x;
+	} END_FOREACH_BLOCK_NO_LOCK;
+	const double mean = n == 0 ? 0.0 : sum / n;
+	const double variance = n == 0 ? 0.0 : sum_squares / n - mean * mean;
+	const double std = sqrt (variance);
+	// TODO: #ifdef this
+	fprintf (
+		stderr,
+		"BLOCK OCCUPATION STATS: min=%.0f%% max=%.0f%% mean=%.0f%% std=%.0f%%\n",
+		min * 100, max * 100, mean * 100, std * 100);
+}
+
 static void
 major_finish_major_collection (ScannedObjectCounts *counts)
 {
+	compute_occupation_stats ();
 #ifdef SGEN_HEAVY_BINARY_PROTOCOL
 	if (binary_protocol_is_enabled ()) {
 		counts->num_scanned_objects = scanned_objects_list.next_slot;

@@ -145,11 +145,11 @@ typedef struct {
  * This way we can lookup block object size indexes for sizes up to
  * 256 bytes with a single load.
  */
-#define MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES	32
+/* #define MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES	32 */
 
 static int *block_obj_sizes;
 static int num_block_obj_sizes;
-static int fast_block_obj_size_indexes [MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES];
+/* static int fast_block_obj_size_indexes [MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES]; */
 
 #define MS_BLOCK_FLAG_PINNED	1
 #define MS_BLOCK_FLAG_REFS	2
@@ -283,8 +283,8 @@ ms_find_block_obj_size_index (size_t size)
 #define FREE_BLOCKS(p,r)		(FREE_BLOCKS_FROM (free_block_lists, (p), (r)))
 
 #define MS_BLOCK_OBJ_SIZE_INDEX(s)				\
-	(((s)+7)>>3 < MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES ?	\
-	 fast_block_obj_size_indexes [((s)+7)>>3] :		\
+	(/* ((s)+7)>>3 < MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES ?	\
+		fast_block_obj_size_indexes [((s)+7)>>3] : */ \
 	 ms_find_block_obj_size_index ((s)))
 
 static void*
@@ -1920,22 +1920,23 @@ major_start_major_collection (void)
 	set_sweep_state (SWEEP_STATE_NEED_SWEEPING, SWEEP_STATE_SWEPT);
 }
 
+typedef struct _MSOccupationStats {
+	guint64 count;
+	double min, max, sum, square_sum, mean;
+} MSOccupationStats;
+
 /* Block occupation statistics for a given size class. */
 typedef struct _MSBlockOccupationStats {
 
-	/* Number of blocks in this size class. */
-	guint64 blocks;
-
-	/* Statistics on the ratio of occupied slots to total slots for this size
-	 * class; used for computing block-external fragmentation.
+	/* Stats on ratio of occupied slots to total slots for this size class, for
+	 * computing block-external fragmentation.
 	 */
-	double slot_ratio_min, slot_ratio_max, slot_ratio_sum, slot_ratio_square_sum;
+	MSOccupationStats slots;
 
-	/* Computed from the above stats and cached. */
-	double slot_ratio_mean;
-
-	/* Stats for block-internal fragmentation. */
-	/* double byte_min, byte_max, byte_sum, byte_square_sum, byte_n; */
+	/* Stats on ratio of occupied bytes to total bytes for this size class, for
+	 * computing block-internal fragmentation.
+	 */
+	MSOccupationStats bytes;
 
 	/* Whether this size class has low occupation, making it a candidate for
 	 * merging with the next higher size class.
@@ -1947,9 +1948,9 @@ typedef struct _MSBlockOccupationStats {
 	/* Whether this size class has high internal fragmentation, making it a
 	 * candidate for splitting into multiple size classes.
 	 */
-	/* gboolean high_fragmentation; */
+	gboolean high_fragmentation;
 
-/* #define MS_BLOCK_HIGH_FRAGMENTATION_THRESHOLD (0.20) */
+#define MS_BLOCK_HIGH_FRAGMENTATION_THRESHOLD (0.80)
 
 } MSBlockOccupationStats;
 
@@ -1959,52 +1960,48 @@ typedef struct _MSBlockOccupationStats {
 static void
 compute_occupation_stats ()
 {
+	const int max_block_obj_sizes = num_block_obj_sizes;
 	const MSBlockInfo *block;
 	MSBlockOccupationStats *const stats
-		= g_malloc0 (sizeof (MSBlockOccupationStats) * num_block_obj_sizes);
+		= g_malloc0 (sizeof (MSBlockOccupationStats) * max_block_obj_sizes);
 	if (!stats)
 		return;
-	for (int i = 0; i < num_block_obj_sizes; ++i) {
-		stats [i].slot_ratio_min = +INFINITY;
-		stats [i].slot_ratio_max = -INFINITY;
+	for (int i = 0; i < max_block_obj_sizes; ++i) {
+		stats [i].slots.min = stats [i].bytes.min = +INFINITY;
+		stats [i].slots.max = stats [i].bytes.max = -INFINITY;
 	}
 
 	/* Calculate external fragmentation stats per size class. */
 	FOREACH_BLOCK_NO_LOCK (block) {
+
+		/* FIXME: Is this necessary? */
+		if (block->pinned || block->state != BLOCK_STATE_SWEPT)
+			continue;
+
 		const int size_index = ms_find_block_obj_size_index (block->obj_size);
 		MSBlockOccupationStats *const stat = &stats [size_index];
 		const int slot_count = MS_BLOCK_OBJ_COUNT (block);
 		const double x = (double)block->nused / slot_count;
-		stat->slot_ratio_sum += x;
-		stat->slot_ratio_square_sum += x * x;
-		stat->blocks++;
-		if (x < stat->slot_ratio_min) stat->slot_ratio_min = x;
-		if (x > stat->slot_ratio_max) stat->slot_ratio_max = x;
-#if 0
-		double byte_min = +INFINITY;
-		double byte_max = -INFINITY;
-		double byte_sum = 0.0;
-		double byte_sum_squares = 0.0;
-		guint64 byte_n = 0;
-		for (int i = 0; i < object_count; ++i) {
-			void **obj = (void **)MS_BLOCK_OBJ (block, i);
+		stat->slots.sum += x;
+		stat->slots.square_sum += x * x;
+		++stat->slots.count;
+		if (x < stat->slots.min) stat->slots.min = x;
+		if (x > stat->slots.max) stat->slots.max = x;
+
+		for (int i = 0; i < slot_count; ++i) {
+			GCObject *obj = MS_BLOCK_OBJ (block, i);
 			if (MS_OBJ_ALLOCED (obj, block)) {
-				const double size = sgen_safe_object_get_size ((GCObject *)obj);
+				const double size = sgen_safe_object_get_size (obj);
 				const double x = size / block->obj_size;
-				byte_sum += x;
-				byte_sum_squares += x * x;
-				++byte_n;
-				if (x < byte_min)
-					byte_min = x;
-				if (x > byte_max)
-					byte_max = x;
+				stat->bytes.sum += x;
+				stat->bytes.square_sum += x * x;
+				++stat->bytes.count;
+				if (x < stat->bytes.min) stat->bytes.min = x;
+				if (x > stat->bytes.max) stat->bytes.max = x;
 			}
 		}
-		const double byte_mean = byte_n == 0 ? 0.0
-			: byte_sum / byte_n;
-		const double byte_variance = byte_n == 0 ? 0.0
-			: byte_sum_squares / byte_n - byte_mean * byte_mean;
-		const double byte_std = sqrt (byte_variance);
+
+#if 0
 		SGEN_LOG (
 			0,
 			"Internal block occupation: "
@@ -2014,53 +2011,112 @@ compute_occupation_stats ()
 	} END_FOREACH_BLOCK_NO_LOCK;
 
 	/* Find size classes with low occupation. */
-	for (int i = 0; i < num_block_obj_sizes; ++i) {
+	for (int i = 0; i < max_block_obj_sizes; ++i) {
 		MSBlockOccupationStats *const stat = &stats [i];
-		if (stat->blocks == 0)
-			continue;
-		const double mean = stat->slot_ratio_sum / stat->blocks;
-		const double variance = stat->slot_ratio_square_sum / stat->blocks
-			- mean * mean;
-		const double std = sqrt (variance);
-		fprintf (
-			stderr,
-			"Slot occupation stats for size class %d (%d): "
-			"min=%.0f%% max=%.0f%% mean=%.0f%% std=%.0f%%\n",
-			i, block_obj_sizes [i],
-			stat->slot_ratio_min * 100, stat->slot_ratio_max * 100,
-			mean * 100, std * 100);
-		if (mean < MS_BLOCK_LOW_OCCUPATION_THRESHOLD)
+
+		if (stat->slots.count != 0) {
+
+			const double slot_mean = stat->slots.sum / stat->slots.count;
+			stat->slots.mean = slot_mean;
+			const double slot_variance
+				= stat->slots.square_sum / stat->slots.count
+				- slot_mean * slot_mean;
+			const double slot_std = sqrt (slot_variance);
+
+			if (slot_mean < MS_BLOCK_LOW_OCCUPATION_THRESHOLD)
+				stat->low_occupation = TRUE;
+
+			fprintf (
+				stderr,
+				"Slot occupation stats for size class %d (%d): "
+				"min=%.0f%% max=%.0f%% mean=%.0f%% std=%.0f%% (%s)\n",
+				i, block_obj_sizes [i],
+				stat->slots.min * 100, stat->slots.max * 100,
+				slot_mean * 100, slot_std * 100,
+				stat->low_occupation ? "low occ" : "normal");
+
+		} else {
 			stat->low_occupation = TRUE;
-		stat->slot_ratio_mean = mean;
+		}
+
+		if (stat->bytes.count != 0) {
+
+			const double byte_mean = stat->bytes.sum / stat->bytes.count;
+			stat->bytes.mean = byte_mean;
+			const double byte_variance
+				= stat->bytes.square_sum / stat->bytes.count
+				- byte_mean * byte_mean;
+			const double byte_std = sqrt (byte_variance);
+
+			if (byte_mean < MS_BLOCK_HIGH_FRAGMENTATION_THRESHOLD)
+				stat->high_fragmentation = TRUE;
+
+			fprintf (
+				stderr,
+				"Byte occupation stats for size class %d (%d): "
+				"min=%.0f%% max=%.0f%% mean=%.0f%% std=%.0f%% (%s)\n",
+				i, block_obj_sizes [i],
+				stat->bytes.min * 100, stat->bytes.max * 100,
+				byte_mean * 100, byte_std * 100,
+				stat->high_fragmentation ? "high frag" : "normal");
+
+		}
+
 	}
 
-	/* Merge adjacent size classes with low occupation.
-	 * TODO: Split size classes with high fragmentation.
+	/* Merge adjacent size classes with low occupation, and split classes with
+	 * high fragmentation.
 	 */
 	for (int i = 0; i < num_block_obj_sizes - 1; ++i) {
-		if (stats [i].low_occupation && stats[i + 1].low_occupation) {
+		if (stats [i].low_occupation && stats [i + 1].low_occupation
+			&& block_obj_sizes [i] <= block_obj_sizes [i + 1]) {
 			fprintf (stderr, "Merging size classes %d and %d\n", i, i + 1);
 			memmove (
 				&block_obj_sizes [i],
 				&block_obj_sizes [i + 1],
 				num_block_obj_sizes - i - 1);
-			/* FIXME: Not sure if this calculation is correct. */
-			stats [i].slot_ratio_mean += stats [i + 1].slot_ratio_mean;
-			stats [i].low_occupation
-				= stats [i].slot_ratio_mean < MS_BLOCK_LOW_OCCUPATION_THRESHOLD;
 			memmove (
 				&stats [i],
 				&stats [i + 1],
 				num_block_obj_sizes - i - 1);
-#if 0
-			/* If size class still has low occupation, keep merging. */
-			if (stats [i].low_occupation) {
-				fprintf (
-					stderr,
-					"Merged size class %d still has low (%.f%%) occupation\n",
-					i, stats [i].slot_ratio_mean * 100);
-				--i;
+			memmove (
+				&evacuate_block_obj_sizes [i],
+				&evacuate_block_obj_sizes [i + 1],
+				num_block_obj_sizes - i - 1);
+			memmove (
+				&sweep_num_blocks [i],
+				&sweep_num_blocks [i + 1],
+				num_block_obj_sizes - i - 1);
+			memmove (
+				&sweep_slots_used [i],
+				&sweep_slots_used [i + 1],
+				num_block_obj_sizes - i - 1);
+			memmove (
+				&sweep_slots_available [i],
+				&sweep_slots_available [i + 1],
+				num_block_obj_sizes - i - 1);
+			for (int j = 0; j < MS_BLOCK_TYPE_MAX; ++j) {
+				memmove (
+					(void *)&free_block_lists [j] [i],
+					(const void *)&free_block_lists [j] [i + 1],
+					num_block_obj_sizes - i - 1);
 			}
+			/* --num_block_obj_sizes; */
+		} else if (stats [i].high_fragmentation) {
+			fprintf (stderr, "Would split size class %d\n", i);
+			/* FIXME: realloc block_obj_sizes to avoid loss of large classes */
+#if 0
+			memmove (
+				&block_obj_sizes [i + 1],
+				&block_obj_sizes [i],
+				num_block_obj_sizes - i - 1);
+			block_obj_sizes [i]
+				= block_obj_sizes [i + 1] * sqrt (MS_BLOCK_OBJ_SIZE_FACTOR);
+			memmove (
+				&stats [i + 1],
+				&stats [i],
+				num_block_obj_sizes - i - 1);
+			/* ++num_block_obj_sizes; */
 #endif
 		}
 	}
@@ -2733,10 +2789,10 @@ sgen_marksweep_init_internal (SgenMajorCollector *collector, gboolean is_concurr
 	for (i = 0; i < MS_BLOCK_TYPE_MAX; ++i)
 		free_block_lists [i] = (MSBlockInfo *volatile *)sgen_alloc_internal_dynamic (sizeof (MSBlockInfo*) * num_block_obj_sizes, INTERNAL_MEM_MS_TABLES, TRUE);
 
-	for (i = 0; i < MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES; ++i)
-		fast_block_obj_size_indexes [i] = ms_find_block_obj_size_index (i * 8);
-	for (i = 0; i < MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES * 8; ++i)
-		g_assert (MS_BLOCK_OBJ_SIZE_INDEX (i) == ms_find_block_obj_size_index (i));
+	/* for (i = 0; i < MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES; ++i) */
+	/* 	fast_block_obj_size_indexes [i] = ms_find_block_obj_size_index (i * 8); */
+	/* for (i = 0; i < MS_NUM_FAST_BLOCK_OBJ_SIZE_INDEXES * 8; ++i) */
+	/* 	g_assert (MS_BLOCK_OBJ_SIZE_INDEX (i) == ms_find_block_obj_size_index (i)); */
 
 	mono_counters_register ("# major blocks allocated", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_major_blocks_alloced);
 	mono_counters_register ("# major blocks freed", MONO_COUNTER_GC | MONO_COUNTER_ULONG, &stat_major_blocks_freed);

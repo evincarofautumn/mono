@@ -22,10 +22,46 @@
 #include "utils/mono-logger-internals.h"
 
 typedef struct {
-	int size;
-	int capacity;
+	size_t capacity;
 	char *data;
+} BoxedDynArray;
+
+typedef struct {
+	char data [16];
+} UnboxedDynArray;
+
+/* If size <= 1, then the array is unboxed. */
+typedef struct {
+	size_t size;
+	union {
+		BoxedDynArray boxed;
+		UnboxedDynArray unboxed;
+	};
 } DynArray;
+
+static inline gboolean
+dyn_array_is_unboxed (const DynArray *da)
+{
+	return da->size <= 1;
+}
+
+static inline size_t
+dyn_array_size (const DynArray *da)
+{
+	return da->size;
+}
+
+static inline size_t
+dyn_array_capacity (const DynArray *da)
+{
+	return dyn_array_is_unboxed (da) ? 1 : da->boxed.capacity;
+}
+
+static inline char *
+dyn_array_data (DynArray *da)
+{
+	return dyn_array_is_unboxed (da) ? da->unboxed.data : da->boxed.data;
+}
 
 /*Specializations*/
 
@@ -43,11 +79,6 @@ typedef struct {
 
 /*
  * Bridge data for a single managed object
- *
- * FIXME: Optimizations:
- *
- * Don't allocate a srcs array for just one source.  Most objects have
- * just one source, so use the srcs pointer itself.
  */
 typedef struct _HashEntry {
 	GCObject *obj;	/* This is a duplicate - it's already stored in the hash table */
@@ -98,49 +129,43 @@ static SgenBridgeProcessor *bridge_processor;
 static void
 dyn_array_init (DynArray *da)
 {
-	da->size = 0;
-	da->capacity = 0;
-	da->data = NULL;
+	memset (da, 0, sizeof (DynArray));
 }
 
 static void
-dyn_array_uninit (DynArray *da, int elem_size)
+dyn_array_uninit (DynArray *da, size_t elem_size)
 {
-	if (da->capacity <= 0)
+	if (dyn_array_is_unboxed (da) || da->boxed.capacity == 0)
 		return;
 
-	sgen_free_internal_dynamic (da->data, elem_size * da->capacity, INTERNAL_MEM_BRIDGE_DATA);
-	da->data = NULL;
+	sgen_free_internal_dynamic (da->boxed.data, elem_size * da->boxed.capacity, INTERNAL_MEM_BRIDGE_DATA);
+	da->boxed.data = NULL;
 }
 
 static void
-dyn_array_ensure_capacity (DynArray *da, int capacity, int elem_size)
+dyn_array_ensure_capacity (DynArray *da, size_t capacity, size_t elem_size)
 {
-	int old_capacity = da->capacity;
+	const size_t old_capacity = dyn_array_capacity (da);
+	size_t new_capacity = old_capacity == 0 ? 2 : old_capacity;
 	char *new_data;
-
+	g_assert (elem_size <= sizeof (da->unboxed.data));
 	if (capacity <= old_capacity)
 		return;
-
-	if (da->capacity == 0)
-		da->capacity = 2;
-	while (capacity > da->capacity)
-		da->capacity *= 2;
-
-	new_data = (char *)sgen_alloc_internal_dynamic (elem_size * da->capacity, INTERNAL_MEM_BRIDGE_DATA, TRUE);
-	memcpy (new_data, da->data, elem_size * da->size);
-	sgen_free_internal_dynamic (da->data, elem_size * old_capacity, INTERNAL_MEM_BRIDGE_DATA);
-	da->data = new_data;
+	while (new_capacity < capacity)
+		new_capacity *= 2;
+	new_data = (char *)sgen_alloc_internal_dynamic (elem_size * new_capacity, INTERNAL_MEM_BRIDGE_DATA, TRUE);
+	memcpy (new_data, dyn_array_data (da), elem_size * da->size);
+	sgen_free_internal_dynamic (da->boxed.data, elem_size * old_capacity, INTERNAL_MEM_BRIDGE_DATA);
+	da->boxed.data = new_data;
+	da->boxed.capacity = new_capacity;
 }
 
 static void*
-dyn_array_add (DynArray *da, int elem_size)
+dyn_array_add (DynArray *da, size_t elem_size)
 {
 	void *p;
-
 	dyn_array_ensure_capacity (da, da->size + 1, elem_size);
-
-	p = da->data + da->size * elem_size;
+	p = dyn_array_data (da) + da->size * elem_size;
 	++da->size;
 	return p;
 }
@@ -161,36 +186,37 @@ dyn_array_int_uninit (DynIntArray *da)
 static int
 dyn_array_int_size (DynIntArray *da)
 {
-	return da->array.size;
+	return dyn_array_size (&da->array);
 }
 
 static void
-dyn_array_int_set_size (DynIntArray *da, int size)
+dyn_array_int_set_size (DynIntArray *da, size_t size)
 {
+	if (dyn_array_is_unboxed (&da->array))
+		g_assert (size <= 1);
 	da->array.size = size;
 }
 
 static void
 dyn_array_int_add (DynIntArray *da, int x)
 {
-	int *p = (int *)dyn_array_add (&da->array, sizeof (int));
-	*p = x;
+	*((int *)dyn_array_add (&da->array, sizeof (int))) = x;
 }
 
 static int
-dyn_array_int_get (DynIntArray *da, int x)
+dyn_array_int_get (DynIntArray *da, size_t index)
 {
-	return ((int*)da->array.data)[x];
+	return ((int *)dyn_array_data (&da->array)) [index];
 }
 
 static void
-dyn_array_int_set (DynIntArray *da, int idx, int val)
+dyn_array_int_set (DynIntArray *da, size_t index, int val)
 {
-	((int*)da->array.data)[idx] = val;
+	((int *)dyn_array_data (&da->array)) [index] = val;
 }
 
 static void
-dyn_array_int_ensure_capacity (DynIntArray *da, int capacity)
+dyn_array_int_ensure_capacity (DynIntArray *da, size_t capacity)
 {
 	dyn_array_ensure_capacity (&da->array, capacity, sizeof (int));
 }
@@ -199,7 +225,10 @@ static void
 dyn_array_int_set_all (DynIntArray *dst, DynIntArray *src)
 {
 	dyn_array_int_ensure_capacity (dst, src->array.size);
-	memcpy (dst->array.data, src->array.data, src->array.size * sizeof (int));
+	const size_t src_bytes = dyn_array_size (&src->array) * sizeof (int);
+	const char *const src_data = dyn_array_data (&src->array);
+	char *const dst_data = dyn_array_data (&dst->array);
+	memcpy (dst_data, src_data, src_bytes);
 	dst->array.size = src->array.size;
 }
 
@@ -224,15 +253,17 @@ dyn_array_ptr_size (DynPtrArray *da)
 }
 
 static void
-dyn_array_ptr_set_size (DynPtrArray *da, int size)
+dyn_array_ptr_set_size (DynPtrArray *da, size_t size)
 {
+	if (dyn_array_is_unboxed (&da->array))
+		g_assert (size <= 1);
 	da->array.size = size;
 }
 
 static void*
-dyn_array_ptr_get (DynPtrArray *da, int x)
+dyn_array_ptr_get (DynPtrArray *da, size_t index)
 {
-	return ((void**)da->array.data)[x];
+	return ((void **)dyn_array_data (&da->array)) [index];
 }
 
 static void
@@ -248,7 +279,7 @@ static void*
 dyn_array_ptr_pop (DynPtrArray *da)
 {
 	void *p;
-	int size = da->array.size;
+	const size_t size = dyn_array_size (&da->array);
 	g_assert (size > 0);
 	p = dyn_array_ptr_get (da, size - 1);
 	--da->array.size;
@@ -284,7 +315,7 @@ dyn_array_scc_add (DynSCCArray *da)
 static SCC*
 dyn_array_scc_get_ptr (DynSCCArray *da, int x)
 {
-	return &((SCC*)da->array.data)[x];
+	return &((SCC *)dyn_array_data (&da->array)) [x];
 }
 
 /* Merge code*/

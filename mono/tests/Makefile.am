@@ -577,7 +577,8 @@ TEST_IL_SRC=			\
 	bug-318677.il	\
 	gsharing-valuetype-layout.il	\
 	invalid_generic_instantiation.il \
-	bug-45841-fpstack-exceptions.il
+	bug-45841-fpstack-exceptions.il	\
+	interface-default-1.il
 
 if AMD64
 # #651684

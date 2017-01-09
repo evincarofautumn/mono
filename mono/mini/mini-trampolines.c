@@ -9,6 +9,7 @@
 
 #include <mono/metadata/appdomain.h>
 #include <mono/metadata/metadata-internals.h>
+#include <mono/metadata/reflection-internals.h>
 #include <mono/metadata/marshal.h>
 #include <mono/metadata/tabledefs.h>
 #include <mono/utils/mono-counters.h>
@@ -164,6 +165,26 @@ mini_resolve_imt_method (MonoVTable *vt, gpointer *vtable_slot, MonoMethod *imt_
 	int displacement = vtable_slot - ((gpointer*)vt);
 	int interface_offset;
 	int imt_slot = MONO_IMT_SIZE + displacement;
+
+	g_printerr ("mini_resolve_imt_method: %s:%s\n", imt_method->klass->name, imt_method->name);
+	MonoCustomAttrInfo *const attr_info = mono_custom_attrs_from_class_checked (imt_method->klass, error);
+	MonoClass *default_impl_attr_class = mono_class_from_name_checked (imt_method->klass->image, "System.Runtime.CompilerServices", "DefaultImplementationAttribute", error);
+	MonoObject *default_impl_attr = mono_custom_attrs_get_attr_checked (attr_info, default_impl_attr_class, error);
+	MonoArray *class_names = *(MonoArray **)((char *)default_impl_attr + sizeof (MonoObject));
+	MonoObject *default_class_name_string = mono_array_get (class_names, MonoObject *, 0);
+	char *default_class_name = mono_string_to_utf8_checked ((MonoString *)default_class_name_string, error);
+	MonoClass *default_impl_class = mono_class_from_name_checked (imt_method->klass->image, imt_method->klass->name_space, default_class_name, error);
+	g_printerr ("\t%s\n", default_impl_class->name);
+
+#if 0
+	for (int i = 0; i < attr_info->num_attrs; ++i) {
+		MonoCustomAttrEntry const *const entry = &attr_info->attrs [i];
+		g_printerr ("\tiface attr %d: %s (%u)\n", i, entry->ctor->klass->name, entry->data_size);
+		for (guint32 j = 0; j < entry->data_size; ++j)
+			g_printerr ("\t\t%04X: %02X\t%c\n", j, entry->data [j], isprint (entry->data [j]) ? entry->data [j] : '.');
+	}
+	mono_custom_attrs_free (attr_info);
+#endif
 
 	g_assert (imt_slot < MONO_IMT_SIZE);
 

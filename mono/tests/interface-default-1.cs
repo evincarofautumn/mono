@@ -20,6 +20,14 @@ namespace DefaultInterfacesBasic
     {
         string DefaultMethod();
     }
+    // MOVE THIS TYPE TO BE NESTED IN IInterfaceWithDefault
+    static class DefaultImplementation
+    {
+        static string DefaultMethod(IInterfaceWithDefault actualThis)
+        {
+            return "DefaultImplementation";
+        }
+    }
     class ClassThatExplicitlyImplementsInterface : IInterfaceWithDefault
     {
         public string DefaultMethod()
@@ -33,17 +41,6 @@ namespace DefaultInterfacesBasic
         public string DefaultMethod()
         {
             return "NotDefaultImplementation";
-        }
-    }
-    class OuterType
-    {
-        // MOVE THIS TYPE TO BE NESTED IN IInterfaceWithDefault
-        static class DefaultImplementation
-        {
-            static string DefaultMethod(IInterfaceWithDefault actualThis)
-            {
-                return "DefaultImplementation";
-            }
         }
     }
     class Program

@@ -170,11 +170,21 @@ mini_resolve_imt_method (MonoVTable *vt, gpointer *vtable_slot, MonoMethod *imt_
 	MonoCustomAttrInfo *const attr_info = mono_custom_attrs_from_class_checked (imt_method->klass, error);
 	MonoClass *default_impl_attr_class = mono_class_from_name_checked (imt_method->klass->image, "System.Runtime.CompilerServices", "DefaultImplementationAttribute", error);
 	MonoObject *default_impl_attr = mono_custom_attrs_get_attr_checked (attr_info, default_impl_attr_class, error);
-	MonoArray *class_names = *(MonoArray **)((char *)default_impl_attr + sizeof (MonoObject));
-	MonoObject *default_class_name_string = mono_array_get (class_names, MonoObject *, 0);
-	char *default_class_name = mono_string_to_utf8_checked ((MonoString *)default_class_name_string, error);
-	MonoClass *default_impl_class = mono_class_from_name_checked (imt_method->klass->image, imt_method->klass->name_space, default_class_name, error);
-	g_printerr ("\t%s\n", default_impl_class->name);
+	if (default_impl_attr) {
+		MonoArray *class_names = *(MonoArray **)((char *)default_impl_attr + sizeof (MonoObject));
+		MonoObject *default_class_name_string = mono_array_get (class_names, MonoObject *, 0);
+		char *default_class_name = mono_string_to_utf8_checked ((MonoString *)default_class_name_string, error);
+		gpointer iter = NULL;
+		MonoClass *nested = NULL;
+		g_printerr ("\tNested types:\n");
+		while ((nested = mono_class_get_nested_types (imt_method->klass, &iter))) {
+			g_printerr ("\t\t%s\n", nested->name);
+		}
+/*
+		MonoClass *default_impl_class = mono_class_from_name_checked (imt_method->klass->image, imt_method->klass->name_space, default_class_name, error);
+		g_printerr ("\t%s\n", default_impl_class->name);
+*/
+	}
 
 #if 0
 	for (int i = 0; i < attr_info->num_attrs; ++i) {

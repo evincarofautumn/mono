@@ -717,8 +717,10 @@ namespace Mono.CSharp {
 									candidate.ReturnType.GetSignatureForError (), mi.ReturnType.GetSignatureForError ());
 							}
 						} else {
-							Report.Error (535, container.Location, "`{0}' does not implement interface member `{1}'",
+                            // Console.WriteLine ("Container: {0}, interface member: {1}", container.MemberName.Name, mi.MemberDefinition.Metadata);
+							Report.Warning (535, 1, container.Location, "`{0}' does not implement interface member `{1}'; using default",
 								container.GetSignatureForError (), mi.GetSignatureForError ());
+							DefineProxy (type, need_proxy, mi);
 						}
 					} else {
 						Report.SymbolRelatedToPreviousError (mi);

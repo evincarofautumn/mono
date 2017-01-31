@@ -1341,8 +1341,8 @@ method_declaration
 			}
 		} else {
 			if (current_container.Kind == MemberKind.Interface) {
-				report.Error (531, method.Location, "`{0}': interface members cannot have a definition",
-					method.GetSignatureForError ());
+				report.Warning (531, 1, method.Location,
+					"`{0}': interface default methods are experimental", method.GetSignatureForError ());
 			}
 		}
 

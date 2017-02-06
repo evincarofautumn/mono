@@ -718,11 +718,11 @@ namespace Mono.CSharp {
 									candidate.ReturnType.GetSignatureForError (), mi.ReturnType.GetSignatureForError ());
 							}
 						} else {
-                            var info = RecursivelyDump (mi);
-                            Console.WriteLine ("Container: {0}, interface member: {1}", container.MemberName.Name, info.ToString ());
+                            /* var info = RecursivelyDump (mi);
+                            Console.WriteLine ("Container: {0}, interface member: {1}", container.MemberName.Name, info.ToString ()); */
 							Report.Warning (535, 1, container.Location, "`{0}' does not implement interface member `{1}'; using default",
 								container.GetSignatureForError (), mi.GetSignatureForError ());
-							DefineProxy (type, mi, mi);
+							/* DefineProxy (type, mi, mi); */
 						}
 					} else {
 						Report.SymbolRelatedToPreviousError (mi);
@@ -735,6 +735,7 @@ namespace Mono.CSharp {
 			return errors;
 		}
 
+		/*
         private static String RecursivelyDump (object o, int depth = 0)
         {
             if (o == null)
@@ -747,7 +748,7 @@ namespace Mono.CSharp {
             var result = new StringBuilder ();
             foreach (var info in propertyInfos) {
                 try {
-                    var value = info.GetValue (o);
+                    var value = info.GetValue (o, null);
                     String formatted;
                     if (value is Method) {
                         formatted = RecursivelyDump (value, depth + 1);
@@ -759,5 +760,6 @@ namespace Mono.CSharp {
             }
             return result.ToString ();
         }
+        */
 	}
 }

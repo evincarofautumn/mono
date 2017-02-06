@@ -22,7 +22,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <UseVSHostingProcess>false</UseVSHostingProcess>
-    <Commandlineparameters></Commandlineparameters>
+    <Commandlineparameters>/Users/jonathanpurdy/Projects/mono/interface-defaults.cs</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>

@@ -213,6 +213,7 @@ namespace Mono.CSharp {
 				return ret;
 			
 			var base_impls = container.BaseType.Interfaces;
+			Console.WriteLine ("{0} implements {1}", container.CurrentType.Name, String.Join (" ", impl));
 			if (base_impls != null) {
 				foreach (TypeSpec t in base_impls) {
 					for (int i = 0; i < ret.Length; i++) {

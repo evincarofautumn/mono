@@ -4201,6 +4201,7 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 			dslot = mono_method_get_vtable_slot (decl);
 			if (dslot == -1) {
 				mono_class_set_type_load_failure (klass, "");
+				g_printerr ("boop: dslot not found\n");
 				goto fail;
 			}
 
@@ -4232,8 +4233,10 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 		while ((cm = mono_class_get_virtual_methods (klass, &iter))) {
 			virt_methods = g_slist_prepend (virt_methods, cm);
 		}
-		if (mono_class_has_failure (klass))
+		if (mono_class_has_failure (klass)) {
+			g_printerr ("boop: virt methods\n");
 			goto fail;
+		}
 	}
 	
 	// Loop on all implemented interfaces...
@@ -4247,8 +4250,10 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 		ic_offset = mono_class_interface_offset (klass, ic);
 
 		mono_class_setup_methods (ic);
-		if (mono_class_has_failure (ic))
+		if (mono_class_has_failure (ic)) {
+			g_printerr ("boop: iface lookup\n");
 			goto fail;
+		}
 		
 		// Check if this interface is explicitly implemented (instead of just inherited)
 		if (parent != NULL) {
@@ -4295,8 +4300,10 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 						}
 					}
 					TRACE_INTERFACE_VTABLE (printf ("\n"));
-					if (mono_class_has_failure (klass))  /*Might be set by check_interface_method_override*/
+					if (mono_class_has_failure (klass)) {  /*Might be set by check_interface_method_override*/
+						g_printerr ("boop: virt methods\n");
 						goto fail;
+					}
 				}
 				
 				// If the slot is still empty, look in all the inherited virtual methods...
@@ -4316,8 +4323,10 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 							}
 							break;
 						}
-						if (mono_class_has_failure (klass)) /*Might be set by check_interface_method_override*/
+						if (mono_class_has_failure (klass)) { /*Might be set by check_interface_method_override*/
+							g_printerr ("boop: im slot\n");
 							goto fail;
+						}
 						TRACE_INTERFACE_VTABLE ((cm != NULL) && printf ("\n"));
 					}
 				}
@@ -4351,8 +4360,11 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 				TRACE_INTERFACE_VTABLE (printf ("      [class is not abstract, checking slot %d for interface '%s'.'%s', method %s, slot check is %d]\n",
 						im_slot, ic->name_space, ic->name, im->name, (vtable [im_slot] == NULL)));
 				if (vtable [im_slot] == NULL) {
+					/* TODO: search for default */
+					vtable [im_slot] = im;
 					print_unimplemented_interface_method_info (klass, ic, im, im_slot, overrides, onum);
-					goto fail;
+					g_printerr ("boop: abstract\n");
+					/* goto fail; */
 				}
 			}
 		}
@@ -4391,8 +4403,10 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 							mono_security_core_clr_check_override (klass, cm, m1);
 
 						slot = mono_method_get_vtable_slot (m1);
-						if (slot == -1)
+						if (slot == -1) {
+							g_printerr ("boop: slot not found\n");
 							goto fail;
+						}
 
 						if (is_wcf_hack_disabled () && !mono_method_can_access_method_full (cm, m1, NULL)) {
 							char *body_name = mono_method_full_name (cm, TRUE);
@@ -4400,6 +4414,7 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 							mono_class_set_type_load_failure (klass, "Method %s overrides method '%s' which is not accessible", body_name, decl_name);
 							g_free (body_name);
 							g_free (decl_name);
+							g_printerr ("boop: access\n");
 							goto fail;
 						}
 
@@ -4413,8 +4428,10 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 						break;
 					}
 				}
-				if (mono_class_has_failure (k))
+				if (mono_class_has_failure (k)) {
+					g_printerr ("boop: virt methods\n");
 					goto fail;
+				}
 				
 				if (slot >= 0) 
 					break;
@@ -4481,7 +4498,7 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 	/* Ensure that all vtable slots are filled with concrete instance methods */
 	if (!mono_class_is_abstract (klass)) {
 		for (i = 0; i < cur_slot; ++i) {
-			if (vtable [i] == NULL || (vtable [i]->flags & (METHOD_ATTRIBUTE_ABSTRACT | METHOD_ATTRIBUTE_STATIC))) {
+			if (vtable [i] == NULL || (vtable [i]->flags & (/* METHOD_ATTRIBUTE_ABSTRACT | */ METHOD_ATTRIBUTE_STATIC))) {
 				char *type_name = mono_type_get_full_name (klass);
 				char *method_name = vtable [i] ? mono_method_full_name (vtable [i], TRUE) : g_strdup ("none");
 				mono_class_set_type_load_failure (klass, "Type %s has invalid vtable method slot %d with method %s", type_name, i, method_name);

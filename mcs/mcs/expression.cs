@@ -2028,6 +2028,7 @@ namespace Mono.CSharp
 
 			var operators = MemberCache.GetUserOperator (type, Operator.OpType.Is, true);
 			if (operators == null) {
+                Console.WriteLine ("fnord 5");
 				Error_TypeDoesNotContainDefinition (rc, type, Operator.GetName (Operator.OpType.Is) + " operator");
 				return null;
 			}
@@ -2035,6 +2036,7 @@ namespace Mono.CSharp
 			var ops = FindMatchingOverloads (operators);
 			if (ops == null) {
 				// TODO: better error message
+                Console.WriteLine ("fnord 6");
 				Error_TypeDoesNotContainDefinition (rc, type, Operator.GetName (Operator.OpType.Is) + " operator");
 				return null;
 			}
@@ -2047,6 +2049,7 @@ namespace Mono.CSharp
 			var op = FindBestOverload (rc, ops);
 			if (op == null) {
 				// TODO: better error message
+                Console.WriteLine ("fnord 7");
 				Error_TypeDoesNotContainDefinition (rc, type, Operator.GetName (Operator.OpType.Is) + " operator");
 				return null;
 			}
@@ -2219,6 +2222,7 @@ namespace Mono.CSharp
 				}
 
 				if (member == null) {
+                    Console.WriteLine ("fnord");
 					Expression.Error_TypeDoesNotContainDefinition (rc, Location, Type, lookup.Name);
 					continue;
 				}
@@ -9842,9 +9846,11 @@ namespace Mono.CSharp
 						if (dep != null) {
 							ImportedTypeDefinition.Error_MissingDependency (rc, dep, loc);
 						} else if (expr is TypeExpr) {
+                            Console.WriteLine ("fnord 2");
 							base.Error_TypeDoesNotContainDefinition (rc, expr_type, Name);
 						} else {
-							Error_TypeDoesNotContainDefinition (rc, expr_type, Name);
+                            Console.WriteLine ("fnord 3");
+							// Error_TypeDoesNotContainDefinition (rc, expr_type, Name);
 						}
 
 						return null;
@@ -11749,6 +11755,7 @@ namespace Mono.CSharp
 				}
 
 				if (member == null) {
+                    Console.WriteLine ("fnord 4");
 					Error_TypeDoesNotContainDefinition (rc, loc, t, Name);
 					return false;
 				}

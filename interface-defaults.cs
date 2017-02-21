@@ -6,8 +6,11 @@ class Test
     {
         var a = new Default ();
         var b = new Overrides ();
+        Console.WriteLine ("Calling default implementation.");
         a.Method ();
+        Console.WriteLine ("Calling overridden implementation.");
         b.Method ();
+        Console.WriteLine ("Done.");
     }
 }
 

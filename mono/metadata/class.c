@@ -2246,6 +2246,8 @@ mono_class_setup_methods (MonoClass *klass)
 	int i, count;
 	MonoMethod **methods;
 
+	g_printerr ("mono_class_setup_methods (%s:%s)\n", klass->name_space, klass->name);
+
 	if (klass->methods)
 		return;
 

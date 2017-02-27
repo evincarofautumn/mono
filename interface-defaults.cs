@@ -6,11 +6,11 @@ class Test
     {
         var a = new Default ();
         var b = new Overrides ();
-        Console.WriteLine ("Calling default implementation.");
+        Console.WriteLine ("*** Calling default implementation.");
         a.Method ();
-        Console.WriteLine ("Calling overridden implementation.");
+        Console.WriteLine ("*** Calling overridden implementation.");
         b.Method ();
-        Console.WriteLine ("Done.");
+        Console.WriteLine ("*** Done.");
     }
 }
 
@@ -18,7 +18,7 @@ interface IHasDefault
 {
     void Method ()
     {
-        Console.WriteLine ("Default implementation called.");
+        Console.WriteLine ("*** Default implementation called.");
     }
 }
 
@@ -30,6 +30,6 @@ class Overrides : IHasDefault
 {
     public void Method ()
     {
-        Console.WriteLine ("Overridden implementation called.");
+        Console.WriteLine ("*** Overridden implementation called.");
     }
 }

@@ -4363,8 +4363,11 @@ mono_class_setup_vtable_general (MonoClass *klass, MonoMethod **overrides, int o
 						im_slot, ic->name_space, ic->name, im->name, (vtable [im_slot] == NULL)));
 				if (vtable [im_slot] == NULL) {
 					/* TODO: search for default */
+					im->flags &= ~METHOD_ATTRIBUTE_VIRTUAL;
+					im->flags &= ~METHOD_ATTRIBUTE_ABSTRACT;
+					g_printerr ("im: %s:%s @ %d+%d (%s, %s)\n", im->klass->name, im->name, ic_offset, im->slot, im->flags & METHOD_ATTRIBUTE_VIRTUAL ? "virtual" : "non-virtual", im->flags & METHOD_ATTRIBUTE_ABSTRACT ? "abstract" : "non-abstract");
 					vtable [im_slot] = im;
-					print_unimplemented_interface_method_info (klass, ic, im, im_slot, overrides, onum);
+					/* print_unimplemented_interface_method_info (klass, ic, im, im_slot, overrides, onum); */
 					g_printerr ("boop: abstract\n");
 					/* goto fail; */
 				}

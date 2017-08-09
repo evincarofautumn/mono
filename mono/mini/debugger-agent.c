@@ -2605,7 +2605,7 @@ copy_unwind_state_from_frame_data (MonoThreadUnwindState *to, GetLastFrameUserDa
  *
  * This always runs in the debugger thread.
  */
-static void
+static MONO_PERMIT (waive (signal_unsafe)) void
 thread_interrupt (DebuggerTlsData *tls, MonoThreadInfo *info, MonoJitInfo *ji)
 {
 	gpointer ip;

@@ -1602,7 +1602,7 @@ ves_icall_System_Threading_Thread_GetName_internal (MonoInternalThreadHandle thi
 	return str;
 }
 
-void 
+void
 mono_thread_set_name_internal (MonoInternalThread *this_obj, MonoString *name, gboolean permanent, gboolean reset, MonoError *error)
 {
 	MonoNativeThreadId tid = 0;
@@ -1647,12 +1647,56 @@ mono_thread_set_name_internal (MonoInternalThread *this_obj, MonoString *name, g
 	}
 }
 
-void 
-ves_icall_System_Threading_Thread_SetName_internal (MonoInternalThread *this_obj, MonoString *name)
+void
+mono_thread_set_name_internal_handle (MonoInternalThreadHandle this_obj, MonoStringHandle name, gboolean permanent, gboolean reset, MonoError *error)
 {
-	MonoError error;
-	mono_thread_set_name_internal (this_obj, name, TRUE, FALSE, &error);
-	mono_error_set_pending_exception (&error);
+	MonoNativeThreadId tid = 0;
+
+	LOCK_THREAD_HANDLE (this_obj);
+
+	if (reset) {
+		MONO_INTERNAL_THREAD_HANDLE_FLAGS_REMOVE (this_obj, MONO_THREAD_FLAG_NAME_SET);
+	} else if (MONO_HANDLE_GETVAL (this_obj, flags) & MONO_THREAD_FLAG_NAME_SET) {
+		UNLOCK_THREAD_HANDLE (this_obj);
+		
+		mono_error_set_invalid_operation (error, "Thread.Name can only be set once.");
+		return;
+	}
+	if (MONO_HANDLE_GETVAL (this_obj, name)) {
+		g_free (MONO_HANDLE_GETVAL (this_obj, name));
+		MONO_HANDLE_SETVAL (this_obj, name_len, guint32, 0);
+	}
+	if (name) {
+		guint32 name_handle = 0;
+		const gunichar2 *const name_chars = mono_string_handle_pin_chars (name, &name_handle);
+		MONO_HANDLE_SETVAL (this_obj, name, gunichar2 *, g_memdup (name_chars, mono_string_handle_length (name) * sizeof (gunichar2)));
+		mono_gchandle_free (name_handle);
+		MONO_HANDLE_SETVAL (this_obj, name_len, guint32, mono_string_handle_length (name));
+
+		if (permanent)
+			MONO_INTERNAL_THREAD_HANDLE_FLAGS_ADD (this_obj, MONO_THREAD_FLAG_NAME_SET);
+	}
+	else
+		MONO_HANDLE_SETVAL (this_obj, name, gunichar2 *, NULL);
+
+	if (!(MONO_HANDLE_GETVAL (this_obj, state) & ThreadState_Stopped))
+		tid = thread_get_tid_handle (this_obj);
+
+	UNLOCK_THREAD_HANDLE (this_obj);
+
+	if (MONO_HANDLE_GETVAL (this_obj, name) && tid) {
+		char *tname = mono_string_handle_to_utf8 (name, error);
+		return_if_nok (error);
+		MONO_PROFILER_RAISE (thread_name, ((uintptr_t)tid, tname));
+		mono_native_thread_set_name (tid, tname);
+		mono_free (tname);
+	}
+}
+
+void 
+ves_icall_System_Threading_Thread_SetName_internal (MonoInternalThreadHandle this_obj, MonoStringHandle name, MonoError *error)
+{
+	mono_thread_set_name_internal_handle (this_obj, name, TRUE, FALSE, error);
 }
 
 /*

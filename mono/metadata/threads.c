@@ -3756,7 +3756,7 @@ mono_threads_perform_thread_dump (void)
 
 /* Obtain the thread dump of all threads */
 static gboolean
-mono_threads_get_thread_dump (MonoArray **out_threads, MonoArray **out_stack_frames, MonoError *error)
+mono_threads_get_thread_dump (MonoArrayHandleOut out_threads, MonoArrayHandleOut out_stack_frames, MonoError *error)
 {
 
 	ThreadDumpUserData ud;
@@ -3767,8 +3767,8 @@ mono_threads_get_thread_dump (MonoArray **out_threads, MonoArray **out_stack_fra
 
 	error_init (error);
 	
-	*out_threads = NULL;
-	*out_stack_frames = NULL;
+	MONO_HANDLE_ASSIGN (out_threads, NULL_HANDLE);
+	MONO_HANDLE_ASSIGN (out_stack_frames, NULL_HANDLE);
 
 	/* Make a copy of the threads hash to avoid doing work inside threads_lock () */
 	nthreads = collect_threads (thread_array, 128);
@@ -3777,14 +3777,14 @@ mono_threads_get_thread_dump (MonoArray **out_threads, MonoArray **out_stack_fra
 	ud.frames = g_new0 (MonoStackFrameInfo, 256);
 	ud.max_frames = 256;
 
-	*out_threads = mono_array_new_checked (domain, mono_defaults.thread_class, nthreads, error);
+	MONO_HANDLE_ASSIGN (out_threads, mono_array_new_handle (domain, mono_defaults.thread_class, nthreads, error));
 	goto_if_nok (error, leave);
-	*out_stack_frames = mono_array_new_checked (domain, mono_defaults.array_class, nthreads, error);
+	MONO_HANDLE_ASSIGN (out_stack_frames, mono_array_new_handle (domain, mono_defaults.array_class, nthreads, error));
 	goto_if_nok (error, leave);
 
 	for (tindex = 0; tindex < nthreads; ++tindex) {
 		MonoInternalThread *thread = thread_array [tindex];
-		MonoArray *thread_frames;
+		MonoArrayHandle thread_frames = MONO_HANDLE_NEW (MonoArray, NULL);
 		int i;
 
 		ud.thread = thread;
@@ -3797,47 +3797,47 @@ mono_threads_get_thread_dump (MonoArray **out_threads, MonoArray **out_stack_fra
 			mono_thread_info_safe_suspend_and_run (thread_get_tid (thread), FALSE, get_thread_dump, &ud);
 		}
 
-		mono_array_setref_fast (*out_threads, tindex, mono_thread_current_for_thread (thread));
+		MONO_HANDLE_ARRAY_SETREF (out_threads, tindex, mono_thread_current_for_thread (thread));
 
-		thread_frames = mono_array_new_checked (domain, mono_defaults.stack_frame_class, ud.nframes, error);
+		MONO_HANDLE_ASSIGN (thread_frames, mono_array_new_handle (domain, mono_defaults.stack_frame_class, ud.nframes, error));
 		goto_if_nok (error, leave);
-		mono_array_setref_fast (*out_stack_frames, tindex, thread_frames);
+		MONO_HANDLE_ARRAY_SETREF (out_stack_frames, tindex, thread_frames);
 
 		for (i = 0; i < ud.nframes; ++i) {
 			MonoStackFrameInfo *frame = &ud.frames [i];
 			MonoMethod *method = NULL;
-			MonoStackFrame *sf = (MonoStackFrame *)mono_object_new_checked (domain, mono_defaults.stack_frame_class, error);
+			MonoStackFrameHandle sf = MONO_HANDLE_NEW (MonoStackFrame, mono_object_new_checked (domain, mono_defaults.stack_frame_class, error));
 			goto_if_nok (error, leave);
 
-			sf->native_offset = frame->native_offset;
+			MONO_HANDLE_SETVAL (sf, native_offset, int, frame->native_offset);
 
 			if (frame->type == FRAME_TYPE_MANAGED)
 				method = mono_jit_info_get_method (frame->ji);
 
 			if (method) {
-				sf->method_address = (gsize) frame->ji->code_start;
+				MONO_HANDLE_SETVAL (sf, method_address, gsize, (gsize) frame->ji->code_start);
 
 				MonoReflectionMethod *rm = mono_method_get_object_checked (domain, method, NULL, error);
 				goto_if_nok (error, leave);
-				MONO_OBJECT_SETREF (sf, method, rm);
+				MONO_HANDLE_SETRAW (sf, method, rm);
 
 				location = mono_debug_lookup_source_location (method, frame->native_offset, domain);
 				if (location) {
-					sf->il_offset = location->il_offset;
+					MONO_HANDLE_SETVAL (sf, il_offset, uint32_t, location->il_offset);
 
 					if (location && location->source_file) {
-						MonoString *filename = mono_string_new_checked (domain, location->source_file, error);
+						MonoStringHandle filename = mono_string_new_handle (domain, location->source_file, error);
 						goto_if_nok (error, leave);
-						MONO_OBJECT_SETREF (sf, filename, filename);
-						sf->line = location->row;
-						sf->column = location->column;
+						MONO_HANDLE_SETRAW (sf, filename, filename);
+						MONO_HANDLE_SETVAL (sf, line, uint32_t, location->row);
+						MONO_HANDLE_SETVAL (sf, column, uint32_t, location->column);
 					}
 					mono_debug_free_source_location (location);
 				} else {
-					sf->il_offset = -1;
+					MONO_HANDLE_SETVAL (sf, il_offset, uint32_t, -1);
 				}
 			}
-			mono_array_setref (thread_frames, i, sf);
+			MONO_HANDLE_ARRAY_SETREF (thread_frames, i, sf);
 		}
 	}
 
@@ -5302,11 +5302,9 @@ mono_thread_internal_unhandled_exception (MonoObject* exc)
 }
 
 void
-ves_icall_System_Threading_Thread_GetStackTraces (MonoArray **out_threads, MonoArray **out_stack_traces)
+ves_icall_System_Threading_Thread_GetStackTraces (MonoArrayHandleOut out_threads, MonoArrayHandleOut out_stack_traces, MonoError *error)
 {
-	MonoError error;
-	mono_threads_get_thread_dump (out_threads, out_stack_traces, &error);
-	mono_error_set_pending_exception (&error);
+	mono_threads_get_thread_dump (out_threads, out_stack_traces, error);
 }
 
 /*

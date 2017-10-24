@@ -274,7 +274,7 @@ void mono_threads_add_joinable_thread (gpointer tid);
 void mono_threads_join_threads (void);
 void mono_thread_join (gpointer tid);
 
-void ves_icall_System_Threading_Thread_GetStackTraces (MonoArray **out_threads, MonoArray **out_stack_traces);
+void ves_icall_System_Threading_Thread_GetStackTraces (MonoArrayHandleOut out_threads, MonoArrayHandleOut out_stack_traces, MonoError *error);
 
 MONO_API gpointer
 mono_threads_attach_coop (MonoDomain *domain, gpointer *dummy);

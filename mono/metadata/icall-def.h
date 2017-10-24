@@ -937,7 +937,7 @@ ICALL(THREAD_60, "GetCurrentThread", ves_icall_System_Threading_Thread_GetCurren
 ICALL(THREAD_7, "GetDomainID", ves_icall_System_Threading_Thread_GetDomainID)
 HANDLES(ICALL(THREAD_8, "GetName_internal(System.Threading.InternalThread)", ves_icall_System_Threading_Thread_GetName_internal))
 ICALL(THREAD_57, "GetPriorityNative", ves_icall_System_Threading_Thread_GetPriority)
-ICALL(THREAD_59, "GetStackTraces", ves_icall_System_Threading_Thread_GetStackTraces)
+HANDLES(ICALL(THREAD_59, "GetStackTraces", ves_icall_System_Threading_Thread_GetStackTraces))
 ICALL(THREAD_11, "GetState(System.Threading.InternalThread)", ves_icall_System_Threading_Thread_GetState)
 ICALL(THREAD_53, "InterruptInternal", ves_icall_System_Threading_Thread_Interrupt_internal)
 ICALL(THREAD_12, "JoinInternal", ves_icall_System_Threading_Thread_Join_internal)

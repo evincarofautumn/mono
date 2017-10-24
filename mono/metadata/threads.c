@@ -1587,25 +1587,17 @@ mono_thread_get_managed_id (MonoThread *thread)
 	return id;
 }
 
-MonoString* 
-ves_icall_System_Threading_Thread_GetName_internal (MonoInternalThread *this_obj)
+MonoStringHandle
+ves_icall_System_Threading_Thread_GetName_internal (MonoInternalThreadHandle this_obj, MonoError *error)
 {
-	MonoError error;
-	MonoString* str;
+	MonoStringHandle str = MONO_HANDLE_NEW (MonoString, NULL);
 
-	error_init (&error);
-
-	LOCK_THREAD (this_obj);
+	LOCK_THREAD_HANDLE (this_obj);
 	
-	if (!this_obj->name)
-		str = NULL;
-	else
-		str = mono_string_new_utf16_checked (mono_domain_get (), this_obj->name, this_obj->name_len, &error);
+	if (MONO_HANDLE_GETVAL (this_obj, name))
+		MONO_HANDLE_ASSIGN (str, mono_string_new_utf16_handle (mono_domain_get (), MONO_HANDLE_GETVAL (this_obj, name), MONO_HANDLE_GETVAL (this_obj, name_len), error));
 	
-	UNLOCK_THREAD (this_obj);
-
-	if (mono_error_set_pending_exception (&error))
-		return NULL;
+	UNLOCK_THREAD_HANDLE (this_obj);
 	
 	return str;
 }

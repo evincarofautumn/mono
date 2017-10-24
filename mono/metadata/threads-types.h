@@ -163,7 +163,7 @@ void ves_icall_System_Threading_Thread_Suspend (MonoThread *this_obj);
 void ves_icall_System_Threading_Thread_Resume (MonoThread *thread);
 void ves_icall_System_Threading_Thread_ClrState (MonoInternalThreadHandle thread, guint32 state, MonoError *error);
 void ves_icall_System_Threading_Thread_SetState (MonoInternalThread *thread, guint32 state);
-guint32 ves_icall_System_Threading_Thread_GetState (MonoInternalThread *thread);
+guint32 ves_icall_System_Threading_Thread_GetState (MonoInternalThreadHandle thread, MonoError *error);
 
 gint8 ves_icall_System_Threading_Thread_VolatileRead1 (void *ptr);
 gint16 ves_icall_System_Threading_Thread_VolatileRead2 (void *ptr);

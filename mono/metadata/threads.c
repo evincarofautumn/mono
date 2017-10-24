@@ -2243,15 +2243,15 @@ ves_icall_System_Threading_Thread_SetState (MonoInternalThread* this_obj, guint3
 }
 
 guint32
-ves_icall_System_Threading_Thread_GetState (MonoInternalThread* this_obj)
+ves_icall_System_Threading_Thread_GetState (MonoInternalThreadHandle this_obj, MonoError *error)
 {
 	guint32 state;
 
-	LOCK_THREAD (this_obj);
+	LOCK_THREAD_HANDLE (this_obj);
 	
-	state = this_obj->state;
+	state = MONO_HANDLE_GETVAL (this_obj, state);
 
-	UNLOCK_THREAD (this_obj);
+	UNLOCK_THREAD_HANDLE (this_obj);
 	
 	return state;
 }

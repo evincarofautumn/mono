@@ -946,7 +946,7 @@ ICALL(THREAD_14, "ResetAbortNative", ves_icall_System_Threading_Thread_ResetAbor
 ICALL(THREAD_15, "ResumeInternal", ves_icall_System_Threading_Thread_Resume)
 HANDLES(ICALL(THREAD_18, "SetName_internal(System.Threading.InternalThread,string)", ves_icall_System_Threading_Thread_SetName_internal))
 ICALL(THREAD_58, "SetPriorityNative", ves_icall_System_Threading_Thread_SetPriority)
-ICALL(THREAD_21, "SetState(System.Threading.InternalThread,System.Threading.ThreadState)", ves_icall_System_Threading_Thread_SetState)
+HANDLES(ICALL(THREAD_21, "SetState(System.Threading.InternalThread,System.Threading.ThreadState)", ves_icall_System_Threading_Thread_SetState))
 ICALL(THREAD_22, "SleepInternal", ves_icall_System_Threading_Thread_Sleep_internal)
 ICALL(THREAD_54, "SpinWait_nop", ves_icall_System_Threading_Thread_SpinWait_nop)
 ICALL(THREAD_23, "SuspendInternal", ves_icall_System_Threading_Thread_Suspend)

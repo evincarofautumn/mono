@@ -2272,11 +2272,9 @@ ves_icall_System_Threading_Thread_ClrState (MonoInternalThreadHandle this_obj, g
 	}
 }
 
-void
-ves_icall_System_Threading_Thread_SetState (MonoInternalThread* this_obj, guint32 state)
+static void
+notify_if_background (MonoThreadState state)
 {
-	mono_thread_set_state (this_obj, (MonoThreadState)state);
-	
 	if (state & ThreadState_Background) {
 		/* If the thread changes the background mode, the main thread has to
 		 * be notified, since it has to rebuild the list of threads to
@@ -2284,6 +2282,20 @@ ves_icall_System_Threading_Thread_SetState (MonoInternalThread* this_obj, guint3
 		 */
 		mono_os_event_set (&background_change_event);
 	}
+}
+
+void
+ves_icall_System_Threading_Thread_SetState (MonoInternalThreadHandle this_obj, guint32 state, MonoError *error)
+{
+	mono_thread_set_state_handle (this_obj, (MonoThreadState)state);
+	notify_if_background (state);
+}
+
+void
+mono_thread_set_state_internal (MonoInternalThread *this_obj, MonoThreadState state)
+{
+	mono_thread_set_state (this_obj, state);
+	notify_if_background (state);
 }
 
 guint32
@@ -4821,6 +4833,14 @@ mono_thread_set_state (MonoInternalThread *thread, MonoThreadState state)
 	LOCK_THREAD (thread);
 	thread->state |= state;
 	UNLOCK_THREAD (thread);
+}
+
+void
+mono_thread_set_state_handle (MonoInternalThreadHandle thread, MonoThreadState state)
+{
+	LOCK_THREAD_HANDLE (thread);
+	MONO_INTERNAL_THREAD_HANDLE_STATE_ADD (thread, state);
+	UNLOCK_THREAD_HANDLE (thread);
 }
 
 /**

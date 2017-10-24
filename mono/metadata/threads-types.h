@@ -162,7 +162,7 @@ MonoObject* ves_icall_System_Threading_Thread_GetAbortExceptionState (MonoThread
 void ves_icall_System_Threading_Thread_Suspend (MonoThread *this_obj);
 void ves_icall_System_Threading_Thread_Resume (MonoThread *thread);
 void ves_icall_System_Threading_Thread_ClrState (MonoInternalThreadHandle thread, guint32 state, MonoError *error);
-void ves_icall_System_Threading_Thread_SetState (MonoInternalThread *thread, guint32 state);
+void ves_icall_System_Threading_Thread_SetState (MonoInternalThreadHandle thread, guint32 state, MonoError *error);
 guint32 ves_icall_System_Threading_Thread_GetState (MonoInternalThreadHandle thread, MonoError *error);
 
 gint8 ves_icall_System_Threading_Thread_VolatileRead1 (void *ptr);
@@ -228,6 +228,8 @@ void mono_alloc_special_static_data_free (GHashTable *special_static_fields);
 gboolean mono_thread_current_check_pending_interrupt (void);
 
 void mono_thread_set_state (MonoInternalThread *thread, MonoThreadState state);
+void mono_thread_set_state_handle (MonoInternalThreadHandle thread, MonoThreadState state);
+void mono_thread_set_state_internal (MonoInternalThread *thread, MonoThreadState state);
 void mono_thread_clr_state (MonoInternalThread *thread, MonoThreadState state);
 void mono_thread_clr_state_handle (MonoInternalThreadHandle thread, MonoThreadState state);
 gboolean mono_thread_test_state (MonoInternalThread *thread, MonoThreadState test);

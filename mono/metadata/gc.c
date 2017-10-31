@@ -911,7 +911,8 @@ void
 mono_gc_init_finalizer_thread (void)
 {
 	MonoError error;
-	gc_thread = mono_thread_create_internal (mono_domain_get (), finalizer_thread, NULL, MONO_THREAD_CREATE_FLAGS_NONE, &error);
+	/* FIXME: Should gc_thread be a handle? */
+	gc_thread = MONO_HANDLE_RAW (mono_thread_create_internal (mono_domain_get (), finalizer_thread, NULL, MONO_THREAD_CREATE_FLAGS_NONE, &error));
 	mono_error_assert_ok (&error);
 }
 
@@ -1029,9 +1030,9 @@ mono_gc_cleanup (void)
 }
 
 gboolean
-mono_gc_is_finalizer_internal_thread (MonoInternalThread *thread)
+mono_gc_is_finalizer_internal_thread (MonoInternalThreadHandle thread)
 {
-	return thread == gc_thread;
+	return MONO_HANDLE_RAW (thread) == gc_thread;
 }
 
 /**
@@ -1047,7 +1048,7 @@ mono_gc_is_finalizer_internal_thread (MonoInternalThread *thread)
 gboolean
 mono_gc_is_finalizer_thread (MonoThread *thread)
 {
-	return mono_gc_is_finalizer_internal_thread (thread->internal_thread);
+	return mono_gc_is_finalizer_internal_thread (MONO_HANDLE_GETVAL (thread, internal_thread));
 }
 
 #if defined(__MACH__)

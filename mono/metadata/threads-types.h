@@ -96,12 +96,12 @@ TYPED_HANDLE_DECL (MonoInternalThread);
 		MONO_HANDLE_SETVAL (__handle, state, gsize, MONO_HANDLE_GETVAL (__handle, state) & ~(FLAGS)); \
 	} while (0)
 
-MonoInternalThread*
+MonoInternalThreadHandle
 mono_thread_create_internal (MonoDomain *domain, gpointer func, gpointer arg, MonoThreadCreateFlags flags, MonoError *error);
 
 void mono_threads_install_cleanup (MonoThreadCleanupFunc func);
 
-void ves_icall_System_Threading_Thread_ConstructInternalThread (MonoThread *this_obj);
+void ves_icall_System_Threading_Thread_ConstructInternalThread (MonoThreadObjectHandle this_obj, MonoError *error);
 gpointer ves_icall_System_Threading_Thread_Thread_internal(MonoThread *this_obj, MonoObject *start);
 void ves_icall_System_Threading_InternalThread_Thread_free_internal(MonoInternalThread *this_obj);
 void ves_icall_System_Threading_Thread_Sleep_internal(gint32 ms);

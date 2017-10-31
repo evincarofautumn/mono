@@ -484,17 +484,17 @@ static void
 transport_start_receive (void)
 {
 	MonoError error;
-	MonoInternalThread *internal;
+	MonoInternalThreadHandle internal = MONO_HANDLE_NEW (MonoInternalThread, NULL);
 
 	transport_connect ();
 
 	if (!listen_fd)
 		return;
 
-	internal = mono_thread_create_internal (mono_get_root_domain (), receiver_thread, NULL, MONO_THREAD_CREATE_FLAGS_NONE, &error);
+	MONO_HANDLE_ASSIGN (internal, mono_thread_create_internal (mono_get_root_domain (), receiver_thread, NULL, MONO_THREAD_CREATE_FLAGS_NONE, &error));
 	mono_error_assert_ok (&error);
 
-	receiver_thread_handle = mono_threads_open_thread_handle (internal->handle);
+	receiver_thread_handle = mono_threads_open_thread_handle (MONO_HANDLE_GETVAL (internal, handle));
 	g_assert (receiver_thread_handle);
 }
 

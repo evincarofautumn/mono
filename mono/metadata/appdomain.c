@@ -2669,7 +2669,7 @@ mono_domain_try_unload (MonoDomain *domain, MonoObject **exc)
 	MonoAppDomainState prev_state;
 	MonoMethod *method;
 	unload_data *thread_data;
-	MonoInternalThread *internal;
+	MonoInternalThreadHandle internal = MONO_HANDLE_NEW (MonoInternalThread, NULL);
 	MonoDomain *caller_domain = mono_domain_get ();
 
 	/* printf ("UNLOAD STARTING FOR %s (%p) IN THREAD 0x%x.\n", domain->friendly_name, domain, mono_native_thread_id_get ()); */
@@ -2731,10 +2731,11 @@ mono_domain_try_unload (MonoDomain *domain, MonoObject **exc)
 	 *
 	 * Force it to be attached to avoid racing during shutdown.
 	 */
-	internal = mono_thread_create_internal (mono_get_root_domain (), unload_thread_main, thread_data, MONO_THREAD_CREATE_FLAGS_FORCE_CREATE, &error);
+	MONO_HANDLE_ASSIGN (internal, mono_thread_create_internal (mono_get_root_domain (), unload_thread_main, thread_data, MONO_THREAD_CREATE_FLAGS_FORCE_CREATE, &error));
 	mono_error_assert_ok (&error);
 
-	thread_handle = mono_threads_open_thread_handle (internal->handle);
+	/* Note that 'handle' here refers to 'MonoThreadHandle' (io-layer), not 'MonoThreadObjectHandle' (coop). */
+	thread_handle = mono_threads_open_thread_handle (MONO_HANDLE_GETVAL (internal, handle));
 
 	/* Wait for the thread */	
 	while (!thread_data->done && guarded_wait (thread_handle, MONO_INFINITE_WAIT, TRUE) == MONO_THREAD_INFO_WAIT_RET_ALERTED) {
